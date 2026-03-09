@@ -1,6 +1,7 @@
 # claudex
 
 Planning and execution start from [docs/normalized-sdk-plan.md](./docs/normalized-sdk-plan.md).
+The initial contract model lives in [docs/capability-matrix.md](./docs/capability-matrix.md).
 
 To install dependencies:
 

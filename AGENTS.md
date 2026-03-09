@@ -23,6 +23,13 @@ Default to using Bun instead of Node.js.
 - Prefer `Bun.file` over `node:fs`'s readFile/writeFile
 - Bun.$`ls` instead of execa.
 
+## Module Design
+
+- Separate types/interfaces, business logic, and generic utilities into different files whenever practical.
+- Keep each file and class tightly focused on a single responsibility.
+- Prefer smaller modules over large multi-purpose files, even if that adds a bit more hierarchy.
+- If a file starts mixing contract types, implementation logic, and reusable helpers, split it before it grows further.
+
 ## Testing
 
 Use `bun test` to run tests.

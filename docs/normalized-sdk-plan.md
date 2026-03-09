@@ -38,7 +38,7 @@ The library should export a small, stable core:
 Behavioral expectations:
 
 - `checkReadiness()` verifies CLI presence, CLI-auth readiness, and adapter capability metadata.
-- `createSession()` and `resumeSession()` return an `AgentSession` with an opaque `{ provider, sessionId }` reference.
+- `createSession()` and `resumeSession()` return an `AgentSession`. New sessions may not have a provider session ID until the first provider turn starts or completes.
 - `run()` returns a terminal `TurnResult`.
 - `runStreamed()` yields canonical `AgentEvent` objects and finishes with `turn.completed` or `turn.failed`.
 - Every normalized event/result includes the original provider payload in `raw` plus an `extensions` bag for provider-only data.
