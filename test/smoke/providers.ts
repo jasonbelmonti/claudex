@@ -1,19 +1,20 @@
-import { ClaudeAdapter } from "../../src/providers/claude/adapter";
-import { CodexAdapter } from "../../src/providers/codex/adapter";
+import type { SessionOptions } from "../../src/core/session";
+import type { AgentProviderAdapter, ProviderId } from "../../src/core/provider";
+import { CONTRACT_TEST_DRIVERS } from "../contract/drivers";
 
-export const SMOKE_PROVIDERS = {
-  claude: {
-    createAdapter: () => new ClaudeAdapter(),
-    sessionOptions: {
-      executionMode: "plan" as const,
-      approvalMode: "deny" as const,
-    },
+type SmokeProviderConfig = {
+  createAdapter: () => AgentProviderAdapter;
+  sessionOptions?: SessionOptions;
+};
+
+export const SMOKE_PROVIDERS = CONTRACT_TEST_DRIVERS.reduce(
+  (providers, driver) => {
+    providers[driver.provider] = {
+      createAdapter: driver.createSmokeAdapter,
+      sessionOptions: driver.smokeSessionOptions,
+    };
+
+    return providers;
   },
-  codex: {
-    createAdapter: () => new CodexAdapter(),
-    sessionOptions: {
-      executionMode: "plan" as const,
-      approvalMode: "deny" as const,
-    },
-  },
-} as const;
+  {} as Record<ProviderId, SmokeProviderConfig>,
+);

@@ -88,6 +88,31 @@ export const CODEX_CONTRACT_DRIVER: ContractProviderDriver = {
       },
       expectedStatus: "needs_auth",
     },
+    degraded: {
+      createAdapter: () => {
+        const runner: CodexCommandRunner = async (_command, args) => {
+          if (args[0] === "--version") {
+            return {
+              exitCode: 0,
+              stdout: "codex-cli 0.103.0",
+              stderr: "",
+            };
+          }
+
+          return {
+            exitCode: 0,
+            stdout: "Authentication status unavailable",
+            stderr: "",
+          };
+        };
+
+        return new CodexAdapter({
+          commandRunner: runner,
+          binaryResolver: async () => "/mock/bin/codex",
+        });
+      },
+      expectedStatus: "degraded",
+    },
     error: {
       createAdapter: () =>
         new CodexAdapter({

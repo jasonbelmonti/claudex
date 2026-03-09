@@ -26,6 +26,7 @@ export async function runSmokeScenario(params: {
   createAdapter: () => AgentProviderAdapter;
   sessionOptions?: SessionOptions;
 }): Promise<void> {
+  const continuityToken = `claudex-smoke-${params.provider}-${crypto.randomUUID()}`;
   const adapter = params.createAdapter();
   const readiness = await adapter.checkReadiness();
 
@@ -39,7 +40,7 @@ export async function runSmokeScenario(params: {
 
   const session = await adapter.createSession(params.sessionOptions);
   const firstResult = await session.run({
-    prompt: "Reply with a short plain-text acknowledgement.",
+    prompt: `Reply with exactly this token and nothing else:\n${continuityToken}\nDo not use quotes or code fences.`,
   });
 
   assertSmoke(
@@ -51,17 +52,22 @@ export async function runSmokeScenario(params: {
     },
   );
   assertSmoke(
-    firstResult.text.trim().length > 0,
-    `${params.provider} new-session smoke returned empty text`,
+    firstResult.text.trim() === continuityToken,
+    `${params.provider} new-session smoke did not echo the continuity token`,
     {
       result: firstResult,
       session: session.reference,
+      continuityToken,
     },
   );
 
-  const resumedSession = await adapter.resumeSession(session.reference);
+  const resumedSession = await adapter.resumeSession(
+    session.reference,
+    params.sessionOptions,
+  );
   const resumedResult = await resumedSession.run({
-    prompt: "Reply with a short plain-text follow-up.",
+    prompt:
+      "Without being told the token again, reply with exactly the same token from the previous assistant message. Do not use quotes or code fences.",
   });
 
   assertSmoke(
@@ -71,14 +77,16 @@ export async function runSmokeScenario(params: {
       session: session.reference,
       resumedSession: resumedSession.reference,
       result: resumedResult,
+      continuityToken,
     },
   );
   assertSmoke(
-    resumedResult.text.trim().length > 0,
-    `${params.provider} resumed turn returned empty text`,
+    resumedResult.text.trim() === continuityToken,
+    `${params.provider} resumed turn did not preserve prior-turn state`,
     {
       session: resumedSession.reference,
       result: resumedResult,
+      continuityToken,
     },
   );
 

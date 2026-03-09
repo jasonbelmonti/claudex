@@ -52,13 +52,13 @@ export type ContractProviderDriver = {
     supportsFork: boolean;
     supportsMessageDelta: boolean;
   };
-  readiness: Record<
-    "ready" | "missing_cli" | "needs_auth" | "error",
+  readiness: Partial<Record<
+    ProviderReadinessStatus,
     {
       createAdapter: () => AgentProviderAdapter;
       expectedStatus: ProviderReadinessStatus;
     }
-  >;
+  >>;
   sessions: {
     create: () => ContractTurnScenario;
     structuredOutputFailure: () => ContractFailureScenario;

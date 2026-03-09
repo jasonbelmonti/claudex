@@ -3,7 +3,14 @@ import { expect, test } from "bun:test";
 import type { AgentError } from "../../src/core/errors";
 import { supportsCapability } from "../../src/core/capabilities";
 import type { SessionReference } from "../../src/core/session";
-import { buildContractContext, collectEvents, countTerminalEvents, getTerminalEvent, assertWithContext } from "./helpers";
+import {
+  assertEventSessionsMatch,
+  assertWithContext,
+  buildContractContext,
+  collectEvents,
+  countTerminalEvents,
+  getTerminalEvent,
+} from "./helpers";
 import { CONTRACT_TEST_DRIVERS } from "./drivers";
 
 for (const driver of CONTRACT_TEST_DRIVERS) {
@@ -62,6 +69,12 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
         )}`,
       );
     }
+
+    assertEventSessionsMatch({
+      events,
+      expectedSession: streamScenario.expectedSession,
+      label: `${driver.provider} createSession event sessions`,
+    });
 
     expect(streamedReference.provider).toBe(streamScenario.expectedSession.provider);
     expect(streamedReference.sessionId).toBe(streamScenario.expectedSession.sessionId);
@@ -165,17 +178,80 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
   });
 
   test(`${driver.provider} resumeSession continues from the provided reference`, async () => {
-    const scenario = driver.sessions.resume();
-    const adapter = scenario.createAdapter();
-    const session = await adapter.resumeSession(scenario.reference, scenario.resumeOptions);
+    const streamScenario = driver.sessions.resume();
+    const streamedAdapter = streamScenario.createAdapter();
+    const streamedSession = await streamedAdapter.resumeSession(
+      streamScenario.reference,
+      streamScenario.resumeOptions,
+    );
 
-    expect(session.reference).toEqual(scenario.reference);
+    expect(streamedSession.reference).toEqual(streamScenario.reference);
 
-    const result = await session.run(scenario.input, scenario.turnOptions);
+    const events = await collectEvents(
+      streamedSession.runStreamed(streamScenario.input, streamScenario.turnOptions),
+    );
+    const terminalEvent = getTerminalEvent(events);
 
-    expect(result.text).toBe(scenario.expectedResult.text);
-    expect(session.reference).toEqual(scenario.expectedSession);
-    expect(result.session).toEqual(scenario.expectedSession);
+    assertWithContext(
+      countTerminalEvents(events) === 1,
+      "Resumed streamed turns must emit exactly one terminal event.",
+      buildContractContext({
+        label: `${driver.provider} resumeSession stream`,
+        events,
+      }),
+    );
+    assertWithContext(
+      terminalEvent?.type === "turn.completed",
+      "Successful resumed streamed turns must end in turn.completed.",
+      buildContractContext({
+        label: `${driver.provider} resumeSession terminal`,
+        events,
+      }),
+    );
+
+    assertEventSessionsMatch({
+      events,
+      expectedSession: streamScenario.expectedSession,
+      label: `${driver.provider} resumeSession event sessions`,
+    });
+
+    expect(streamedSession.reference).toEqual(streamScenario.expectedSession);
+    expect(terminalEvent.result.session).toEqual(streamScenario.expectedSession);
+    expect(terminalEvent.result.text).toBe(streamScenario.expectedResult.text);
+
+    if (streamScenario.expectedResult.structuredOutput !== undefined) {
+      expect(terminalEvent.result.structuredOutput).toEqual(
+        streamScenario.expectedResult.structuredOutput,
+      );
+    }
+
+    if (streamScenario.expectedResult.usage !== undefined) {
+      expect(terminalEvent.result.usage).toEqual(
+        streamScenario.expectedResult.usage,
+      );
+    }
+
+    const runScenario = driver.sessions.resume();
+    const runAdapter = runScenario.createAdapter();
+    const runSession = await runAdapter.resumeSession(
+      runScenario.reference,
+      runScenario.resumeOptions,
+    );
+    const result = await runSession.run(runScenario.input, runScenario.turnOptions);
+
+    expect(runSession.reference).toEqual(runScenario.expectedSession);
+    expect(result.text).toBe(runScenario.expectedResult.text);
+    expect(result.session).toEqual(runScenario.expectedSession);
+
+    if (runScenario.expectedResult.structuredOutput !== undefined) {
+      expect(result.structuredOutput).toEqual(
+        runScenario.expectedResult.structuredOutput,
+      );
+    }
+
+    if (runScenario.expectedResult.usage !== undefined) {
+      expect(result.usage).toEqual(runScenario.expectedResult.usage);
+    }
   });
 
   test(`${driver.provider} provider failures preserve raw payloads`, async () => {
