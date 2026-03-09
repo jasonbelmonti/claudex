@@ -150,31 +150,8 @@ test("runStreamed maps Codex events into the normalized event contract", async (
 
 test("structured-output parse failures surface as AgentError", async () => {
   const thread = new FakeCodexThread([
-    [
-      {
-        type: "thread.started",
-        thread_id: "thread-events-2",
-      },
-      {
-        type: "turn.started",
-      },
-      {
-        type: "item.completed",
-        item: {
-          id: "message-1",
-          type: "agent_message",
-          text: "not-json",
-        },
-      },
-      {
-        type: "turn.completed",
-        usage: {
-          input_tokens: 2,
-          cached_input_tokens: 0,
-          output_tokens: 1,
-        },
-      },
-    ],
+    createStructuredOutputRun("thread-events-2", "not-json", true),
+    createStructuredOutputRun("thread-events-2", "not-json", false),
   ]);
   const adapter = new CodexAdapter({
     client: new FakeCodexClient([thread]),
@@ -197,7 +174,9 @@ test("structured-output parse failures surface as AgentError", async () => {
 
   expect(streamedEvents.at(-1)).toMatchObject({
     type: "turn.failed",
-    error: expect.any(AgentError),
+    error: expect.objectContaining({
+      code: "structured_output_invalid",
+    }),
   });
 
   await expect(
@@ -211,7 +190,73 @@ test("structured-output parse failures surface as AgentError", async () => {
         },
       },
     ),
-  ).rejects.toBeInstanceOf(AgentError);
+  ).rejects.toMatchObject({
+    code: "structured_output_invalid",
+  });
+});
+
+test("structured-output schema mismatches surface as AgentError", async () => {
+  const thread = new FakeCodexThread([
+    createStructuredOutputRun("thread-events-3", "{\"status\":1}", true),
+    createStructuredOutputRun("thread-events-3", "{\"status\":1}", false),
+  ]);
+  const adapter = new CodexAdapter({
+    client: new FakeCodexClient([thread]),
+  });
+  const session = await adapter.createSession();
+  const streamedEvents = [];
+
+  for await (const event of session.runStreamed(
+    {
+      prompt: "Return JSON",
+    },
+    {
+      outputSchema: {
+        type: "object",
+        properties: {
+          status: {
+            type: "string",
+          },
+        },
+        required: ["status"],
+        additionalProperties: false,
+      },
+    },
+  )) {
+    streamedEvents.push(event);
+  }
+
+  expect(streamedEvents.at(-1)).toMatchObject({
+    type: "turn.failed",
+    error: expect.objectContaining({
+      code: "structured_output_invalid",
+      details: {
+        validationErrors: expect.any(Array),
+      },
+    }),
+  });
+
+  await expect(
+    session.run(
+      {
+        prompt: "Return JSON",
+      },
+      {
+        outputSchema: {
+          type: "object",
+          properties: {
+            status: {
+              type: "string",
+            },
+          },
+          required: ["status"],
+          additionalProperties: false,
+        },
+      },
+    ),
+  ).rejects.toMatchObject({
+    code: "structured_output_invalid",
+  });
 });
 
 test("runStreamed emits turn.failed for unsupported attachment sources", async () => {
@@ -320,3 +365,39 @@ test("runStreamed synthesizes turn.failed when the stream ends without a termina
     }),
   });
 });
+
+function createStructuredOutputRun(
+  threadId: string,
+  text: string,
+  includeThreadStarted: boolean,
+) {
+  return [
+    ...(includeThreadStarted
+      ? [
+          {
+            type: "thread.started" as const,
+            thread_id: threadId,
+          },
+        ]
+      : []),
+    {
+      type: "turn.started" as const,
+    },
+    {
+      type: "item.completed" as const,
+      item: {
+        id: "message-1",
+        type: "agent_message" as const,
+        text,
+      },
+    },
+    {
+      type: "turn.completed" as const,
+      usage: {
+        input_tokens: 2,
+        cached_input_tokens: 0,
+        output_tokens: 1,
+      },
+    },
+  ];
+}

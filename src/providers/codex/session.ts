@@ -54,7 +54,7 @@ export class CodexSession implements AgentSession {
     input: TurnInput,
     options: TurnOptions = {},
   ): AsyncGenerator<AgentEvent> {
-    const turnState = createCodexTurnState(input, Boolean(options.outputSchema));
+    const turnState = createCodexTurnState(input, options.outputSchema);
     let sawTerminalEvent = false;
 
     try {

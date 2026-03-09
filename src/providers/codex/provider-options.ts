@@ -5,6 +5,7 @@ import type {
   SandboxProfile,
   SessionOptions,
 } from "../../core/session";
+import { applyPlanModeThreadOptions } from "./plan-mode";
 import type { CodexThreadProviderOptions } from "./types";
 
 export function mapSessionOptionsToThreadOptions(
@@ -22,12 +23,7 @@ export function mapSessionOptionsToThreadOptions(
     approvalPolicy: mapApprovalMode(options.approvalMode),
   };
 
-  if (options.executionMode === "plan") {
-    coreOptions.sandboxMode ??= "read-only";
-    coreOptions.approvalPolicy ??= "untrusted";
-  }
-
-  return {
+  const mergedOptions: ThreadOptions = {
     ...coreOptions,
     ...extensionOptions.threadOptions,
     additionalDirectories: mergeDirectories(
@@ -35,6 +31,15 @@ export function mapSessionOptionsToThreadOptions(
       extensionOptions.threadOptions?.additionalDirectories,
     ),
   };
+
+  if (options.executionMode === "plan") {
+    return applyPlanModeThreadOptions(
+      mergedOptions,
+      options.approvalMode === "deny",
+    );
+  }
+
+  return mergedOptions;
 }
 
 function getCodexThreadProviderOptions(

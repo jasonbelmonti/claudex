@@ -1,11 +1,11 @@
 import type { ThreadItem } from "@openai/codex-sdk";
 
 import type { AgentError } from "../../core/errors";
-import type { TurnInput } from "../../core/input";
+import type { JsonSchema, TurnInput } from "../../core/input";
 
 export type CodexTurnState = {
   input: TurnInput;
-  expectsStructuredOutput: boolean;
+  outputSchema?: JsonSchema;
   latestMessageText: string;
   latestStructuredOutput?: unknown;
   structuredOutputError?: AgentError;
@@ -14,11 +14,11 @@ export type CodexTurnState = {
 
 export function createCodexTurnState(
   input: TurnInput,
-  expectsStructuredOutput: boolean,
+  outputSchema?: JsonSchema,
 ): CodexTurnState {
   return {
     input,
-    expectsStructuredOutput,
+    outputSchema,
     latestMessageText: "",
     completedItems: [],
   };

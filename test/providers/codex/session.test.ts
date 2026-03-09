@@ -154,6 +154,57 @@ test("resumeSession uses the provided reference immediately", async () => {
   expect(result.text).toBe("resume ok");
 });
 
+test("createSession keeps plan-mode thread options on the safe profile", async () => {
+  const startThread = new FakeCodexThread([]);
+  const client = new FakeCodexClient([startThread]);
+  const adapter = new CodexAdapter({ client });
+
+  await adapter.createSession({
+    executionMode: "plan",
+    sandboxProfile: "full-access",
+    approvalMode: "interactive",
+    providerOptions: {
+      codex: {
+        threadOptions: {
+          sandboxMode: "danger-full-access",
+          approvalPolicy: "on-request",
+          networkAccessEnabled: true,
+          webSearchEnabled: true,
+          webSearchMode: "live",
+        },
+      },
+    },
+  });
+
+  expect(client.lastStartThreadOptions).toMatchObject({
+    sandboxMode: "read-only",
+    approvalPolicy: "untrusted",
+    networkAccessEnabled: false,
+    webSearchEnabled: false,
+    webSearchMode: "disabled",
+  });
+});
+
+test("createSession preserves explicit deny approval inside the plan-mode safety profile", async () => {
+  const startThread = new FakeCodexThread([]);
+  const client = new FakeCodexClient([startThread]);
+  const adapter = new CodexAdapter({ client });
+
+  await adapter.createSession({
+    executionMode: "plan",
+    approvalMode: "deny",
+    providerOptions: {
+      codex: {
+        threadOptions: {
+          approvalPolicy: "on-request",
+        },
+      },
+    },
+  });
+
+  expect(client.lastStartThreadOptions?.approvalPolicy).toBe("never");
+});
+
 test("createSession rejects unsupported session-level instructions", async () => {
   const adapter = new CodexAdapter({
     client: new FakeCodexClient([new FakeCodexThread([])]),

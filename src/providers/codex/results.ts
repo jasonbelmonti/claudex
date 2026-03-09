@@ -1,6 +1,6 @@
 import type { Usage } from "@openai/codex-sdk";
 
-import { AgentError } from "../../core/errors";
+import { parseStructuredOutputText } from "../../core/schema-validation";
 import type { AgentUsage, TurnResult } from "../../core/results";
 import type { SessionReference } from "../../core/session";
 import type { CodexTurnState } from "./state";
@@ -25,23 +25,19 @@ export function captureStructuredOutput(
 ): void {
   state.latestMessageText = text;
 
-  if (!state.expectsStructuredOutput) {
+  if (!state.outputSchema) {
     return;
   }
 
-  try {
-    state.latestStructuredOutput = JSON.parse(text);
-    state.structuredOutputError = undefined;
-  } catch (error) {
-    state.latestStructuredOutput = undefined;
-    state.structuredOutputError = new AgentError({
-      code: "structured_output_invalid",
-      provider: "codex",
-      message: "Codex returned a non-JSON final response for a structured-output turn.",
-      cause: error,
-      raw: text,
-    });
-  }
+  const result = parseStructuredOutputText({
+    provider: "codex",
+    providerLabel: "Codex",
+    schema: state.outputSchema,
+    text,
+  });
+
+  state.latestStructuredOutput = result.value;
+  state.structuredOutputError = result.error;
 }
 
 export function buildCodexTurnResult(params: {
