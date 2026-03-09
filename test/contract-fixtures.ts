@@ -68,55 +68,99 @@ export const FIXTURE_TURN_OPTIONS: TurnOptions = {
   },
 };
 
-export const FIXTURE_TURN_RESULT: TurnResult = {
-  provider: "codex",
-  session: FIXTURE_SESSION_REFERENCE,
-  turnId: "turn-fixture-001",
-  text: "{\"summary\":\"working tree is clean\"}",
-  structuredOutput: {
-    summary: "working tree is clean",
-  },
-  usage: {
-    tokens: {
-      input: 10,
-      output: 4,
-      cachedInput: 0,
-    },
-  },
-  stopReason: "completed",
-};
+const FIXTURE_TURN_TEXT = "{\"summary\":\"working tree is clean\"}";
 
-export const FIXTURE_EVENTS: AgentEvent[] = [
-  {
-    type: "session.started",
+export function createFixtureTurnResult(
+  reference: SessionReference | null = FIXTURE_SESSION_REFERENCE,
+): TurnResult {
+  return {
     provider: "codex",
-    session: FIXTURE_SESSION_REFERENCE,
-    reference: FIXTURE_SESSION_REFERENCE,
-  },
-  {
-    type: "turn.started",
-    provider: "codex",
-    session: FIXTURE_SESSION_REFERENCE,
+    session: reference,
     turnId: "turn-fixture-001",
-    input: FIXTURE_TURN_INPUT,
-  },
-  {
-    type: "message.completed",
-    provider: "codex",
-    session: FIXTURE_SESSION_REFERENCE,
-    turnId: "turn-fixture-001",
-    role: "assistant",
-    text: FIXTURE_TURN_RESULT.text,
-    structuredOutput: FIXTURE_TURN_RESULT.structuredOutput,
-  },
-  {
-    type: "turn.completed",
-    provider: "codex",
-    session: FIXTURE_SESSION_REFERENCE,
-    turnId: "turn-fixture-001",
-    result: FIXTURE_TURN_RESULT,
-  },
-];
+    text: FIXTURE_TURN_TEXT,
+    structuredOutput: {
+      summary: "working tree is clean",
+    },
+    usage: {
+      tokens: {
+        input: 10,
+        output: 4,
+        cachedInput: 0,
+      },
+    },
+    stopReason: "completed",
+  };
+}
+
+export const FIXTURE_TURN_RESULT = createFixtureTurnResult();
+
+export function createFixtureEvents(
+  reference: SessionReference | null = FIXTURE_SESSION_REFERENCE,
+): AgentEvent[] {
+  const result = createFixtureTurnResult(reference);
+
+  if (!reference) {
+    return [
+      {
+        type: "turn.started",
+        provider: "codex",
+        session: null,
+        turnId: "turn-fixture-001",
+        input: FIXTURE_TURN_INPUT,
+      },
+      {
+        type: "message.completed",
+        provider: "codex",
+        session: null,
+        turnId: "turn-fixture-001",
+        role: "assistant",
+        text: result.text,
+        structuredOutput: result.structuredOutput,
+      },
+      {
+        type: "turn.completed",
+        provider: "codex",
+        session: null,
+        turnId: "turn-fixture-001",
+        result,
+      },
+    ];
+  }
+
+  return [
+    {
+      type: "session.started",
+      provider: "codex",
+      session: reference,
+      reference,
+    },
+    {
+      type: "turn.started",
+      provider: "codex",
+      session: reference,
+      turnId: "turn-fixture-001",
+      input: FIXTURE_TURN_INPUT,
+    },
+    {
+      type: "message.completed",
+      provider: "codex",
+      session: reference,
+      turnId: "turn-fixture-001",
+      role: "assistant",
+      text: result.text,
+      structuredOutput: result.structuredOutput,
+    },
+    {
+      type: "turn.completed",
+      provider: "codex",
+      session: reference,
+      turnId: "turn-fixture-001",
+      result,
+    },
+  ];
+}
+
+export const FIXTURE_EVENTS = createFixtureEvents();
 
 const FIXTURE_ERROR = new AgentError({
   code: "provider_failure",
@@ -127,15 +171,18 @@ const FIXTURE_ERROR = new AgentError({
 export function createFixtureSession(
   reference: SessionReference | null = FIXTURE_SESSION_REFERENCE,
 ): AgentSession {
+  const result = createFixtureTurnResult(reference);
+  const events = createFixtureEvents(reference);
+
   return {
     provider: "codex",
     capabilities: FIXTURE_CAPABILITIES,
     reference,
     async run() {
-      return FIXTURE_TURN_RESULT;
+      return result;
     },
     async *runStreamed() {
-      for (const event of FIXTURE_EVENTS) {
+      for (const event of events) {
         yield event;
       }
     },
