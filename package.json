@@ -10,5 +10,8 @@
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "@openai/codex-sdk": "^0.112.0"
   }
 }
