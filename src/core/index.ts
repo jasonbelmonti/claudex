@@ -1,7 +1,6 @@
 export * from "./capabilities";
 export * from "./errors";
 export * from "./events";
-export * from "./fixtures";
 export * from "./input";
 export * from "./provider";
 export * from "./readiness";

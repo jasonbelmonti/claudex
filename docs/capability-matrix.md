@@ -15,7 +15,7 @@ This matrix defines the initial normalization policy for the shared contract. `N
 | File change events | Capability-gated | Limited | Yes | Availability and granularity differ |
 | Todo updates | Capability-gated | Limited | Yes | Not guaranteed on all providers or models |
 | Approval events | Capability-gated | Yes | Limited | Different permission systems, same caller need |
-| Auth status events | Provider-specific | Yes | No | Readiness is normalized; live auth stream is not |
+| Auth status events | Capability-gated | Yes | No | Readiness is normalized; live auth stream is optional |
 | Token usage | Normalized | Yes | Yes | Shared token usage shape |
 | Cost telemetry | Capability-gated | Yes | Limited | Claude exposes cost directly; Codex may not |
 | Managed MCP servers | Provider-specific | Yes | Limited | Keep out of the core contract |

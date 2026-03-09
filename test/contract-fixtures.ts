@@ -1,14 +1,11 @@
-import {
-  CAPABILITY_CATALOG,
-  type ProviderCapabilities,
-} from "./capabilities";
-import { AgentError } from "./errors";
-import type { AgentEvent } from "./events";
-import type { TurnInput, TurnOptions } from "./input";
-import type { AgentProviderAdapter } from "./provider";
-import type { ProviderReadiness } from "./readiness";
-import type { TurnResult } from "./results";
-import type { AgentSession, SessionOptions, SessionReference } from "./session";
+import { CAPABILITY_CATALOG, type ProviderCapabilities } from "../src/core/capabilities";
+import { AgentError } from "../src/core/errors";
+import type { AgentEvent } from "../src/core/events";
+import type { TurnInput, TurnOptions } from "../src/core/input";
+import type { AgentProviderAdapter } from "../src/core/provider";
+import type { ProviderReadiness } from "../src/core/readiness";
+import type { TurnResult } from "../src/core/results";
+import type { AgentSession, SessionOptions, SessionReference } from "../src/core/session";
 
 export const FIXTURE_SESSION_REFERENCE: SessionReference = {
   provider: "codex",

@@ -82,7 +82,7 @@ export const CAPABILITY_CATALOG = [
   {
     id: "event:auth-status",
     label: "Auth status events",
-    normalization: "provider-specific",
+    normalization: "capability-gated",
     description: "Emit live authentication progress when a provider exposes it during execution.",
   },
   {

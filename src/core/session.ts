@@ -37,5 +37,5 @@ export interface AgentSession {
 
   run(input: TurnInput, options?: TurnOptions): Promise<TurnResult>;
   runStreamed(input: TurnInput, options?: TurnOptions): AsyncGenerator<AgentEvent>;
-  fork(options?: SessionOptions): Promise<AgentSession>;
+  fork?(options?: SessionOptions): Promise<AgentSession>;
 }
