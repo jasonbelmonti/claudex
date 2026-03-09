@@ -1,3 +1,5 @@
+import { isAbsolute } from "node:path";
+
 import type { CodexOptions } from "@openai/codex-sdk";
 
 import type { ProviderReadiness } from "../../core/readiness";
@@ -14,7 +16,7 @@ export const resolveCodexBinary: CodexBinaryResolver = async (
   const override = options?.codexPathOverride;
 
   if (override) {
-    if (override.includes("/")) {
+    if (isCodexPathOverride(override)) {
       return (await Bun.file(override).exists()) ? override : null;
     }
 
@@ -126,6 +128,33 @@ export async function checkCodexReadiness(options: {
   }
 
   const authOutput = `${authResult.stdout}\n${authResult.stderr}`.trim();
+  const needsAuth = looksLikeNeedsAuth(authOutput);
+
+  if (needsAuth) {
+    return {
+      provider: "codex",
+      status: "needs_auth",
+      checks: [
+        {
+          kind: "cli",
+          status: "pass",
+          summary: "Codex CLI detected",
+          detail: versionResult.stdout,
+        },
+        {
+          kind: "auth",
+          status: "fail",
+          summary: "Codex CLI needs login",
+          detail: authOutput,
+        },
+      ],
+      capabilities,
+      raw: {
+        version: versionResult,
+        auth: authResult,
+      },
+    };
+  }
 
   if (authResult.exitCode === 0 && /logged in/i.test(authOutput)) {
     return {
@@ -142,32 +171,6 @@ export async function checkCodexReadiness(options: {
           kind: "auth",
           status: "pass",
           summary: "Codex CLI authentication is available",
-          detail: authOutput,
-        },
-      ],
-      capabilities,
-      raw: {
-        version: versionResult,
-        auth: authResult,
-      },
-    };
-  }
-
-  if (looksLikeNeedsAuth(authOutput)) {
-    return {
-      provider: "codex",
-      status: "needs_auth",
-      checks: [
-        {
-          kind: "cli",
-          status: "pass",
-          summary: "Codex CLI detected",
-          detail: versionResult.stdout,
-        },
-        {
-          kind: "auth",
-          status: "fail",
-          summary: "Codex CLI needs login",
           detail: authOutput,
         },
       ],
@@ -211,6 +214,10 @@ function parseCodexVersion(output: string): string | undefined {
 
 function looksLikeNeedsAuth(output: string): boolean {
   return /not logged in|sign in|login required|authenticate/i.test(output);
+}
+
+export function isCodexPathOverride(value: string): boolean {
+  return isAbsolute(value) || value.includes("/") || value.includes("\\");
 }
 
 function createCodexReadinessError(params: {

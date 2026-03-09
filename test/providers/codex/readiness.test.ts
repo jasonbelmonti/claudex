@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 
 import { CodexAdapter } from "../../../src/providers/codex/adapter";
+import { isCodexPathOverride } from "../../../src/providers/codex/readiness";
 import type { CodexCommandRunner } from "../../../src/providers/codex/types";
 
 test("checkReadiness reports ready when CLI and login probes succeed", async () => {
@@ -67,6 +68,40 @@ test("checkReadiness reports needs_auth when login status is not authenticated",
 
   expect(readiness.status).toBe("needs_auth");
   expect(readiness.checks[1]?.status).toBe("fail");
+});
+
+test("checkReadiness prefers needs_auth when the auth probe says not logged in", async () => {
+  const runner: CodexCommandRunner = async (_command, args) => {
+    if (args[0] === "--version") {
+      return {
+        exitCode: 0,
+        stdout: "codex-cli 0.103.0",
+        stderr: "",
+      };
+    }
+
+    return {
+      exitCode: 0,
+      stdout: "Not logged in",
+      stderr: "",
+    };
+  };
+  const adapter = new CodexAdapter({
+    commandRunner: runner,
+    binaryResolver: async () => "/mock/bin/codex",
+  });
+
+  const readiness = await adapter.checkReadiness();
+
+  expect(readiness.status).toBe("needs_auth");
+  expect(readiness.checks[1]?.summary).toBe("Codex CLI needs login");
+});
+
+test("isCodexPathOverride recognizes Windows-style override paths", () => {
+  expect(isCodexPathOverride("C:\\tools\\codex.exe")).toBe(true);
+  expect(isCodexPathOverride("./bin/codex")).toBe(true);
+  expect(isCodexPathOverride("/usr/local/bin/codex")).toBe(true);
+  expect(isCodexPathOverride("codex")).toBe(false);
 });
 
 test("checkReadiness reports error when CLI detection throws", async () => {
