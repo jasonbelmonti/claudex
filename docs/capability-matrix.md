@@ -7,14 +7,14 @@ This matrix defines the initial normalization policy for the shared contract. `N
 | Session creation | Normalized | Yes | Yes | Core entrypoint for both providers |
 | Session resume | Normalized | Yes | Yes | Claude stable resumes by session id, Codex resumes by thread id |
 | Session fork | Capability-gated | Yes | No | Codex stable thread API exposes start/resume, but not fork |
-| Structured output | Normalized | Yes | Yes | Shared JSON schema input with normalized parsed output |
-| Image attachments | Capability-gated | Probable | Yes | Claude stable needs smoke-test verification |
+| Structured output | Normalized | Yes | Yes | Shared JSON schema input with normalized parsed output; Claude may synthesize `text` from structured output when the SDK omits terminal text |
+| Image attachments | Capability-gated | No | Yes | Claude stable `query()` attachment normalization is deferred in v1 |
 | Streaming text deltas | Capability-gated | Yes | Limited | Claude exposes partial message events; Codex stream is coarser |
 | Reasoning summaries | Capability-gated | Limited | Yes | Provider semantics differ and must stay optional |
 | Tool lifecycle events | Normalized | Yes | Yes | Canonical start/update/completed event family |
 | File change events | Capability-gated | Limited | Yes | Availability and granularity differ |
 | Todo updates | Capability-gated | Limited | Yes | Not guaranteed on all providers or models |
-| Approval events | Capability-gated | Yes | No | Codex supports approval policy configuration, but not approval request/resolution stream events |
+| Approval events | Capability-gated | No | No | Both adapters normalize approval configuration, but neither exposes approval request/resolution events in the stable core today |
 | Auth status events | Capability-gated | Yes | No | Readiness is normalized; live auth stream is optional |
 | Token usage | Normalized | Yes | Yes | Shared token usage shape |
 | Cost telemetry | Capability-gated | Yes | Limited | Claude exposes cost directly; Codex may not |
