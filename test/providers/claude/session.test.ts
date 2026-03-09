@@ -83,6 +83,37 @@ test("createSession maps normalized options into Claude query options", async ()
   expect(secondResult.text).toBe("Second response");
 });
 
+test("createSession inherits adapter sdkOptions defaults for reserved Claude fields", async () => {
+  const factory = new FakeClaudeQueryFactory([
+    new FakeClaudeQuery([
+      createInitMessage("claude-session-sdk-defaults"),
+      createAssistantMessage("claude-session-sdk-defaults", "Configured"),
+      createSuccessResultMessage("claude-session-sdk-defaults", "Configured"),
+    ]),
+  ]);
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+    sdkOptions: {
+      model: "claude-sonnet-4-6",
+      cwd: "/tmp/sdk-defaults",
+      permissionMode: "dontAsk",
+      systemPrompt: "Use constructor defaults.",
+    },
+  });
+  const session = await adapter.createSession();
+
+  await session.run({
+    prompt: "Use defaults",
+  });
+
+  expect(factory.invocations[0]?.options).toMatchObject({
+    model: "claude-sonnet-4-6",
+    cwd: "/tmp/sdk-defaults",
+    permissionMode: "dontAsk",
+    systemPrompt: "Use constructor defaults.",
+  });
+});
+
 test("resumeSession uses the provided reference immediately", async () => {
   const factory = new FakeClaudeQueryFactory([
     new FakeClaudeQuery([
@@ -289,6 +320,42 @@ test("fork() preserves inherited nested Claude provider options", async () => {
       path: "/tmp/plugin",
     },
   ]);
+});
+
+test("fork() preserves adapter sdkOptions defaults", async () => {
+  const factory = new FakeClaudeQueryFactory([
+    new FakeClaudeQuery([
+      createInitMessage("claude-session-sdk-fork-1"),
+      createAssistantMessage("claude-session-sdk-fork-1", "Original"),
+      createSuccessResultMessage("claude-session-sdk-fork-1", "Original"),
+    ]),
+    new FakeClaudeQuery([
+      createInitMessage("claude-session-sdk-fork-2"),
+      createAssistantMessage("claude-session-sdk-fork-2", "Forked"),
+      createSuccessResultMessage("claude-session-sdk-fork-2", "Forked"),
+    ]),
+  ]);
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+    sdkOptions: {
+      pathToClaudeCodeExecutable: "/tmp/claude",
+      systemPrompt: "Use adapter defaults.",
+    },
+  });
+  const session = await adapter.createSession();
+
+  await session.run({
+    prompt: "Original turn",
+  });
+
+  const forkedSession = await session.fork?.();
+
+  await forkedSession?.run({
+    prompt: "Forked turn",
+  });
+
+  expect(factory.invocations[1]?.options.pathToClaudeCodeExecutable).toBe("/tmp/claude");
+  expect(factory.invocations[1]?.options.systemPrompt).toBe("Use adapter defaults.");
 });
 
 test("createSession rejects explicit sandbox profiles outside plan mode", async () => {

@@ -45,28 +45,43 @@ export function buildClaudeBaseQueryOptions(params: {
   const providerOptions = getClaudeSessionProviderOptions(
     sessionOptions.providerOptions,
   );
+  const reservedSdkOptions = pickReservedOptions(
+    params.sdkOptions,
+    RESERVED_SESSION_OPTION_KEYS,
+  );
+  const reservedProviderOptions = pickReservedOptions(
+    providerOptions.options,
+    RESERVED_SESSION_OPTION_KEYS,
+  );
   const mergedOptions = {
     ...omitReservedOptions(params.sdkOptions, RESERVED_SESSION_OPTION_KEYS),
     ...omitReservedOptions(providerOptions.options, RESERVED_SESSION_OPTION_KEYS),
   };
   const permissionMode = derivePermissionMode(
     sessionOptions,
-    mergedOptions.permissionMode,
+    reservedProviderOptions.permissionMode ?? reservedSdkOptions.permissionMode,
   );
 
   return {
     ...mergedOptions,
-    cwd: sessionOptions.workingDirectory ?? mergedOptions.cwd,
-    model: sessionOptions.model ?? mergedOptions.model,
+    cwd:
+      sessionOptions.workingDirectory ??
+      reservedProviderOptions.cwd ??
+      reservedSdkOptions.cwd,
+    model:
+      sessionOptions.model ??
+      reservedProviderOptions.model ??
+      reservedSdkOptions.model,
     additionalDirectories: mergeDirectories(
-      params.sdkOptions?.additionalDirectories,
-      providerOptions.options?.additionalDirectories,
+      reservedSdkOptions.additionalDirectories,
+      reservedProviderOptions.additionalDirectories,
       sessionOptions.additionalDirectories,
     ),
     permissionMode,
     systemPrompt:
       mapInstructionsToSystemPrompt(sessionOptions.instructions) ??
-      mergedOptions.systemPrompt,
+      reservedProviderOptions.systemPrompt ??
+      reservedSdkOptions.systemPrompt,
   };
 }
 
@@ -167,6 +182,19 @@ function omitReservedOptions(
 
   return Object.fromEntries(
     Object.entries(options).filter(([key]) => !reservedKeys.has(key as keyof ClaudeSdkOptions)),
+  ) as Partial<ClaudeSdkOptions>;
+}
+
+function pickReservedOptions(
+  options: Partial<ClaudeSdkOptions> | undefined,
+  reservedKeys: Set<keyof ClaudeSdkOptions>,
+): Partial<ClaudeSdkOptions> {
+  if (!options) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(options).filter(([key]) => reservedKeys.has(key as keyof ClaudeSdkOptions)),
   ) as Partial<ClaudeSdkOptions>;
 }
 

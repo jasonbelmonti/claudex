@@ -39,5 +39,6 @@ export type ClaudeSessionState = {
   nextResumeSessionId: string | null;
   forkOnNextRun: boolean;
   baseSessionOptions: SessionOptions;
+  adapterSdkOptions?: Partial<ClaudeSdkOptions>;
   baseQueryOptions: Partial<ClaudeSdkOptions>;
 };

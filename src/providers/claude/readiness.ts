@@ -19,12 +19,7 @@ export async function checkClaudeReadiness(params: {
   try {
     query = params.queryFactory({
       prompt: "Readiness check",
-      options: {
-        ...params.sdkOptions,
-        permissionMode: "plan",
-        persistSession: false,
-        settingSources: [],
-      },
+      options: buildClaudeReadinessOptions(params.sdkOptions),
     });
   } catch (error) {
     return createClaudeReadinessError(error, capabilities);
@@ -120,4 +115,37 @@ function createClaudeReadinessError(
     capabilities,
     raw: error,
   };
+}
+
+const READINESS_OMITTED_OPTION_KEYS = new Set<keyof ClaudeSdkOptions>([
+  "continue",
+  "forkSession",
+  "resume",
+  "resumeSessionAt",
+  "sessionId",
+]);
+
+function buildClaudeReadinessOptions(
+  sdkOptions?: Partial<ClaudeSdkOptions>,
+): ClaudeSdkOptions {
+  return {
+    ...omitReadinessOptions(sdkOptions),
+    permissionMode: "plan",
+    persistSession: false,
+    settingSources: [],
+  };
+}
+
+function omitReadinessOptions(
+  sdkOptions?: Partial<ClaudeSdkOptions>,
+): Partial<ClaudeSdkOptions> {
+  if (!sdkOptions) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(sdkOptions).filter(
+      ([key]) => !READINESS_OMITTED_OPTION_KEYS.has(key as keyof ClaudeSdkOptions),
+    ),
+  ) as Partial<ClaudeSdkOptions>;
 }

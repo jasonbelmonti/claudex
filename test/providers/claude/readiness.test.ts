@@ -18,6 +18,30 @@ test("checkReadiness reports ready when initialization and account probes succee
   expect(factory.invocations[0]?.options.settingSources).toEqual([]);
 });
 
+test("checkReadiness strips session-affecting sdkOptions but preserves runtime defaults", async () => {
+  const factory = new FakeClaudeQueryFactory([new FakeClaudeQuery()]);
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+    sdkOptions: {
+      pathToClaudeCodeExecutable: "/tmp/claude",
+      resume: "session-123",
+      sessionId: "session-456",
+      forkSession: true,
+      resumeSessionAt: "message-789",
+      continue: true,
+    },
+  });
+
+  await adapter.checkReadiness();
+
+  expect(factory.invocations[0]?.options.pathToClaudeCodeExecutable).toBe("/tmp/claude");
+  expect(factory.invocations[0]?.options.resume).toBeUndefined();
+  expect(factory.invocations[0]?.options.sessionId).toBeUndefined();
+  expect(factory.invocations[0]?.options.forkSession).toBeUndefined();
+  expect(factory.invocations[0]?.options.resumeSessionAt).toBeUndefined();
+  expect(factory.invocations[0]?.options.continue).toBeUndefined();
+});
+
 test("checkReadiness reports missing_cli when query creation fails with ENOENT", async () => {
   const adapter = new ClaudeAdapter({
     queryFactory: () => {

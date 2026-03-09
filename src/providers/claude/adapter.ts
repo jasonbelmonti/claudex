@@ -41,6 +41,7 @@ export class ClaudeAdapter implements AgentProviderAdapter {
         nextResumeSessionId: null,
         forkOnNextRun: false,
         baseSessionOptions: options,
+        adapterSdkOptions: this.options.sdkOptions,
         baseQueryOptions: buildClaudeBaseQueryOptions({
           sessionOptions: options,
           sdkOptions: this.options.sdkOptions,
@@ -75,6 +76,7 @@ export class ClaudeAdapter implements AgentProviderAdapter {
         nextResumeSessionId: reference.sessionId,
         forkOnNextRun: shouldFork,
         baseSessionOptions: options,
+        adapterSdkOptions: this.options.sdkOptions,
         baseQueryOptions: buildClaudeBaseQueryOptions({
           sessionOptions: options,
           sdkOptions: this.options.sdkOptions,

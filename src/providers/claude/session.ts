@@ -183,8 +183,10 @@ export class ClaudeSession implements AgentSession {
         nextResumeSessionId: sourceSessionId,
         forkOnNextRun: true,
         baseSessionOptions,
+        adapterSdkOptions: this.state.adapterSdkOptions,
         baseQueryOptions: buildClaudeBaseQueryOptions({
           sessionOptions: baseSessionOptions,
+          sdkOptions: this.state.adapterSdkOptions,
         }),
       },
       this.capabilities,
