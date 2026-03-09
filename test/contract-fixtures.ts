@@ -1,4 +1,8 @@
-import { CAPABILITY_CATALOG, type ProviderCapabilities } from "../src/core/capabilities";
+import {
+  CAPABILITY_CATALOG,
+  supportsCapability,
+  type ProviderCapabilities,
+} from "../src/core/capabilities";
 import { AgentError } from "../src/core/errors";
 import type { AgentEvent } from "../src/core/events";
 import type { TurnInput, TurnOptions } from "../src/core/input";
@@ -12,12 +16,21 @@ export const FIXTURE_SESSION_REFERENCE: SessionReference = {
   sessionId: "session-fixture-001",
 };
 
+export const CREATED_FIXTURE_SESSION_REFERENCE: SessionReference = {
+  provider: "codex",
+  sessionId: "session-fixture-created-001",
+};
+
 export const FIXTURE_CAPABILITIES: ProviderCapabilities = {
   provider: "codex",
   adapterVersion: "0.0.0-fixture",
   features: {
     "session:create": { available: true },
     "session:resume": { available: true },
+    "session:fork": {
+      available: false,
+      notes: "Forking is intentionally disabled in the default fixture capability map.",
+    },
     "output:structured": { available: true },
     "event:tool-lifecycle": { available: true },
     "usage:tokens": { available: true },
@@ -168,31 +181,45 @@ const FIXTURE_ERROR = new AgentError({
   message: "fixture error",
 });
 
+function resolveSessionReference(
+  reference: SessionReference | null,
+): SessionReference {
+  return reference ?? CREATED_FIXTURE_SESSION_REFERENCE;
+}
+
 export function createFixtureSession(
   reference: SessionReference | null = FIXTURE_SESSION_REFERENCE,
 ): AgentSession {
-  const result = createFixtureTurnResult(reference);
-  const events = createFixtureEvents(reference);
+  let currentReference = reference;
 
-  return {
+  const session: AgentSession = {
     provider: "codex",
     capabilities: FIXTURE_CAPABILITIES,
-    reference,
+    get reference() {
+      return currentReference;
+    },
     async run() {
-      return result;
+      currentReference = resolveSessionReference(currentReference);
+      return createFixtureTurnResult(currentReference);
     },
     async *runStreamed() {
-      for (const event of events) {
+      currentReference = resolveSessionReference(currentReference);
+
+      for (const event of createFixtureEvents(currentReference)) {
         yield event;
       }
     },
-    async fork() {
-      return createFixtureSession({
+  };
+
+  if (supportsCapability(FIXTURE_CAPABILITIES, "session:fork")) {
+    session.fork = async () =>
+      createFixtureSession({
         provider: "codex",
         sessionId: "session-fixture-002",
       });
-    },
-  };
+  }
+
+  return session;
 }
 
 export function createFixtureAdapter(): AgentProviderAdapter {
