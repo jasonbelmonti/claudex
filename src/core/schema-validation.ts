@@ -78,6 +78,57 @@ export function parseStructuredOutputText(params: {
   };
 }
 
+export function validateStructuredOutputValue(params: {
+  provider: ProviderId;
+  providerLabel: string;
+  schema: JsonSchema;
+  value: unknown;
+}): {
+  value?: unknown;
+  error?: AgentError;
+} {
+  let validate: ValidateFunction;
+
+  try {
+    validate = getOrCreateValidator(params.schema);
+  } catch (error) {
+    return {
+      error: new AgentError({
+        code: "unsupported_feature",
+        provider: params.provider,
+        message:
+          "The requested structured output schema is invalid or unsupported by the local validator.",
+        cause: error,
+        raw: params.schema,
+      }),
+    };
+  }
+
+  if (validate(params.value)) {
+    return {
+      value: params.value,
+    };
+  }
+
+  const validationErrors = formatValidationErrors(validate.errors ?? []);
+
+  return {
+    error: new AgentError({
+      code: "structured_output_invalid",
+      provider: params.provider,
+      message: `${params.providerLabel} returned JSON that did not match the requested output schema.`,
+      details: {
+        validationErrors,
+      },
+      raw: {
+        value: params.value,
+        schema: params.schema,
+        validationErrors,
+      },
+    }),
+  };
+}
+
 function getOrCreateValidator(schema: JsonSchema): ValidateFunction {
   const cachedValidator = validatorCache.get(schema);
 

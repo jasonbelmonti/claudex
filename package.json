@@ -12,6 +12,7 @@
     "typescript": "^5.8.2"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.71",
     "@openai/codex-sdk": "^0.112.0",
     "ajv": "^8.18.0"
   }
