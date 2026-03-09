@@ -145,6 +145,7 @@ export function createTaskStartedMessage(
     session_id: sessionId,
     uuid: createUuid(),
     task_id: "task-1",
+    tool_use_id: "tool-1",
     description: "Review repository",
     prompt: "Review the repository",
     task_type: "task",
@@ -178,6 +179,7 @@ export function createTaskProgressMessage(
     session_id: sessionId,
     uuid: createUuid(),
     task_id: "task-1",
+    tool_use_id: "tool-1",
     description: "Still reviewing",
     usage: {
       total_tokens: 100,
@@ -220,6 +222,7 @@ export function createTaskNotificationMessage(
     session_id: sessionId,
     uuid: createUuid(),
     task_id: "task-1",
+    tool_use_id: "tool-1",
     status: "completed",
     output_file: "/tmp/task-1.txt",
     summary: "Review complete",

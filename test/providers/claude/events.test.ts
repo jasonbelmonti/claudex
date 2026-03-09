@@ -76,6 +76,31 @@ test("runStreamed maps Claude SDK messages into the normalized event contract", 
       },
     },
   });
+  expect(events[7]).toMatchObject({
+    type: "tool.started",
+    toolCallId: "tool-1",
+    extensions: {
+      taskId: "task-1",
+    },
+  });
+  expect(events[8]).toMatchObject({
+    type: "tool.updated",
+    toolCallId: "tool-1",
+  });
+  expect(events[9]).toMatchObject({
+    type: "tool.updated",
+    toolCallId: "tool-1",
+    extensions: {
+      taskId: "task-1",
+    },
+  });
+  expect(events[11]).toMatchObject({
+    type: "tool.completed",
+    toolCallId: "tool-1",
+    extensions: {
+      taskId: "task-1",
+    },
+  });
 });
 
 test("structured-output schema mismatches surface as AgentError", async () => {
@@ -183,5 +208,58 @@ test("runStreamed emits turn.failed when the query stream ends without a result"
       code: "provider_failure",
       message: "Claude stream ended without a terminal turn event.",
     }),
+  });
+});
+
+test("file.changed excludes failed writes from changes and surfaces them as error metadata", async () => {
+  const factory = new FakeClaudeQueryFactory([
+    new FakeClaudeQuery([
+      createInitMessage("claude-events-4"),
+      createFilesPersistedMessage("claude-events-4", {
+        files: [
+          {
+            filename: "README.md",
+            file_id: "file-1",
+          },
+        ],
+        failed: [
+          {
+            filename: "broken.md",
+            error: "permission denied",
+          },
+        ],
+      }),
+      createSuccessResultMessage("claude-events-4", "done"),
+    ]),
+  ]);
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+  });
+  const session = await adapter.createSession();
+  const events = [];
+
+  for await (const event of session.runStreamed({
+    prompt: "Persist files",
+  })) {
+    events.push(event);
+  }
+
+  expect(events.find((event) => event.type === "file.changed")).toMatchObject({
+    type: "file.changed",
+    outcome: "error",
+    changes: [
+      {
+        path: "README.md",
+        changeType: "update",
+      },
+    ],
+    extensions: {
+      failed: [
+        {
+          path: "broken.md",
+          error: "permission denied",
+        },
+      ],
+    },
   });
 });

@@ -101,13 +101,18 @@ function mapClaudeFilesPersistedMessage(
         path: file.filename,
         changeType: "update" as const,
       })),
-      ...message.failed.map((file) => ({
-        path: file.filename,
-        changeType: "update" as const,
-      })),
     ],
     outcome: message.failed.length > 0 ? "error" : "success",
     raw: message,
+    extensions:
+      message.failed.length > 0
+        ? {
+            failed: message.failed.map((file) => ({
+              path: file.filename,
+              error: file.error,
+            })),
+          }
+        : undefined,
   };
 }
 
@@ -115,11 +120,13 @@ function mapClaudeTaskStartedMessage(
   message: SDKTaskStartedMessage,
   session: SessionReference | null,
 ): AgentEvent {
+  const toolCallId = message.tool_use_id ?? message.task_id;
+
   return {
     type: "tool.started",
     provider: "claude",
     session,
-    toolCallId: message.task_id,
+    toolCallId,
     toolName: message.task_type ?? "task",
     kind: "custom",
     input: {
@@ -127,6 +134,9 @@ function mapClaudeTaskStartedMessage(
       prompt: message.prompt,
     },
     raw: message,
+    extensions: {
+      taskId: message.task_id,
+    },
   };
 }
 
@@ -134,17 +144,22 @@ function mapClaudeTaskProgressMessage(
   message: SDKTaskProgressMessage,
   session: SessionReference | null,
 ): AgentEvent {
+  const toolCallId = message.tool_use_id ?? message.task_id;
+
   return {
     type: "tool.updated",
     provider: "claude",
     session,
-    toolCallId: message.task_id,
+    toolCallId,
     statusText: message.description,
     output: {
       usage: message.usage,
       lastToolName: message.last_tool_name,
     },
     raw: message,
+    extensions: {
+      taskId: message.task_id,
+    },
   };
 }
 
@@ -152,11 +167,13 @@ function mapClaudeTaskNotificationMessage(
   message: SDKTaskNotificationMessage,
   session: SessionReference | null,
 ): AgentEvent {
+  const toolCallId = message.tool_use_id ?? message.task_id;
+
   return {
     type: "tool.completed",
     provider: "claude",
     session,
-    toolCallId: message.task_id,
+    toolCallId,
     toolName: "task",
     kind: "custom",
     outcome:
@@ -171,5 +188,8 @@ function mapClaudeTaskNotificationMessage(
       usage: message.usage,
     },
     raw: message,
+    extensions: {
+      taskId: message.task_id,
+    },
   };
 }
