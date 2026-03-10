@@ -5,6 +5,7 @@ import { supportsCapability } from "../../src/core/capabilities";
 import type { SessionReference } from "../../src/core/session";
 import {
   assertAgentErrorProvider,
+  assertNoSessionStartedEvent,
   assertEventProvidersMatch,
   assertEventSessionsMatch,
   assertSessionStartLifecycle,
@@ -293,6 +294,10 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       expectedSession: streamScenario.expectedSession,
       label: `${driver.provider} resumeSession event sessions`,
     });
+    assertNoSessionStartedEvent({
+      events,
+      label: `${driver.provider} resumeSession lifecycle`,
+    });
     assertTurnStartedEvent({
       events,
       expectedInput: streamScenario.input,
@@ -413,6 +418,10 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       events,
       expectedSession: streamScenario.expectedSession,
       label: `${driver.provider} resumeFork event sessions`,
+    });
+    assertSessionStartLifecycle({
+      events,
+      label: `${driver.provider} resumeFork lifecycle`,
     });
     assertTurnStartedEvent({
       events,
@@ -541,7 +550,7 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       expect(thrown?.message).toContain(runScenario.expectedError.messageIncludes);
     }
 
-    if (streamScenario.expectedError.rawRequired) {
+    if (runScenario.expectedError.rawRequired) {
       expect(thrown?.raw).toBeDefined();
     }
 

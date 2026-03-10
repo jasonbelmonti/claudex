@@ -215,17 +215,13 @@ function isRunnableSmokeReadiness(status: ProviderReadinessStatus): boolean {
   return status === "ready" || status === "degraded";
 }
 
-function includesToken(text: string, token: string): boolean {
-  return text.includes(token);
-}
-
 function extractMemoryReply(text: string, continuityToken: string): string | null {
+  const normalized = text.trim();
   const pattern = new RegExp(
-    `${escapeRegExp(continuityToken)}/[0-9a-f]{8}`,
-    "i",
+    `^${escapeRegExp(continuityToken)}/[0-9a-f]{8}$`,
   );
-  const match = text.match(pattern);
-  return match?.[0].toLowerCase() ?? null;
+
+  return pattern.test(normalized) ? normalized : null;
 }
 
 function escapeRegExp(value: string): string {

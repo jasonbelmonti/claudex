@@ -246,6 +246,22 @@ export function assertSessionStartLifecycle(params: {
   );
 }
 
+export function assertNoSessionStartedEvent(params: {
+  events: AgentEvent[];
+  label: string;
+}): void {
+  const { events, label } = params;
+
+  assertWithContext(
+    events.every((event) => event.type !== "session.started"),
+    "Resumed streamed turns must not emit session.started unless they fork into a new session.",
+    buildContractContext({
+      label,
+      events,
+    }),
+  );
+}
+
 export function buildContractContext(params: {
   label: string;
   events?: AgentEvent[];
