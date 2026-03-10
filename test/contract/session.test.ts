@@ -7,7 +7,9 @@ import {
   assertAgentErrorProvider,
   assertEventProvidersMatch,
   assertEventSessionsMatch,
+  assertSessionStartLifecycle,
   assertTurnResultProvider,
+  assertTurnStartedEvent,
   assertWithContext,
   buildContractContext,
   collectEvents,
@@ -77,6 +79,15 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       events,
       expectedSession: streamScenario.expectedSession,
       label: `${driver.provider} createSession event sessions`,
+    });
+    assertSessionStartLifecycle({
+      events,
+      label: `${driver.provider} createSession lifecycle`,
+    });
+    assertTurnStartedEvent({
+      events,
+      expectedInput: streamScenario.input,
+      label: `${driver.provider} createSession input preservation`,
     });
 
     expect(streamedReference.provider).toBe(streamScenario.expectedSession.provider);
@@ -172,6 +183,15 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       expectedProvider: driver.provider,
       label: `${driver.provider} structured-output event providers`,
     });
+    assertSessionStartLifecycle({
+      events,
+      label: `${driver.provider} structured-output lifecycle`,
+    });
+    assertTurnStartedEvent({
+      events,
+      expectedInput: streamScenario.input,
+      label: `${driver.provider} structured-output input preservation`,
+    });
     assertAgentErrorProvider({
       error: terminalEvent.error,
       expectedProvider: driver.provider,
@@ -237,6 +257,11 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       events,
       expectedSession: streamScenario.expectedSession,
       label: `${driver.provider} resumeSession event sessions`,
+    });
+    assertTurnStartedEvent({
+      events,
+      expectedInput: streamScenario.input,
+      label: `${driver.provider} resumeSession input preservation`,
     });
 
     expect(streamedSession.reference).toEqual(streamScenario.expectedSession);

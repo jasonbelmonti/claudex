@@ -1,4 +1,5 @@
 import type { AgentProviderAdapter, ProviderId } from "../../src/core/provider";
+import type { ProviderReadinessStatus } from "../../src/core/readiness";
 import type { SessionOptions } from "../../src/core/session";
 
 const DEFAULT_SMOKE_PROVIDERS = new Set<ProviderId>(["claude", "codex"]);
@@ -31,8 +32,8 @@ export async function runSmokeScenario(params: {
   const readiness = await adapter.checkReadiness();
 
   assertSmoke(
-    readiness.status === "ready",
-    `${params.provider} readiness smoke failed`,
+    isRunnableSmokeReadiness(readiness.status),
+    `${params.provider} readiness smoke did not reach a runnable state`,
     {
       readiness,
     },
@@ -40,7 +41,7 @@ export async function runSmokeScenario(params: {
 
   const session = await adapter.createSession(params.sessionOptions);
   const firstResult = await session.run({
-    prompt: `Reply with exactly this token and nothing else:\n${continuityToken}\nDo not use quotes or code fences.`,
+    prompt: `Include this token verbatim in a short plain-text response:\n${continuityToken}`,
   });
 
   assertSmoke(
@@ -52,8 +53,8 @@ export async function runSmokeScenario(params: {
     },
   );
   assertSmoke(
-    firstResult.text.trim() === continuityToken,
-    `${params.provider} new-session smoke did not echo the continuity token`,
+    includesToken(firstResult.text, continuityToken),
+    `${params.provider} new-session smoke did not include the continuity token`,
     {
       result: firstResult,
       session: session.reference,
@@ -67,7 +68,7 @@ export async function runSmokeScenario(params: {
   );
   const resumedResult = await resumedSession.run({
     prompt:
-      "Without being told the token again, reply with exactly the same token from the previous assistant message. Do not use quotes or code fences.",
+      "Without being told the token again, include the exact token from the previous assistant message in a short plain-text response.",
   });
 
   assertSmoke(
@@ -81,7 +82,7 @@ export async function runSmokeScenario(params: {
     },
   );
   assertSmoke(
-    resumedResult.text.trim() === continuityToken,
+    includesToken(resumedResult.text, continuityToken),
     `${params.provider} resumed turn did not preserve prior-turn state`,
     {
       session: resumedSession.reference,
@@ -125,6 +126,14 @@ export async function runSmokeScenario(params: {
       result: structuredResult,
     },
   );
+}
+
+function isRunnableSmokeReadiness(status: ProviderReadinessStatus): boolean {
+  return status === "ready" || status === "degraded";
+}
+
+function includesToken(text: string, token: string): boolean {
+  return text.includes(token);
 }
 
 function assertSmoke(

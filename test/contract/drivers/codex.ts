@@ -159,6 +159,15 @@ export const CODEX_CONTRACT_DRIVER: ContractProviderDriver = {
         }),
       input: {
         prompt: "Reply with created ok",
+        attachments: [
+          {
+            kind: "image",
+            source: {
+              type: "path",
+              path: "/tmp/contract-image.png",
+            },
+          },
+        ],
       },
       expectedSession: NEW_SESSION_REFERENCE,
       expectedResult: {

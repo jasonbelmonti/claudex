@@ -1,5 +1,8 @@
+import { isDeepStrictEqual } from "node:util";
+
 import type { AgentEvent } from "../../src/core/events";
 import type { AgentError } from "../../src/core/errors";
+import type { TurnInput } from "../../src/core/input";
 import type { ProviderId } from "../../src/core/provider";
 import type { TurnResult } from "../../src/core/results";
 import type { SessionReference } from "../../src/core/session";
@@ -158,6 +161,87 @@ export function assertAgentErrorProvider(params: {
     buildContractContext({
       label,
       error,
+    }),
+  );
+}
+
+export function assertTurnStartedEvent(params: {
+  events: AgentEvent[];
+  expectedInput: TurnInput;
+  label: string;
+}): void {
+  const { events, expectedInput, label } = params;
+  const turnStartedIndices = events.flatMap((event, index) =>
+    event.type === "turn.started" ? [index] : [],
+  );
+  const terminalIndex = events.findIndex(
+    (event) => event.type === "turn.completed" || event.type === "turn.failed",
+  );
+  const turnStartedIndex = turnStartedIndices[0];
+  const turnStartedEvent = events.find(
+    (
+      event,
+    ): event is Extract<AgentEvent, { type: "turn.started" }> =>
+      event.type === "turn.started",
+  );
+
+  assertWithContext(
+    turnStartedIndices.length === 1,
+    "Each streamed turn must emit exactly one turn.started event.",
+    buildContractContext({
+      label,
+      events,
+    }),
+  );
+  assertWithContext(
+    turnStartedIndex !== undefined &&
+      terminalIndex >= 0 &&
+      turnStartedIndex < terminalIndex,
+    "turn.started must occur before the terminal event.",
+    buildContractContext({
+      label,
+      events,
+    }),
+  );
+
+  assertWithContext(
+    turnStartedEvent !== undefined &&
+      isDeepStrictEqual(turnStartedEvent.input, expectedInput),
+    "turn.started must preserve the normalized input payload.",
+    buildContractContext({
+      label,
+      events,
+    }),
+  );
+}
+
+export function assertSessionStartLifecycle(params: {
+  events: AgentEvent[];
+  label: string;
+}): void {
+  const { events, label } = params;
+  const sessionStartedIndices = events
+    .map((event, index) => (event.type === "session.started" ? index : -1))
+    .filter((index) => index >= 0);
+  const turnStartedIndex = events.findIndex((event) => event.type === "turn.started");
+  const sessionStartedIndex = sessionStartedIndices[0];
+
+  assertWithContext(
+    sessionStartedIndices.length === 1,
+    "New streamed sessions must emit exactly one session.started event.",
+    buildContractContext({
+      label,
+      events,
+    }),
+  );
+  assertWithContext(
+    sessionStartedIndex !== undefined &&
+      turnStartedIndex >= 0 &&
+      sessionStartedIndex < turnStartedIndex,
+    "session.started must occur before turn.started on a new streamed turn.",
+    buildContractContext({
+      label,
+      events,
     }),
   );
 }
