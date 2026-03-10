@@ -331,6 +331,14 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       }),
     );
     assertWithContext(
+      events.some((event) => event.type !== "turn.failed"),
+      "Provider failure scenarios must fail after streaming has begun.",
+      buildContractContext({
+        label: `${driver.provider} provider failure pre-terminal events`,
+        events,
+      }),
+    );
+    assertWithContext(
       terminalEvent?.type === "turn.failed",
       "Provider failures must end in turn.failed.",
       buildContractContext({

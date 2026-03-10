@@ -184,7 +184,14 @@ export const CLAUDE_CONTRACT_DRIVER: ContractProviderDriver = {
       createAdapter: () =>
         new ClaudeAdapter({
           queryFactory: new FakeClaudeQueryFactory([
-            new Error("Claude runtime exploded"),
+            new FakeClaudeQuery(
+              [createInitMessage("claude-contract-provider-fail")],
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              new Error("Claude runtime exploded"),
+            ),
           ]).create,
         }),
       input: {

@@ -1,7 +1,7 @@
 import { CodexAdapter } from "../../../src/providers/codex/adapter";
 import type { ContractProviderDriver } from "../types";
 import type { CodexCommandRunner } from "../../../src/providers/codex/types";
-import { FakeCodexClient, FakeCodexThread, RejectingCodexThread } from "../../providers/codex/fakes";
+import { FakeCodexClient, FakeCodexThread } from "../../providers/codex/fakes";
 
 const NEW_SESSION_REFERENCE = {
   provider: "codex" as const,
@@ -271,7 +271,21 @@ export const CODEX_CONTRACT_DRIVER: ContractProviderDriver = {
       createAdapter: () =>
         new CodexAdapter({
           client: new FakeCodexClient([
-            new RejectingCodexThread(new Error("CLI exited unexpectedly")),
+            new FakeCodexThread([
+              [
+                {
+                  type: "thread.started",
+                  thread_id: "thread-contract-provider-fail",
+                },
+                {
+                  type: "turn.started",
+                },
+                {
+                  type: "error",
+                  message: "CLI exited unexpectedly",
+                },
+              ],
+            ]),
           ]),
         }),
       input: {
