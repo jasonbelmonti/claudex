@@ -13,6 +13,16 @@ const RESUME_REFERENCE = {
   sessionId: "thread-contract-resume-1",
 };
 
+const STRUCTURED_FAILURE_REFERENCE = {
+  provider: "codex" as const,
+  sessionId: "thread-contract-structured-fail",
+};
+
+const PROVIDER_FAILURE_REFERENCE = {
+  provider: "codex" as const,
+  sessionId: "thread-contract-provider-fail",
+};
+
 const STRUCTURED_SCHEMA = {
   type: "object",
   properties: {
@@ -217,6 +227,7 @@ export const CODEX_CONTRACT_DRIVER: ContractProviderDriver = {
       input: {
         prompt: "Return JSON",
       },
+      expectedSession: STRUCTURED_FAILURE_REFERENCE,
       turnOptions: {
         outputSchema: STRUCTURED_SCHEMA,
       },
@@ -275,7 +286,7 @@ export const CODEX_CONTRACT_DRIVER: ContractProviderDriver = {
               [
                 {
                   type: "thread.started",
-                  thread_id: "thread-contract-provider-fail",
+                  thread_id: PROVIDER_FAILURE_REFERENCE.sessionId,
                 },
                 {
                   type: "turn.started",
@@ -291,6 +302,7 @@ export const CODEX_CONTRACT_DRIVER: ContractProviderDriver = {
       input: {
         prompt: "Fail this turn",
       },
+      expectedSession: PROVIDER_FAILURE_REFERENCE,
       expectedError: {
         code: "provider_failure",
         messageIncludes: "CLI exited unexpectedly",

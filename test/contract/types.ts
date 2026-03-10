@@ -28,6 +28,7 @@ export type ContractFailureScenario = {
   sessionOptions?: SessionOptions;
   input: TurnInput;
   turnOptions?: TurnOptions;
+  expectedSession?: SessionReference;
   expectedError: {
     code: AgentErrorCode;
     messageIncludes?: string;

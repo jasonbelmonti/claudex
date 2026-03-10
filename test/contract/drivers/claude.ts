@@ -19,6 +19,16 @@ const RESUME_REFERENCE = {
   sessionId: "claude-contract-resume-1",
 };
 
+const STRUCTURED_FAILURE_REFERENCE = {
+  provider: "claude" as const,
+  sessionId: "claude-contract-structured-fail",
+};
+
+const PROVIDER_FAILURE_REFERENCE = {
+  provider: "claude" as const,
+  sessionId: "claude-contract-provider-fail",
+};
+
 const FORK_SOURCE_REFERENCE = {
   provider: "claude" as const,
   sessionId: "claude-contract-fork-source",
@@ -151,6 +161,7 @@ export const CLAUDE_CONTRACT_DRIVER: ContractProviderDriver = {
       input: {
         prompt: "Return JSON",
       },
+      expectedSession: STRUCTURED_FAILURE_REFERENCE,
       turnOptions: {
         outputSchema: STRUCTURED_SCHEMA,
       },
@@ -185,7 +196,7 @@ export const CLAUDE_CONTRACT_DRIVER: ContractProviderDriver = {
         new ClaudeAdapter({
           queryFactory: new FakeClaudeQueryFactory([
             new FakeClaudeQuery(
-              [createInitMessage("claude-contract-provider-fail")],
+              [createInitMessage(PROVIDER_FAILURE_REFERENCE.sessionId)],
               undefined,
               undefined,
               undefined,
@@ -197,6 +208,7 @@ export const CLAUDE_CONTRACT_DRIVER: ContractProviderDriver = {
       input: {
         prompt: "Fail this turn",
       },
+      expectedSession: PROVIDER_FAILURE_REFERENCE,
       expectedError: {
         code: "provider_failure",
         messageIncludes: "Claude runtime exploded",

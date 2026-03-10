@@ -209,16 +209,37 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       expect(terminalEvent.error.raw).toBeDefined();
     }
 
+    if (streamScenario.expectedSession) {
+      expect(terminalEvent.session).toEqual(streamScenario.expectedSession);
+      expect(streamedSession.reference).toEqual(streamScenario.expectedSession);
+    }
+
     const runScenario = driver.sessions.structuredOutputFailure();
     const runAdapter = runScenario.createAdapter();
     const runSession = await runAdapter.createSession(runScenario.sessionOptions);
+    let thrown: AgentError | null = null;
 
-    await expect(
-      runSession.run(runScenario.input, runScenario.turnOptions),
-    ).rejects.toMatchObject({
-      provider: driver.provider,
-      code: runScenario.expectedError.code,
-    });
+    try {
+      await runSession.run(runScenario.input, runScenario.turnOptions);
+    } catch (error) {
+      thrown = error as AgentError;
+    }
+
+    expect(thrown).not.toBeNull();
+    expect(thrown?.provider).toBe(driver.provider);
+    expect(thrown?.code).toBe(runScenario.expectedError.code);
+
+    if (runScenario.expectedError.messageIncludes) {
+      expect(thrown?.message).toContain(runScenario.expectedError.messageIncludes);
+    }
+
+    if (runScenario.expectedError.rawRequired) {
+      expect(thrown?.raw).toBeDefined();
+    }
+
+    if (runScenario.expectedSession) {
+      expect(runSession.reference).toEqual(runScenario.expectedSession);
+    }
   });
 
   test(`${driver.provider} resumeSession continues from the provided reference`, async () => {
@@ -369,6 +390,11 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       expect(terminalEvent.error.raw).toBeDefined();
     }
 
+    if (streamScenario.expectedSession) {
+      expect(terminalEvent.session).toEqual(streamScenario.expectedSession);
+      expect(streamedSession.reference).toEqual(streamScenario.expectedSession);
+    }
+
     const runScenario = driver.sessions.providerFailure();
     const runAdapter = runScenario.createAdapter();
     const runSession = await runAdapter.createSession(runScenario.sessionOptions);
@@ -382,6 +408,7 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
     }
 
     expect(thrown).not.toBeNull();
+    expect(thrown?.provider).toBe(driver.provider);
     expect(thrown?.code).toBe(runScenario.expectedError.code);
     assertAgentErrorProvider({
       error: thrown as AgentError,
@@ -389,8 +416,16 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       label: `${driver.provider} provider failure run error provider`,
     });
 
+    if (runScenario.expectedError.messageIncludes) {
+      expect(thrown?.message).toContain(runScenario.expectedError.messageIncludes);
+    }
+
     if (streamScenario.expectedError.rawRequired) {
       expect(thrown?.raw).toBeDefined();
+    }
+
+    if (runScenario.expectedSession) {
+      expect(runSession.reference).toEqual(runScenario.expectedSession);
     }
   });
 

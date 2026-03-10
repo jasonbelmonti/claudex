@@ -6,8 +6,6 @@ import type { TurnInput } from "../../src/core/input";
 import type { TurnResult } from "../../src/core/results";
 import { isDeepStrictEqual } from "node:util";
 
-const SMOKE_TOKEN_PATTERN = /\bsmoke-[0-9a-f]{8}\b/i;
-
 const DEFAULT_SMOKE_PROVIDERS = new Set<ProviderId>(["claude", "codex"]);
 
 export function shouldRunSmokeProvider(provider: ProviderId): boolean {
@@ -33,6 +31,7 @@ export async function runSmokeScenario(params: {
   createAdapter: () => AgentProviderAdapter;
   sessionOptions?: SessionOptions;
 }): Promise<void> {
+  const continuityToken = `smoke-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
   const adapter = params.createAdapter();
   const readiness = await adapter.checkReadiness();
 
@@ -50,13 +49,13 @@ export async function runSmokeScenario(params: {
     provider: params.provider,
     input: {
       prompt:
-        "Invent a unique lowercase token in the format smoke-[8 hex chars] and reply with only that token.",
+        `Reply with exactly this token, followed by "/" and a lowercase 8-hex suffix that you choose: ${continuityToken}/<suffix>`,
     },
     expectSessionStarted: true,
     label: `${params.provider} new-session streamed turn`,
   });
   const firstResult = firstTurn.result;
-  const continuityToken = extractSmokeToken(firstResult.text);
+  const memoryReply = extractMemoryReply(firstResult.text, continuityToken);
 
   assertSmoke(
     session.reference !== null,
@@ -67,11 +66,12 @@ export async function runSmokeScenario(params: {
     },
   );
   assertSmoke(
-    continuityToken !== null,
-    `${params.provider} new-session smoke did not return a valid continuity token`,
+    memoryReply !== null,
+    `${params.provider} new-session smoke did not return a valid continuity reply`,
     {
       result: firstResult,
       session: session.reference,
+      continuityToken,
     },
   );
   assertReferenceProvider({
@@ -93,12 +93,13 @@ export async function runSmokeScenario(params: {
     },
   });
   assertSmoke(
-    continuityToken !== null && includesToken(firstResult.text, continuityToken),
-    `${params.provider} new-session smoke did not include the continuity token`,
+    memoryReply !== null,
+    `${params.provider} new-session smoke did not preserve the requested continuity reply`,
     {
       result: firstResult,
       session: session.reference,
       continuityToken,
+      memoryReply,
     },
   );
 
@@ -111,13 +112,15 @@ export async function runSmokeScenario(params: {
     provider: params.provider,
     input: {
       prompt:
-        "Without inventing a new token, repeat exactly the token from your previous assistant message.",
+        "Repeat exactly your previous assistant reply and nothing else.",
     },
     expectSessionStarted: false,
     label: `${params.provider} resumed streamed turn`,
   });
   const resumedResult = resumedTurn.result;
-  const resumedToken = extractSmokeToken(resumedResult.text);
+  const resumedMemoryReply = memoryReply
+    ? extractMemoryReply(resumedResult.text, continuityToken)
+    : null;
 
   assertSmoke(
     resumedSession.reference?.sessionId === session.reference.sessionId,
@@ -151,13 +154,14 @@ export async function runSmokeScenario(params: {
     },
   });
   assertSmoke(
-    continuityToken !== null && resumedToken === continuityToken,
+    memoryReply !== null && resumedMemoryReply === memoryReply,
     `${params.provider} resumed turn did not preserve prior-turn state`,
     {
       session: resumedSession.reference,
       result: resumedResult,
       continuityToken,
-      resumedToken,
+      memoryReply,
+      resumedMemoryReply,
     },
   );
 
@@ -215,9 +219,17 @@ function includesToken(text: string, token: string): boolean {
   return text.includes(token);
 }
 
-function extractSmokeToken(text: string): string | null {
-  const match = text.match(SMOKE_TOKEN_PATTERN);
+function extractMemoryReply(text: string, continuityToken: string): string | null {
+  const pattern = new RegExp(
+    `${escapeRegExp(continuityToken)}/[0-9a-f]{8}`,
+    "i",
+  );
+  const match = text.match(pattern);
   return match?.[0].toLowerCase() ?? null;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function runSmokeStreamedTurn(params: {
