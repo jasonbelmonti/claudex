@@ -4,7 +4,10 @@ import type { AgentError } from "../../src/core/errors";
 import { supportsCapability } from "../../src/core/capabilities";
 import type { SessionReference } from "../../src/core/session";
 import {
+  assertAgentErrorProvider,
+  assertEventProvidersMatch,
   assertEventSessionsMatch,
+  assertTurnResultProvider,
   assertWithContext,
   buildContractContext,
   collectEvents,
@@ -80,6 +83,11 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
     expect(streamedReference.sessionId).toBe(streamScenario.expectedSession.sessionId);
     expect(completedEvent.result.session).toEqual(streamScenario.expectedSession);
     expect(completedEvent.result.text).toBe(streamScenario.expectedResult.text);
+    assertTurnResultProvider({
+      result: completedEvent.result,
+      expectedProvider: driver.provider,
+      label: `${driver.provider} createSession streamed result provider`,
+    });
 
     if (streamScenario.expectedResult.structuredOutput !== undefined) {
       expect(completedEvent.result.structuredOutput).toEqual(
@@ -116,6 +124,11 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
     expect(runReference.sessionId).toBe(runScenario.expectedSession.sessionId);
     expect(result.session).toEqual(runScenario.expectedSession);
     expect(result.text).toBe(runScenario.expectedResult.text);
+    assertTurnResultProvider({
+      result,
+      expectedProvider: driver.provider,
+      label: `${driver.provider} createSession run result provider`,
+    });
 
     if (runScenario.expectedResult.structuredOutput !== undefined) {
       expect(result.structuredOutput).toEqual(
@@ -154,6 +167,16 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       }),
     );
 
+    assertEventProvidersMatch({
+      events,
+      expectedProvider: driver.provider,
+      label: `${driver.provider} structured-output event providers`,
+    });
+    assertAgentErrorProvider({
+      error: terminalEvent.error,
+      expectedProvider: driver.provider,
+      label: `${driver.provider} structured-output streamed error provider`,
+    });
     expect(terminalEvent.error.code).toBe(streamScenario.expectedError.code);
 
     if (streamScenario.expectedError.messageIncludes) {
@@ -173,6 +196,7 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
     await expect(
       runSession.run(runScenario.input, runScenario.turnOptions),
     ).rejects.toMatchObject({
+      provider: driver.provider,
       code: runScenario.expectedError.code,
     });
   });
@@ -218,6 +242,11 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
     expect(streamedSession.reference).toEqual(streamScenario.expectedSession);
     expect(terminalEvent.result.session).toEqual(streamScenario.expectedSession);
     expect(terminalEvent.result.text).toBe(streamScenario.expectedResult.text);
+    assertTurnResultProvider({
+      result: terminalEvent.result,
+      expectedProvider: driver.provider,
+      label: `${driver.provider} resumeSession streamed result provider`,
+    });
 
     if (streamScenario.expectedResult.structuredOutput !== undefined) {
       expect(terminalEvent.result.structuredOutput).toEqual(
@@ -242,6 +271,11 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
     expect(runSession.reference).toEqual(runScenario.expectedSession);
     expect(result.text).toBe(runScenario.expectedResult.text);
     expect(result.session).toEqual(runScenario.expectedSession);
+    assertTurnResultProvider({
+      result,
+      expectedProvider: driver.provider,
+      label: `${driver.provider} resumeSession run result provider`,
+    });
 
     if (runScenario.expectedResult.structuredOutput !== undefined) {
       expect(result.structuredOutput).toEqual(
@@ -264,6 +298,14 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
     const terminalEvent = getTerminalEvent(events);
 
     assertWithContext(
+      countTerminalEvents(events) === 1,
+      "Provider failures must emit exactly one terminal event.",
+      buildContractContext({
+        label: `${driver.provider} provider failure stream`,
+        events,
+      }),
+    );
+    assertWithContext(
       terminalEvent?.type === "turn.failed",
       "Provider failures must end in turn.failed.",
       buildContractContext({
@@ -272,6 +314,16 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       }),
     );
 
+    assertEventProvidersMatch({
+      events,
+      expectedProvider: driver.provider,
+      label: `${driver.provider} provider failure event providers`,
+    });
+    assertAgentErrorProvider({
+      error: terminalEvent.error,
+      expectedProvider: driver.provider,
+      label: `${driver.provider} provider failure streamed error provider`,
+    });
     expect(terminalEvent.error.code).toBe(streamScenario.expectedError.code);
 
     if (streamScenario.expectedError.messageIncludes) {
@@ -298,6 +350,11 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
 
     expect(thrown).not.toBeNull();
     expect(thrown?.code).toBe(runScenario.expectedError.code);
+    assertAgentErrorProvider({
+      error: thrown as AgentError,
+      expectedProvider: driver.provider,
+      label: `${driver.provider} provider failure run error provider`,
+    });
 
     if (streamScenario.expectedError.rawRequired) {
       expect(thrown?.raw).toBeDefined();
@@ -328,6 +385,13 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       expect(forkedSession?.reference).toEqual(scenario.expectedForkSession);
       expect(result?.session).toEqual(scenario.expectedForkSession);
       expect(result?.text).toBe(scenario.expectedForkText);
+      if (result) {
+        assertTurnResultProvider({
+          result,
+          expectedProvider: driver.provider,
+          label: `${driver.provider} fork run result provider`,
+        });
+      }
     });
   }
 }

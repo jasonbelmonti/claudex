@@ -1,4 +1,6 @@
 import type { AgentEvent } from "../../src/core/events";
+import type { AgentError } from "../../src/core/errors";
+import type { ProviderId } from "../../src/core/provider";
 import type { TurnResult } from "../../src/core/results";
 import type { SessionReference } from "../../src/core/session";
 
@@ -36,12 +38,59 @@ export function getTerminalEvent(events: AgentEvent[]): AgentEvent | undefined {
   );
 }
 
+export function assertEventProvidersMatch(params: {
+  events: AgentEvent[];
+  expectedProvider: ProviderId;
+  label: string;
+}): void {
+  const { events, expectedProvider, label } = params;
+
+  for (const event of events) {
+    assertWithContext(
+      event.provider === expectedProvider,
+      "Streamed events must preserve the originating provider ID.",
+      buildContractContext({
+        label,
+        events,
+      }),
+    );
+
+    if (event.session) {
+      assertWithContext(
+        event.session.provider === expectedProvider,
+        "Event session references must preserve the originating provider ID.",
+        buildContractContext({
+          label,
+          events,
+        }),
+      );
+    }
+
+    if (event.type === "session.started") {
+      assertWithContext(
+        event.reference.provider === expectedProvider,
+        "session.started must expose the originating provider ID.",
+        buildContractContext({
+          label,
+          events,
+        }),
+      );
+    }
+  }
+}
+
 export function assertEventSessionsMatch(params: {
   events: AgentEvent[];
   expectedSession: SessionReference;
   label: string;
 }): void {
   const { events, expectedSession, label } = params;
+
+  assertEventProvidersMatch({
+    events,
+    expectedProvider: expectedSession.provider,
+    label,
+  });
 
   for (const event of events) {
     assertWithContext(
@@ -66,6 +115,51 @@ export function assertEventSessionsMatch(params: {
       );
     }
   }
+}
+
+export function assertTurnResultProvider(params: {
+  result: TurnResult;
+  expectedProvider: ProviderId;
+  label: string;
+}): void {
+  const { result, expectedProvider, label } = params;
+
+  assertWithContext(
+    result.provider === expectedProvider,
+    "TurnResult must preserve the originating provider ID.",
+    buildContractContext({
+      label,
+      result,
+    }),
+  );
+
+  if (result.session) {
+    assertWithContext(
+      result.session.provider === expectedProvider,
+      "TurnResult session references must preserve the originating provider ID.",
+      buildContractContext({
+        label,
+        result,
+      }),
+    );
+  }
+}
+
+export function assertAgentErrorProvider(params: {
+  error: AgentError;
+  expectedProvider: ProviderId;
+  label: string;
+}): void {
+  const { error, expectedProvider, label } = params;
+
+  assertWithContext(
+    error.provider === expectedProvider,
+    "AgentError must preserve the originating provider ID.",
+    buildContractContext({
+      label,
+      error,
+    }),
+  );
 }
 
 export function buildContractContext(params: {
