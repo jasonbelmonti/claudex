@@ -52,6 +52,24 @@ export async function runSmokeScenario(params: {
       session: session.reference,
     },
   );
+  assertReferenceProvider({
+    reference: session.reference,
+    expectedProvider: params.provider,
+    message: `${params.provider} new-session smoke minted the wrong provider reference`,
+    context: {
+      result: firstResult,
+      session: session.reference,
+    },
+  });
+  assertResultProvider({
+    result: firstResult,
+    expectedProvider: params.provider,
+    message: `${params.provider} new-session smoke returned the wrong provider result`,
+    context: {
+      result: firstResult,
+      session: session.reference,
+    },
+  });
   assertSmoke(
     includesToken(firstResult.text, continuityToken),
     `${params.provider} new-session smoke did not include the continuity token`,
@@ -81,6 +99,27 @@ export async function runSmokeScenario(params: {
       continuityToken,
     },
   );
+  assertReferenceProvider({
+    reference: resumedSession.reference,
+    expectedProvider: params.provider,
+    message: `${params.provider} resumed session returned the wrong provider reference`,
+    context: {
+      session: session.reference,
+      resumedSession: resumedSession.reference,
+      result: resumedResult,
+      continuityToken,
+    },
+  });
+  assertResultProvider({
+    result: resumedResult,
+    expectedProvider: params.provider,
+    message: `${params.provider} resumed turn returned the wrong provider result`,
+    context: {
+      session: resumedSession.reference,
+      result: resumedResult,
+      continuityToken,
+    },
+  });
   assertSmoke(
     includesToken(resumedResult.text, continuityToken),
     `${params.provider} resumed turn did not preserve prior-turn state`,
@@ -118,6 +157,15 @@ export async function runSmokeScenario(params: {
       result: structuredResult,
     },
   );
+  assertResultProvider({
+    result: structuredResult,
+    expectedProvider: params.provider,
+    message: `${params.provider} structured-output smoke returned the wrong provider result`,
+    context: {
+      session: resumedSession.reference,
+      result: structuredResult,
+    },
+  });
   assertSmoke(
     (structuredResult.structuredOutput as { status?: string }).status === "ok",
     `${params.provider} structured-output smoke returned the wrong payload`,
@@ -134,6 +182,40 @@ function isRunnableSmokeReadiness(status: ProviderReadinessStatus): boolean {
 
 function includesToken(text: string, token: string): boolean {
   return text.includes(token);
+}
+
+function assertReferenceProvider(params: {
+  reference: { provider: ProviderId } | null;
+  expectedProvider: ProviderId;
+  message: string;
+  context: unknown;
+}): void {
+  assertSmoke(
+    params.reference?.provider === params.expectedProvider,
+    params.message,
+    params.context,
+  );
+}
+
+function assertResultProvider(params: {
+  result: { provider: ProviderId; session: { provider: ProviderId } | null };
+  expectedProvider: ProviderId;
+  message: string;
+  context: unknown;
+}): void {
+  assertSmoke(
+    params.result.provider === params.expectedProvider,
+    params.message,
+    params.context,
+  );
+
+  if (params.result.session) {
+    assertSmoke(
+      params.result.session.provider === params.expectedProvider,
+      `${params.message} (session provider mismatch)`,
+      params.context,
+    );
+  }
 }
 
 function assertSmoke(

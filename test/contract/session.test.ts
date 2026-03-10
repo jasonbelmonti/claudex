@@ -388,7 +388,22 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
 
   const createForkScenario = driver.sessions.fork;
 
-  if (createForkScenario) {
+  if (!createForkScenario) {
+    test(`${driver.provider} omits fork() when session:fork is unavailable`, async () => {
+      const scenario = driver.sessions.create();
+      const adapter = scenario.createAdapter();
+      const session = await adapter.createSession(scenario.sessionOptions);
+
+      expect(
+        supportsCapability(session.capabilities, "session:fork"),
+      ).toBe(false);
+      expect(session.fork).toBeUndefined();
+
+      await session.run(scenario.input, scenario.turnOptions);
+
+      expect(session.fork).toBeUndefined();
+    });
+  } else {
     test(`${driver.provider} fork capability stays within the normalized session contract`, async () => {
       const scenario = createForkScenario();
       const adapter = scenario.createAdapter();
