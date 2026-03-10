@@ -21,6 +21,7 @@ export type ContractTurnScenario = {
 export type ContractResumeScenario = ContractTurnScenario & {
   reference: SessionReference;
   resumeOptions?: SessionOptions;
+  expectedInitialReference?: SessionReference | null;
 };
 
 export type ContractFailureScenario = {
@@ -64,6 +65,7 @@ export type ContractProviderDriver = {
     create: () => ContractTurnScenario;
     structuredOutputFailure: () => ContractFailureScenario;
     resume: () => ContractResumeScenario;
+    resumeFork?: () => ContractResumeScenario;
     providerFailure: () => ContractFailureScenario;
     fork?: () => ContractForkScenario;
   };

@@ -29,5 +29,9 @@ test("contract drivers stay aligned with the shared harness shape", async () => 
     expect(
       supportsCapability(adapter.capabilities, "stream:message-delta"),
     ).toBe(driver.capabilityExpectations.supportsMessageDelta);
+
+    if (driver.capabilityExpectations.supportsFork) {
+      expect(driver.sessions.resumeFork).toBeDefined();
+    }
   }
 });

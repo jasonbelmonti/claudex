@@ -39,6 +39,11 @@ const FORK_CHILD_REFERENCE = {
   sessionId: "claude-contract-fork-child",
 };
 
+const RESUME_FORK_REFERENCE = {
+  provider: "claude" as const,
+  sessionId: "claude-contract-resume-fork-child",
+};
+
 const STRUCTURED_SCHEMA = {
   type: "object",
   properties: {
@@ -189,6 +194,33 @@ export const CLAUDE_CONTRACT_DRIVER: ContractProviderDriver = {
       expectedSession: RESUME_REFERENCE,
       expectedResult: {
         text: "resume ok",
+      },
+    }),
+    resumeFork: () => ({
+      createAdapter: () =>
+        new ClaudeAdapter({
+          queryFactory: new FakeClaudeQueryFactory([
+            new FakeClaudeQuery([
+              createInitMessage(RESUME_FORK_REFERENCE.sessionId),
+              createAssistantMessage(RESUME_FORK_REFERENCE.sessionId, "resume fork ok"),
+              createSuccessResultMessage(
+                RESUME_FORK_REFERENCE.sessionId,
+                "resume fork ok",
+              ),
+            ]),
+          ]).create,
+        }),
+      reference: RESUME_REFERENCE,
+      expectedInitialReference: null,
+      resumeOptions: {
+        resumeStrategy: "fork",
+      },
+      input: {
+        prompt: "Continue as fork",
+      },
+      expectedSession: RESUME_FORK_REFERENCE,
+      expectedResult: {
+        text: "resume fork ok",
       },
     }),
     providerFailure: () => ({

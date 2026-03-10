@@ -18,6 +18,15 @@ import {
 } from "./helpers";
 import { CONTRACT_TEST_DRIVERS } from "./drivers";
 
+function getExpectedInitialReference(
+  expectedInitialReference: SessionReference | null | undefined,
+  reference: SessionReference,
+): SessionReference | null {
+  return expectedInitialReference === undefined
+    ? reference
+    : expectedInitialReference;
+}
+
 for (const driver of CONTRACT_TEST_DRIVERS) {
   test(`${driver.provider} createSession produces a resumable normalized turn contract`, async () => {
     const streamScenario = driver.sessions.create();
@@ -250,7 +259,12 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       streamScenario.resumeOptions,
     );
 
-    expect(streamedSession.reference).toEqual(streamScenario.reference);
+    expect(streamedSession.reference).toEqual(
+      getExpectedInitialReference(
+        streamScenario.expectedInitialReference,
+        streamScenario.reference,
+      ),
+    );
 
     const events = await collectEvents(
       streamedSession.runStreamed(streamScenario.input, streamScenario.turnOptions),
@@ -312,6 +326,12 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       runScenario.reference,
       runScenario.resumeOptions,
     );
+    expect(runSession.reference).toEqual(
+      getExpectedInitialReference(
+        runScenario.expectedInitialReference,
+        runScenario.reference,
+      ),
+    );
     const result = await runSession.run(runScenario.input, runScenario.turnOptions);
 
     expect(runSession.reference).toEqual(runScenario.expectedSession);
@@ -332,6 +352,107 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
     if (runScenario.expectedResult.usage !== undefined) {
       expect(result.usage).toEqual(runScenario.expectedResult.usage);
     }
+  });
+
+  test(`${driver.provider} resumeSession fork behavior matches provider capabilities`, async () => {
+    const createResumeForkScenario = driver.sessions.resumeFork;
+
+    if (!createResumeForkScenario) {
+      const scenario = driver.sessions.resume();
+      const adapter = scenario.createAdapter();
+
+      await expect(
+        adapter.resumeSession(scenario.reference, {
+          resumeStrategy: "fork",
+        }),
+      ).rejects.toMatchObject({
+        code: "unsupported_feature",
+        provider: driver.provider,
+      });
+
+      return;
+    }
+
+    const streamScenario = createResumeForkScenario();
+    const streamedAdapter = streamScenario.createAdapter();
+    const streamedSession = await streamedAdapter.resumeSession(
+      streamScenario.reference,
+      streamScenario.resumeOptions,
+    );
+
+    expect(streamedSession.reference).toEqual(
+      getExpectedInitialReference(
+        streamScenario.expectedInitialReference,
+        streamScenario.reference,
+      ),
+    );
+
+    const events = await collectEvents(
+      streamedSession.runStreamed(streamScenario.input, streamScenario.turnOptions),
+    );
+    const terminalEvent = getTerminalEvent(events);
+
+    assertWithContext(
+      countTerminalEvents(events) === 1,
+      "Forked resume streamed turns must emit exactly one terminal event.",
+      buildContractContext({
+        label: `${driver.provider} resumeFork stream`,
+        events,
+      }),
+    );
+    assertWithContext(
+      terminalEvent?.type === "turn.completed",
+      "Successful forked resume streamed turns must end in turn.completed.",
+      buildContractContext({
+        label: `${driver.provider} resumeFork terminal`,
+        events,
+      }),
+    );
+
+    assertEventSessionsMatch({
+      events,
+      expectedSession: streamScenario.expectedSession,
+      label: `${driver.provider} resumeFork event sessions`,
+    });
+    assertTurnStartedEvent({
+      events,
+      expectedInput: streamScenario.input,
+      label: `${driver.provider} resumeFork input preservation`,
+    });
+
+    expect(streamedSession.reference).toEqual(streamScenario.expectedSession);
+    expect(terminalEvent.result.session).toEqual(streamScenario.expectedSession);
+    expect(terminalEvent.result.text).toBe(streamScenario.expectedResult.text);
+    assertTurnResultProvider({
+      result: terminalEvent.result,
+      expectedProvider: driver.provider,
+      label: `${driver.provider} resumeFork streamed result provider`,
+    });
+
+    const runScenario = createResumeForkScenario();
+    const runAdapter = runScenario.createAdapter();
+    const runSession = await runAdapter.resumeSession(
+      runScenario.reference,
+      runScenario.resumeOptions,
+    );
+
+    expect(runSession.reference).toEqual(
+      getExpectedInitialReference(
+        runScenario.expectedInitialReference,
+        runScenario.reference,
+      ),
+    );
+
+    const result = await runSession.run(runScenario.input, runScenario.turnOptions);
+
+    expect(runSession.reference).toEqual(runScenario.expectedSession);
+    expect(result.session).toEqual(runScenario.expectedSession);
+    expect(result.text).toBe(runScenario.expectedResult.text);
+    assertTurnResultProvider({
+      result,
+      expectedProvider: driver.provider,
+      label: `${driver.provider} resumeFork run result provider`,
+    });
   });
 
   test(`${driver.provider} provider failures preserve raw payloads`, async () => {

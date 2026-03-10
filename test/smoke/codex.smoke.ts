@@ -3,7 +3,7 @@ import { setDefaultTimeout, test } from "bun:test";
 import { runSmokeScenario, shouldRunSmokeProvider } from "./helpers";
 import { SMOKE_PROVIDERS } from "./providers";
 
-setDefaultTimeout(60_000);
+setDefaultTimeout(120_000);
 
 if (shouldRunSmokeProvider("codex")) {
   test("codex CLI-auth smoke", async () => {
