@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "test": "bun test",
+    "test:smoke": "CLAUDEX_SMOKE=1 bun test ./test/smoke/codex.smoke.ts ./test/smoke/claude.smoke.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

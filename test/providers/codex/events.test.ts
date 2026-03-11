@@ -148,6 +148,61 @@ test("runStreamed maps Codex events into the normalized event contract", async (
   });
 });
 
+test("runStreamed suppresses session.started when a resumed Codex thread re-emits thread.started", async () => {
+  const resumedThread = new FakeCodexThread(
+    [
+      [
+        {
+          type: "thread.started",
+          thread_id: "thread-resume-stream-1",
+        },
+        {
+          type: "turn.started",
+        },
+        {
+          type: "item.completed",
+          item: {
+            id: "message-1",
+            type: "agent_message",
+            text: "resume streamed ok",
+          },
+        },
+        {
+          type: "turn.completed",
+          usage: {
+            input_tokens: 4,
+            cached_input_tokens: 0,
+            output_tokens: 3,
+          },
+        },
+      ],
+    ],
+    "thread-resume-stream-1",
+  );
+  const adapter = new CodexAdapter({
+    client: new FakeCodexClient([], {
+      "thread-resume-stream-1": resumedThread,
+    }),
+  });
+  const session = await adapter.resumeSession({
+    provider: "codex",
+    sessionId: "thread-resume-stream-1",
+  });
+  const eventTypes: string[] = [];
+
+  for await (const event of session.runStreamed({
+    prompt: "Continue the current thread",
+  })) {
+    eventTypes.push(event.type);
+  }
+
+  expect(eventTypes).toEqual([
+    "turn.started",
+    "message.completed",
+    "turn.completed",
+  ]);
+});
+
 test("structured-output parse failures surface as AgentError", async () => {
   const thread = new FakeCodexThread([
     createStructuredOutputRun("thread-events-2", "not-json", true),
