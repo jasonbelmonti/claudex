@@ -202,6 +202,14 @@ export async function runSmokeScenario(params: {
     },
   });
   assertSmoke(
+    structuredResult.session?.sessionId === resumedSession.reference?.sessionId,
+    `${params.provider} structured-output smoke returned the wrong session`,
+    {
+      session: resumedSession.reference,
+      result: structuredResult,
+    },
+  );
+  assertSmoke(
     (structuredResult.structuredOutput as { status?: string }).status === "ok",
     `${params.provider} structured-output smoke returned the wrong payload`,
     {
