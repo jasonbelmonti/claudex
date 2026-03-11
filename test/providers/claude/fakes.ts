@@ -33,6 +33,7 @@ export class FakeClaudeQuery implements ClaudeQueryLike {
     private readonly account: AccountInfo = DEFAULT_ACCOUNT,
     private readonly initializationError?: unknown,
     private readonly accountError?: unknown,
+    private readonly streamError?: unknown,
   ) {}
 
   async initializationResult() {
@@ -58,6 +59,10 @@ export class FakeClaudeQuery implements ClaudeQueryLike {
   async *[Symbol.asyncIterator](): AsyncIterator<SDKMessage> {
     for (const message of this.messages) {
       yield message;
+    }
+
+    if (this.streamError) {
+      throw this.streamError;
     }
   }
 }

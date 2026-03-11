@@ -8,6 +8,7 @@
     "lint": "biome lint .",
     "test": "bun test",
     "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov",
+    "test:smoke": "CLAUDEX_SMOKE=1 bun test ./test/smoke/codex.smoke.ts ./test/smoke/claude.smoke.ts",
     "typecheck": "tsc --noEmit",
     "check": "bun run lint && bun run typecheck && bun run test",
     "ci": "bun run lint && bun run typecheck && bun run test:coverage"
