@@ -55,6 +55,7 @@ export class CodexSession implements AgentSession {
     options: TurnOptions = {},
   ): AsyncGenerator<AgentEvent> {
     const turnState = createCodexTurnState(input, options.outputSchema);
+    const knownSessionReference = this.reference;
     let sawTerminalEvent = false;
 
     try {
@@ -70,6 +71,7 @@ export class CodexSession implements AgentSession {
           event,
           state: turnState,
           getSessionReference: () => this.reference,
+          knownSessionReference,
         })) {
           if (
             mappedEvent.type === "turn.completed" ||

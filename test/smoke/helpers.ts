@@ -257,6 +257,14 @@ async function runSmokeStreamedTurn(params: {
       events,
     },
   );
+  assertSmoke(
+    events.at(-1)?.type === "turn.completed" || events.at(-1)?.type === "turn.failed",
+    `${params.provider} smoke stream emitted events after the terminal event`,
+    {
+      label: params.label,
+      events,
+    },
+  );
 
   const terminalEvent = getTerminalEvent(events);
 
@@ -287,6 +295,11 @@ async function runSmokeStreamedTurn(params: {
 
   if (params.expectSessionStarted) {
     assertSmokeSessionStarted({
+      events,
+      label: params.label,
+    });
+  } else {
+    assertSmokeNoSessionStarted({
       events,
       label: params.label,
     });
@@ -474,6 +487,20 @@ function assertSmokeSessionStarted(params: {
   assertSmoke(
     sessionStartedIndex >= 0 && sessionStartedIndex < turnStartedIndex,
     `${params.label} emitted session.started out of order`,
+    {
+      label: params.label,
+      events: params.events,
+    },
+  );
+}
+
+function assertSmokeNoSessionStarted(params: {
+  events: AgentEvent[];
+  label: string;
+}): void {
+  assertSmoke(
+    params.events.every((event) => event.type !== "session.started"),
+    `${params.label} unexpectedly emitted session.started`,
     {
       label: params.label,
       events: params.events,

@@ -41,6 +41,25 @@ export function getTerminalEvent(events: AgentEvent[]): AgentEvent | undefined {
   );
 }
 
+export function assertTerminalEventIsLast(params: {
+  events: AgentEvent[];
+  label: string;
+}): void {
+  const { events, label } = params;
+  const lastTerminalIndex = events.findLastIndex(
+    (event) => event.type === "turn.completed" || event.type === "turn.failed",
+  );
+
+  assertWithContext(
+    lastTerminalIndex >= 0 && lastTerminalIndex === events.length - 1,
+    "The terminal event must be the final streamed event.",
+    buildContractContext({
+      label,
+      events,
+    }),
+  );
+}
+
 export function assertEventProvidersMatch(params: {
   events: AgentEvent[];
   expectedProvider: ProviderId;
@@ -208,6 +227,37 @@ export function assertTurnStartedEvent(params: {
     turnStartedEvent !== undefined &&
       isDeepStrictEqual(turnStartedEvent.input, expectedInput),
     "turn.started must preserve the normalized input payload.",
+    buildContractContext({
+      label,
+      events,
+    }),
+  );
+}
+
+export function assertMessageCompletedLifecycle(params: {
+  events: AgentEvent[];
+  label: string;
+}): void {
+  const { events, label } = params;
+  const messageCompletedIndices = events.flatMap((event, index) =>
+    event.type === "message.completed" ? [index] : [],
+  );
+  const terminalIndex = events.findIndex(
+    (event) => event.type === "turn.completed" || event.type === "turn.failed",
+  );
+
+  assertWithContext(
+    messageCompletedIndices.length >= 1,
+    "Successful streamed turns must emit at least one message.completed event.",
+    buildContractContext({
+      label,
+      events,
+    }),
+  );
+  assertWithContext(
+    terminalIndex >= 0 &&
+      messageCompletedIndices.every((index) => index < terminalIndex),
+    "message.completed must occur before the terminal event.",
     buildContractContext({
       label,
       events,

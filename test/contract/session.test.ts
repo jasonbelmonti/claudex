@@ -5,10 +5,12 @@ import { supportsCapability } from "../../src/core/capabilities";
 import type { SessionReference } from "../../src/core/session";
 import {
   assertAgentErrorProvider,
+  assertMessageCompletedLifecycle,
   assertNoSessionStartedEvent,
   assertEventProvidersMatch,
   assertEventSessionsMatch,
   assertSessionStartLifecycle,
+  assertTerminalEventIsLast,
   assertTurnResultProvider,
   assertTurnStartedEvent,
   assertWithContext,
@@ -90,6 +92,10 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       expectedSession: streamScenario.expectedSession,
       label: `${driver.provider} createSession event sessions`,
     });
+    assertTerminalEventIsLast({
+      events,
+      label: `${driver.provider} createSession terminal ordering`,
+    });
     assertSessionStartLifecycle({
       events,
       label: `${driver.provider} createSession lifecycle`,
@@ -98,6 +104,10 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       events,
       expectedInput: streamScenario.input,
       label: `${driver.provider} createSession input preservation`,
+    });
+    assertMessageCompletedLifecycle({
+      events,
+      label: `${driver.provider} createSession assistant completion`,
     });
 
     expect(streamedReference.provider).toBe(streamScenario.expectedSession.provider);
@@ -230,6 +240,10 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
         label: `${driver.provider} structured-output event providers`,
       });
     }
+    assertTerminalEventIsLast({
+      events,
+      label: `${driver.provider} structured-output terminal ordering`,
+    });
     assertSessionStartLifecycle({
       events,
       label: `${driver.provider} structured-output lifecycle`,
@@ -331,6 +345,10 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       expectedSession: streamScenario.expectedSession,
       label: `${driver.provider} resumeSession event sessions`,
     });
+    assertTerminalEventIsLast({
+      events,
+      label: `${driver.provider} resumeSession terminal ordering`,
+    });
     assertNoSessionStartedEvent({
       events,
       label: `${driver.provider} resumeSession lifecycle`,
@@ -339,6 +357,10 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       events,
       expectedInput: streamScenario.input,
       label: `${driver.provider} resumeSession input preservation`,
+    });
+    assertMessageCompletedLifecycle({
+      events,
+      label: `${driver.provider} resumeSession assistant completion`,
     });
 
     expect(streamedSession.reference).toEqual(streamScenario.expectedSession);
@@ -456,6 +478,10 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       expectedSession: streamScenario.expectedSession,
       label: `${driver.provider} resumeFork event sessions`,
     });
+    assertTerminalEventIsLast({
+      events,
+      label: `${driver.provider} resumeFork terminal ordering`,
+    });
     assertSessionStartLifecycle({
       events,
       label: `${driver.provider} resumeFork lifecycle`,
@@ -464,6 +490,10 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       events,
       expectedInput: streamScenario.input,
       label: `${driver.provider} resumeFork input preservation`,
+    });
+    assertMessageCompletedLifecycle({
+      events,
+      label: `${driver.provider} resumeFork assistant completion`,
     });
 
     expect(streamedSession.reference).toEqual(streamScenario.expectedSession);
@@ -557,6 +587,10 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
         label: `${driver.provider} provider failure event providers`,
       });
     }
+    assertTerminalEventIsLast({
+      events,
+      label: `${driver.provider} provider failure terminal ordering`,
+    });
     assertAgentErrorProvider({
       error: terminalEvent.error,
       expectedProvider: driver.provider,

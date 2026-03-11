@@ -21,12 +21,20 @@ export function mapCodexThreadEvent(params: {
   event: ThreadEvent;
   state: CodexTurnState;
   getSessionReference: GetSessionReference;
+  knownSessionReference: SessionReference | null;
 }): AgentEvent[] {
-  const { event, state, getSessionReference } = params;
+  const { event, state, getSessionReference, knownSessionReference } = params;
   const session = getSessionReference();
 
   switch (event.type) {
     case "thread.started":
+      if (
+        knownSessionReference?.provider === "codex" &&
+        knownSessionReference.sessionId === event.thread_id
+      ) {
+        return [];
+      }
+
       return [
         {
           type: "session.started",
