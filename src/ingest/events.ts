@@ -6,6 +6,7 @@ import type { ObservedEventSource } from "./source";
 import type { IngestWarning } from "./warnings";
 
 export type ObservedAgentEvent = {
+  kind: "event";
   event: AgentEvent;
   source: ObservedEventSource;
   observedSession: ObservedSessionIdentity | null;
@@ -13,3 +14,25 @@ export type ObservedAgentEvent = {
   cursor?: IngestCursor;
   warnings?: IngestWarning[];
 };
+
+export const OBSERVED_SESSION_REASONS = [
+  "bootstrap",
+  "index",
+  "snapshot",
+  "transcript",
+  "reconcile",
+] as const;
+
+export type ObservedSessionReason = (typeof OBSERVED_SESSION_REASONS)[number];
+
+export type ObservedSessionRecord = {
+  kind: "session";
+  observedSession: ObservedSessionIdentity;
+  source: ObservedEventSource;
+  completeness: ObservedEventCompleteness;
+  reason: ObservedSessionReason;
+  cursor?: IngestCursor;
+  warnings?: IngestWarning[];
+};
+
+export type ObservedIngestRecord = ObservedAgentEvent | ObservedSessionRecord;

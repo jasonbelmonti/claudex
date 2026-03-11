@@ -1,10 +1,23 @@
 import type { DiscoveryEvent, DiscoveryRootConfig } from "./discovery";
 import type { CursorStore } from "./cursor";
-import type { ObservedAgentEvent } from "./events";
+import type {
+  ObservedAgentEvent,
+  ObservedIngestRecord,
+  ObservedSessionRecord,
+} from "./events";
+import type { IngestProviderRegistry } from "./registry";
 import type { IngestWarning } from "./warnings";
+
+export type IngestRecordHandler = (
+  record: ObservedIngestRecord,
+) => Promise<void> | void;
 
 export type ObservedEventHandler = (
   observedEvent: ObservedAgentEvent,
+) => Promise<void> | void;
+
+export type ObservedSessionHandler = (
+  observedSession: ObservedSessionRecord,
 ) => Promise<void> | void;
 
 export type IngestWarningHandler = (
@@ -17,8 +30,11 @@ export type DiscoveryEventHandler = (
 
 export type SessionIngestServiceOptions = {
   roots: DiscoveryRootConfig[];
+  registries: IngestProviderRegistry[];
   cursorStore?: CursorStore;
+  onRecord?: IngestRecordHandler;
   onObservedEvent?: ObservedEventHandler;
+  onObservedSession?: ObservedSessionHandler;
   onWarning?: IngestWarningHandler;
   onDiscoveryEvent?: DiscoveryEventHandler;
 };
