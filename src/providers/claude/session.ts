@@ -11,7 +11,11 @@ import {
 } from "./provider-options";
 import { createClaudeSessionReference } from "./references";
 import { createClaudeTurnState } from "./state";
-import type { ClaudeQueryFactory, ClaudeSessionState } from "./types";
+import type {
+  ClaudeQueryFactory,
+  ClaudeQueryLike,
+  ClaudeSessionState,
+} from "./types";
 import { mapClaudeMessageEvent } from "./events";
 import { normalizeClaudeError } from "./errors";
 import { mergeClaudeProviderOptions } from "./provider-option-merge";
@@ -63,7 +67,7 @@ export class ClaudeSession implements AgentSession {
   ): AsyncGenerator<AgentEvent> {
     const turnState = createClaudeTurnState(input, options.outputSchema);
     let sawTerminalEvent = false;
-    let query;
+    let query: ClaudeQueryLike | undefined;
 
     try {
       const prompt = mapTurnInputToClaudePrompt(input);

@@ -1,11 +1,8 @@
 import type {
-  ItemCompletedEvent,
-  ItemStartedEvent,
-  ItemUpdatedEvent,
   ThreadEvent,
+  ThreadErrorEvent,
   TurnCompletedEvent as CodexTurnCompletedEvent,
   TurnFailedEvent as CodexTurnFailedEvent,
-  ThreadErrorEvent,
 } from "@openai/codex-sdk";
 
 import { AgentError } from "../../core/errors";

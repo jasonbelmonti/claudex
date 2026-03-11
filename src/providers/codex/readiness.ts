@@ -8,6 +8,7 @@ import { runCodexCommand } from "./command-runner";
 import type {
   CodexBinaryResolver,
   CodexCommandRunner,
+  CodexCommandResult,
 } from "./types";
 
 export const resolveCodexBinary: CodexBinaryResolver = async (
@@ -63,7 +64,7 @@ export async function checkCodexReadiness(options: {
     };
   }
 
-  let versionResult;
+  let versionResult: CodexCommandResult;
 
   try {
     versionResult = await commandRunner(binary, ["--version"]);
@@ -99,7 +100,7 @@ export async function checkCodexReadiness(options: {
   const capabilities = createCodexCapabilities({
     providerVersion,
   });
-  let authResult;
+  let authResult: CodexCommandResult;
 
   try {
     authResult = await commandRunner(binary, ["login", "status"]);

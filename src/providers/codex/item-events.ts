@@ -5,7 +5,6 @@ import type {
   ItemStartedEvent,
   ItemUpdatedEvent,
   McpToolCallItem,
-  ThreadItem,
   WebSearchItem,
 } from "@openai/codex-sdk";
 
