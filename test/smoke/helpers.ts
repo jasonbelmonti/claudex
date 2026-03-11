@@ -266,6 +266,11 @@ async function runSmokeStreamedTurn(params: {
     expectedProvider: params.provider,
     label: params.label,
   });
+  assertSmokeEventSessions({
+    events,
+    expectedSession: params.session.reference,
+    label: params.label,
+  });
   assertSmokeTurnStarted({
     events,
     expectedInput: params.input,
@@ -289,6 +294,16 @@ async function runSmokeStreamedTurn(params: {
       result: terminalEvent.result,
     },
   });
+  assertSmoke(
+    terminalEvent.result.session?.sessionId === params.session.reference?.sessionId,
+    `${params.provider} smoke stream returned the wrong session on the terminal result`,
+    {
+      label: params.label,
+      events,
+      result: terminalEvent.result,
+      session: params.session.reference,
+    },
+  );
 
   return {
     events,
@@ -341,6 +356,45 @@ function assertSmokeEventProviders(params: {
         {
           label: params.label,
           events: params.events,
+        },
+      );
+    }
+  }
+}
+
+function assertSmokeEventSessions(params: {
+  events: AgentEvent[];
+  expectedSession: { provider: ProviderId; sessionId: string } | null;
+  label: string;
+}): void {
+  assertSmoke(
+    params.expectedSession !== null,
+    `${params.label} did not mint or preserve a session reference during streaming`,
+    {
+      label: params.label,
+      events: params.events,
+    },
+  );
+
+  for (const event of params.events) {
+    assertSmoke(
+      event.session?.sessionId === params.expectedSession.sessionId,
+      `${params.label} emitted the wrong sessionId on an event`,
+      {
+        label: params.label,
+        events: params.events,
+        expectedSession: params.expectedSession,
+      },
+    );
+
+    if (event.type === "session.started") {
+      assertSmoke(
+        event.reference.sessionId === params.expectedSession.sessionId,
+        `${params.label} emitted the wrong sessionId on session.started`,
+        {
+          label: params.label,
+          events: params.events,
+          expectedSession: params.expectedSession,
         },
       );
     }

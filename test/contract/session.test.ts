@@ -160,6 +160,35 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
     if (runScenario.expectedResult.usage !== undefined) {
       expect(result.usage).toEqual(runScenario.expectedResult.usage);
     }
+
+    if (runScenario.resume) {
+      const resumedSession = await runAdapter.resumeSession(runReference);
+      const resumedResult = await resumedSession.run(
+        runScenario.resume.input,
+        runScenario.resume.turnOptions,
+      );
+
+      expect(resumedSession.reference).toEqual(runScenario.expectedSession);
+      expect(resumedResult.session).toEqual(runScenario.expectedSession);
+      expect(resumedResult.text).toBe(runScenario.resume.expectedResult.text);
+      assertTurnResultProvider({
+        result: resumedResult,
+        expectedProvider: driver.provider,
+        label: `${driver.provider} createSession resumed result provider`,
+      });
+
+      if (runScenario.resume.expectedResult.structuredOutput !== undefined) {
+        expect(resumedResult.structuredOutput).toEqual(
+          runScenario.resume.expectedResult.structuredOutput,
+        );
+      }
+
+      if (runScenario.resume.expectedResult.usage !== undefined) {
+        expect(resumedResult.usage).toEqual(
+          runScenario.resume.expectedResult.usage,
+        );
+      }
+    }
   });
 
   test(`${driver.provider} structured-output failures normalize to AgentError`, async () => {
@@ -188,11 +217,19 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       }),
     );
 
-    assertEventProvidersMatch({
-      events,
-      expectedProvider: driver.provider,
-      label: `${driver.provider} structured-output event providers`,
-    });
+    if (streamScenario.expectedSession) {
+      assertEventSessionsMatch({
+        events,
+        expectedSession: streamScenario.expectedSession,
+        label: `${driver.provider} structured-output event sessions`,
+      });
+    } else {
+      assertEventProvidersMatch({
+        events,
+        expectedProvider: driver.provider,
+        label: `${driver.provider} structured-output event providers`,
+      });
+    }
     assertSessionStartLifecycle({
       events,
       label: `${driver.provider} structured-output lifecycle`,
@@ -489,6 +526,15 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
         events,
       }),
     );
+    assertSessionStartLifecycle({
+      events,
+      label: `${driver.provider} provider failure lifecycle`,
+    });
+    assertTurnStartedEvent({
+      events,
+      expectedInput: streamScenario.input,
+      label: `${driver.provider} provider failure input preservation`,
+    });
     assertWithContext(
       terminalEvent?.type === "turn.failed",
       "Provider failures must end in turn.failed.",
@@ -498,11 +544,19 @@ for (const driver of CONTRACT_TEST_DRIVERS) {
       }),
     );
 
-    assertEventProvidersMatch({
-      events,
-      expectedProvider: driver.provider,
-      label: `${driver.provider} provider failure event providers`,
-    });
+    if (streamScenario.expectedSession) {
+      assertEventSessionsMatch({
+        events,
+        expectedSession: streamScenario.expectedSession,
+        label: `${driver.provider} provider failure event sessions`,
+      });
+    } else {
+      assertEventProvidersMatch({
+        events,
+        expectedProvider: driver.provider,
+        label: `${driver.provider} provider failure event providers`,
+      });
+    }
     assertAgentErrorProvider({
       error: terminalEvent.error,
       expectedProvider: driver.provider,

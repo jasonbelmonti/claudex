@@ -16,6 +16,15 @@ export type ContractTurnScenario = {
     structuredOutput?: unknown;
     usage?: TurnResult["usage"];
   };
+  resume?: {
+    input: TurnInput;
+    turnOptions?: TurnOptions;
+    expectedResult: {
+      text: string;
+      structuredOutput?: unknown;
+      usage?: TurnResult["usage"];
+    };
+  };
 };
 
 export type ContractResumeScenario = ContractTurnScenario & {

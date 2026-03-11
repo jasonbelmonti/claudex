@@ -121,6 +121,13 @@ export const CLAUDE_CONTRACT_DRIVER: ContractProviderDriver = {
               createAssistantMessage(NEW_SESSION_REFERENCE.sessionId, "created ok"),
               createSuccessResultMessage(NEW_SESSION_REFERENCE.sessionId, "created ok"),
             ]),
+            new FakeClaudeQuery([
+              createAssistantMessage(NEW_SESSION_REFERENCE.sessionId, "created resume ok"),
+              createSuccessResultMessage(
+                NEW_SESSION_REFERENCE.sessionId,
+                "created resume ok",
+              ),
+            ]),
           ]).create,
         }),
       input: {
@@ -141,6 +148,14 @@ export const CLAUDE_CONTRACT_DRIVER: ContractProviderDriver = {
             serviceTier: "standard",
             modelUsage: {},
           },
+        },
+      },
+      resume: {
+        input: {
+          prompt: "Continue the created session",
+        },
+        expectedResult: {
+          text: "created resume ok",
         },
       },
     }),

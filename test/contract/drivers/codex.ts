@@ -165,7 +165,34 @@ export const CODEX_CONTRACT_DRIVER: ContractProviderDriver = {
                 },
               ],
             ]),
-          ]),
+          ], {
+            [NEW_SESSION_REFERENCE.sessionId]: new FakeCodexThread(
+              [
+                [
+                  {
+                    type: "turn.started",
+                  },
+                  {
+                    type: "item.completed",
+                    item: {
+                      id: "message-2",
+                      type: "agent_message",
+                      text: "created resume ok",
+                    },
+                  },
+                  {
+                    type: "turn.completed",
+                    usage: {
+                      input_tokens: 2,
+                      cached_input_tokens: 0,
+                      output_tokens: 2,
+                    },
+                  },
+                ],
+              ],
+              NEW_SESSION_REFERENCE.sessionId,
+            ),
+          }),
         }),
       input: {
         prompt: "Reply with created ok",
@@ -188,6 +215,14 @@ export const CODEX_CONTRACT_DRIVER: ContractProviderDriver = {
             cachedInput: 0,
             output: 2,
           },
+        },
+      },
+      resume: {
+        input: {
+          prompt: "Continue the created session",
+        },
+        expectedResult: {
+          text: "created resume ok",
         },
       },
     }),
