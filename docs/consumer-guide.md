@@ -47,6 +47,11 @@ Practical guidance:
 - `needs_auth`: prompt the user to authenticate in the provider CLI
 - `error`: surface diagnostics and stop
 
+Important note:
+
+- `isProviderReady(readiness)` is a strict helper and returns `true` only for `ready`
+- if your console wants to allow `degraded` execution, branch on `readiness.status` directly as shown above
+
 ## 3. Prefer Capabilities Over Provider Name
 
 When behavior is optional, branch on capabilities instead of hard-coding `if (provider === "...")`.
