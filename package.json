@@ -3,6 +3,10 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./ingest": "./src/ingest/index.ts"
+  },
   "scripts": {
     "test": "bun test",
     "test:smoke": "CLAUDEX_SMOKE=1 bun test ./test/smoke/codex.smoke.ts ./test/smoke/claude.smoke.ts",
