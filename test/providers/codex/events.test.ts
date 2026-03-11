@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 
-import { AgentError } from "../../../src/core/errors";
 import { CodexAdapter } from "../../../src/providers/codex/adapter";
 import {
   FakeCodexClient,

@@ -7,14 +7,14 @@ import {
   looksLikeClaudeNeedsAuth,
   looksLikeMissingClaudeCli,
 } from "./errors";
-import type { ClaudeQueryFactory } from "./types";
+import type { ClaudeQueryFactory, ClaudeQueryLike } from "./types";
 
 export async function checkClaudeReadiness(params: {
   queryFactory: ClaudeQueryFactory;
   sdkOptions?: Partial<ClaudeSdkOptions>;
 }): Promise<ProviderReadiness> {
   const capabilities = createClaudeCapabilities();
-  let query;
+  let query: ClaudeQueryLike;
 
   try {
     query = params.queryFactory({
