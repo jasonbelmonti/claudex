@@ -8,8 +8,10 @@ import type {
 } from "claudex";
 import type {
   DiscoveryRootConfig,
+  IngestCursor,
   IngestParseContext,
   IngestProviderRegistry,
+  IngestWarning,
   ObservedAgentEvent,
   ObservedIngestRecord,
   ObservedSessionIdentity,
@@ -62,6 +64,8 @@ export function createObservedEventRecord(options: {
   filePath: string;
   root: DiscoveryRootConfig;
   sessionId: string;
+  cursor?: IngestCursor;
+  warnings?: IngestWarning[];
 }): ObservedAgentEvent {
   const observedSession: ObservedSessionIdentity = {
     provider: options.provider,
@@ -92,6 +96,8 @@ export function createObservedEventRecord(options: {
     },
     observedSession,
     completeness: "best-effort",
+    cursor: options.cursor,
+    warnings: options.warnings,
   };
 }
 
@@ -100,6 +106,8 @@ export function createObservedSessionRecord(options: {
   filePath: string;
   root: DiscoveryRootConfig;
   sessionId: string;
+  cursor?: IngestCursor;
+  warnings?: IngestWarning[];
 }): ObservedSessionRecord {
   return {
     kind: "session",
@@ -117,5 +125,7 @@ export function createObservedSessionRecord(options: {
     },
     completeness: "best-effort",
     reason: options.provider === "codex" ? "index" : "transcript",
+    cursor: options.cursor,
+    warnings: options.warnings,
   };
 }

@@ -1,7 +1,13 @@
 import { afterEach, expect, test } from "bun:test";
 import { join } from "node:path";
 
-import type { DiscoveryEvent, ObservedAgentEvent, ObservedSessionRecord } from "claudex/ingest";
+import type {
+  DiscoveryEvent,
+  IngestCursor,
+  IngestWarning,
+  ObservedAgentEvent,
+  ObservedSessionRecord,
+} from "claudex/ingest";
 import { createSessionIngestService } from "claudex/ingest";
 
 import {
@@ -123,6 +129,83 @@ test("scanNow dispatches matched files in deterministic order and fans out recor
     `file.discovered:${join(workspace, "codex", "session-index.idx")}`,
     `scan.completed:${codexRoot.path}`,
   ]);
+});
+
+test("scanNow persists the latest cursor and emits record warnings", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/progress.jsonl": "{\"ok\":true}\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const filePath = join(workspace, "claude", "progress.jsonl");
+  const expectedCursor: IngestCursor = {
+    provider: "claude",
+    rootPath: root.path,
+    filePath,
+    byteOffset: 42,
+    line: 2,
+  };
+  const expectedWarning: IngestWarning = {
+    code: "parse-failed",
+    message: "Recovered after a malformed line",
+    provider: "claude",
+    filePath,
+  };
+
+  let storedCursor: IngestCursor | null = null;
+  const parseCursors: (IngestCursor | null)[] = [];
+  const warnings: IngestWarning[] = [];
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        recordFactory(context) {
+          parseCursors.push(context.cursor);
+
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: "session-progress",
+              cursor: expectedCursor,
+              warnings: [expectedWarning],
+            }),
+          ];
+        },
+      }),
+    ],
+    cursorStore: {
+      async get() {
+        return storedCursor;
+      },
+      async set(cursor) {
+        storedCursor = cursor;
+      },
+      async delete() {},
+    },
+    onWarning(warning) {
+      warnings.push(warning);
+    },
+  });
+
+  await service.scanNow();
+  await service.scanNow();
+
+  if (!storedCursor) {
+    throw new Error("Expected scanNow() to persist the latest cursor");
+  }
+
+  expect(storedCursor as IngestCursor).toEqual(expectedCursor);
+  expect(parseCursors).toEqual([null, expectedCursor]);
+  expect(warnings).toEqual([expectedWarning, expectedWarning]);
 });
 
 test("scanNow emits root.skipped for missing roots and ignores unmatched files", async () => {
