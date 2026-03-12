@@ -6,6 +6,7 @@ import { readCursorContinuityToken } from "./cursor-continuity";
 export type SourceFileState = {
   size: number;
   fingerprint: string;
+  revision: string;
   continuityToken: string | null;
 };
 
@@ -13,7 +14,7 @@ export async function readSourceFileState(
   filePath: string,
   cursor: Pick<IngestCursor, "byteOffset"> | null = null,
 ): Promise<SourceFileState | null> {
-  const fileStats = await stat(filePath).catch(() => null);
+  const fileStats = await stat(filePath, { bigint: true }).catch(() => null);
 
   if (!fileStats?.isFile()) {
     return null;
@@ -21,7 +22,7 @@ export async function readSourceFileState(
 
   const continuityToken = await resolveContinuityToken(
     filePath,
-    fileStats.size,
+    Number(fileStats.size),
     cursor,
   ).catch(() => undefined);
 
@@ -30,8 +31,9 @@ export async function readSourceFileState(
   }
 
   return {
-    size: fileStats.size,
+    size: Number(fileStats.size),
     fingerprint: `${fileStats.dev}:${fileStats.ino}`,
+    revision: `${fileStats.mtimeNs}:${fileStats.ctimeNs}:${fileStats.size}`,
     continuityToken,
   };
 }

@@ -19,17 +19,55 @@ export function createSessionIngestService(
 
 class DefaultSessionIngestService implements SessionIngestService {
   readonly roots: DiscoveryRootConfig[];
+  private isStarted = false;
+  private lifecycleToken = 0;
+  private startPromise: Promise<void> | null = null;
 
   constructor(private readonly options: SessionIngestServiceOptions) {
     this.roots = [...options.roots];
   }
 
-  async start(): Promise<void> {}
+  async start(): Promise<void> {
+    if (this.isStarted) {
+      return this.startPromise ?? Promise.resolve();
+    }
 
-  async stop(): Promise<void> {}
+    this.isStarted = true;
+    const token = ++this.lifecycleToken;
+    const startPromise = this.runScan(token)
+      .catch((error) => {
+        if (this.lifecycleToken === token) {
+          this.isStarted = false;
+          this.lifecycleToken += 1;
+        }
+
+        throw error;
+      })
+      .finally(() => {
+        if (this.startPromise === startPromise) {
+          this.startPromise = null;
+        }
+      });
+    this.startPromise = startPromise;
+    await startPromise;
+  }
 
   async scanNow(): Promise<void> {
+    await this.runScan();
+  }
+
+  async stop(): Promise<void> {
+    this.isStarted = false;
+    this.lifecycleToken += 1;
+    await this.startPromise;
+  }
+
+  private async runScan(lifecycleToken?: number): Promise<void> {
     for (const root of this.roots) {
+      if (this.shouldAbortLifecycleRun(lifecycleToken)) {
+        return;
+      }
+
       await this.emitDiscoveryEvent({
         type: "scan.started",
         provider: root.provider,
@@ -51,6 +89,10 @@ class DefaultSessionIngestService implements SessionIngestService {
       }
 
       for (const filePath of files) {
+        if (this.shouldAbortLifecycleRun(lifecycleToken)) {
+          return;
+        }
+
         const selection = selectRegistryForFile(this.options.registries, root, filePath);
 
         if (!selection) {
@@ -192,6 +234,10 @@ class DefaultSessionIngestService implements SessionIngestService {
     await this.options.onWarning?.(warning);
   }
 
+  private shouldAbortLifecycleRun(lifecycleToken?: number): boolean {
+    return lifecycleToken !== undefined && lifecycleToken !== this.lifecycleToken;
+  }
+
   private async buildPersistedCursor(options: {
     cursor: IngestCursor;
     filePath: string;
@@ -213,6 +259,7 @@ class DefaultSessionIngestService implements SessionIngestService {
 
     if (
       postParseState.fingerprint !== options.preParseState.fingerprint ||
+      postParseState.revision !== options.preParseState.revision ||
       options.cursor.byteOffset > postParseState.size ||
       (options.cursor.byteOffset > 0 && !postParseState.continuityToken)
     ) {
