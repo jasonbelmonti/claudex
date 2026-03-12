@@ -34,7 +34,7 @@ export async function readSourceFileState(
     size: fileStats.size,
     fingerprint: `${fileStats.dev}:${fileStats.ino}`,
     continuityToken,
-    modifiedAtMs: fileStats.mtimeMs,
+    modifiedAtMs: Number(fileStats.mtimeMs),
   };
 }
 
