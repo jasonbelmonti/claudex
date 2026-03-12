@@ -92,9 +92,12 @@ test("scanNow resets legacy cursors that do not have fingerprints", async () => 
   }
 });
 
-test("scanNow resets cursors when same-inode files are rewritten before the stored offset", async () => {
+test("scanNow resets cursors when same-inode rewrites change bytes before the cursor", async () => {
+  const unchangedSuffix = "b".repeat(64);
+  const initialContents = `${"a".repeat(16)}${unchangedSuffix}`;
+  const rewrittenContents = `${"c".repeat(16)}${unchangedSuffix}`;
   const workspace = await createFixtureWorkspace({
-    "claude/copytruncate.jsonl": "abcdef\n",
+    "claude/copytruncate.jsonl": initialContents,
   });
 
   try {
@@ -107,6 +110,7 @@ test("scanNow resets cursors when same-inode files are rewritten before the stor
     const parseCursors: (IngestCursor | null)[] = [];
     const warnings: IngestWarning[] = [];
     let storedCursor: IngestCursor | null = null;
+    const readStoredCursor = (): IngestCursor | null => storedCursor;
 
     const service = createSessionIngestService({
       roots: [root],
@@ -127,7 +131,7 @@ test("scanNow resets cursors when same-inode files are rewritten before the stor
                   provider: "claude",
                   rootPath: root.path,
                   filePath: context.filePath,
-                  byteOffset: 7,
+                  byteOffset: initialContents.length,
                   line: 1,
                 },
               }),
@@ -153,13 +157,19 @@ test("scanNow resets cursors when same-inode files are rewritten before the stor
 
     await service.scanNow();
     await truncateFile(filePath, 0);
-    await Bun.write(filePath, "0123456789\n");
+    await Bun.write(filePath, rewrittenContents);
     await service.scanNow();
 
     expect(parseCursors).toEqual([null, null]);
     expect(warnings.map((warning) => warning.code)).toEqual(["cursor-reset"]);
-    expect(storedCursor?.byteOffset).toBe(7);
-    expect(storedCursor?.continuityToken).toBeDefined();
+    const refreshedCursor = readStoredCursor();
+
+    if (!refreshedCursor) {
+      throw new Error("Expected copy-truncate recovery to persist a refreshed cursor");
+    }
+
+    expect(refreshedCursor.byteOffset).toBe(initialContents.length);
+    expect(refreshedCursor.continuityToken).toBeDefined();
   } finally {
     await removeFixtureWorkspace(workspace);
   }
@@ -180,6 +190,7 @@ test("scanNow does not persist stale fingerprints when files rotate during parsi
     const parseCursors: (IngestCursor | null)[] = [];
     const warnings: IngestWarning[] = [];
     let storedCursor: IngestCursor | null = null;
+    const readStoredCursor = (): IngestCursor | null => storedCursor;
     let rotateBeforeParse = true;
 
     const service = createSessionIngestService({
@@ -234,14 +245,20 @@ test("scanNow does not persist stale fingerprints when files rotate during parsi
     });
 
     await service.scanNow();
-    expect(storedCursor).toBeNull();
+    expect(readStoredCursor()).toBeNull();
 
     await service.scanNow();
 
     expect(parseCursors).toEqual([null, null]);
     expect(warnings.map((warning) => warning.code)).toEqual(["cursor-reset"]);
-    expect(storedCursor?.fingerprint).toBeDefined();
-    expect(storedCursor?.continuityToken).toBeDefined();
+    const refreshedCursor = readStoredCursor();
+
+    if (!refreshedCursor) {
+      throw new Error("Expected the follow-up scan to persist a refreshed cursor");
+    }
+
+    expect(refreshedCursor.fingerprint).toBeDefined();
+    expect(refreshedCursor.continuityToken).toBeDefined();
   } finally {
     await removeFixtureWorkspace(workspace);
   }
