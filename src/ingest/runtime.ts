@@ -242,7 +242,6 @@ class DefaultSessionIngestService implements SessionIngestService {
 
     if (
       postParseState.fingerprint !== options.preParseState.fingerprint ||
-      postParseState.modifiedAtMs !== options.preParseState.modifiedAtMs ||
       options.cursor.byteOffset > postParseState.size ||
       (options.cursor.byteOffset > 0 && !postParseState.continuityToken) ||
       !preParseContinuityMatches

@@ -257,6 +257,98 @@ test("scanNow persists the latest cursor, skips unchanged files, and emits recor
   expect(warnings).toEqual([expectedWarning]);
 });
 
+test("scanNow advances the cursor when an active file appends during parsing", async () => {
+  const initialContents = "abcdef\n";
+  const appendedContents = "ghijk\n";
+  const initialCursorByteOffset = 3;
+  const workspace = await createFixtureWorkspace({
+    "claude/active-progress.jsonl": initialContents,
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const filePath = join(workspace, "claude", "active-progress.jsonl");
+
+  let nextByteOffset = initialCursorByteOffset;
+  let appendBeforeParse = false;
+  const parseCursors: (IngestCursor | null)[] = [];
+  const warnings: IngestWarning[] = [];
+  let storedCursor: IngestCursor | null = null;
+  const readStoredCursor = (): IngestCursor | null => storedCursor;
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        async beforeParse(context) {
+          if (!appendBeforeParse) {
+            return;
+          }
+
+          appendBeforeParse = false;
+          await Bun.write(context.filePath, `${initialContents}${appendedContents}`);
+        },
+        recordFactory(context) {
+          parseCursors.push(context.cursor);
+
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: "session-active-progress",
+              cursor: {
+                provider: "claude",
+                rootPath: root.path,
+                filePath: context.filePath,
+                byteOffset: nextByteOffset,
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    cursorStore: {
+      async get() {
+        return storedCursor;
+      },
+      async set(cursor) {
+        storedCursor = cursor;
+      },
+      async delete() {
+        storedCursor = null;
+      },
+    },
+    onWarning(warning) {
+      warnings.push(warning);
+    },
+  });
+
+  await service.scanNow();
+
+  nextByteOffset = initialContents.length + appendedContents.length;
+  appendBeforeParse = true;
+  await service.scanNow();
+  await service.scanNow();
+
+  const persistedCursor = readStoredCursor();
+
+  if (!persistedCursor) {
+    throw new Error("Expected scanNow() to persist appended progress");
+  }
+
+  expect(parseCursors.map((cursor) => cursor?.byteOffset ?? null)).toEqual([null, initialCursorByteOffset]);
+  expect(persistedCursor.filePath).toBe(filePath);
+  expect(persistedCursor.byteOffset).toBe(initialContents.length + appendedContents.length);
+  expect(warnings).toEqual([]);
+});
+
 test("scanNow resets the cursor and reprocesses truncated files", async () => {
   const workspace = await createFixtureWorkspace({
     "claude/truncate.jsonl": "abcdef\n",

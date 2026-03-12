@@ -38,13 +38,18 @@ export async function consumeParsedRecords(options: {
 
     try {
       await options.onRecord(nextRecord.value);
-    } catch (error) {
-      await iterator.return?.();
+    } catch (consumerError) {
+      try {
+        await iterator.return?.();
+      } catch {
+        // Preserve the original consumer failure and the last committed cursor
+        // even when iterator cleanup also fails.
+      }
 
       return {
         latestCursor,
         parseError: null,
-        consumerError: error,
+        consumerError,
       };
     }
 
