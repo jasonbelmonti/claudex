@@ -1,7 +1,7 @@
-import type { IngestCursorKey } from "./cursor";
+import type { IngestCursor, IngestCursorKey } from "./cursor";
 import { resolveCursorRecovery } from "./cursor-recovery";
 import type { DiscoveryEvent, DiscoveryRootConfig } from "./discovery";
-import { readSourceFileState } from "./file-state";
+import { readSourceFileState, type SourceFileState } from "./file-state";
 import { listDiscoveryRootFiles } from "./root-files";
 import { selectRegistryForFile } from "./registry-selection";
 import { dispatchObservedRecord } from "./record-dispatch";
@@ -78,7 +78,7 @@ class DefaultSessionIngestService implements SessionIngestService {
           filePath,
         };
         const storedCursor = (await this.options.cursorStore?.get(cursorKey)) ?? null;
-        const fileState = await readSourceFileState(filePath);
+        const fileState = await readSourceFileState(filePath, storedCursor);
 
         if (!fileState) {
           await this.emitWarning({
@@ -88,7 +88,6 @@ class DefaultSessionIngestService implements SessionIngestService {
             filePath,
             source,
           });
-          await this.options.cursorStore?.delete(cursorKey);
           continue;
         }
 
@@ -135,12 +134,17 @@ class DefaultSessionIngestService implements SessionIngestService {
           });
         }
 
-        if (latestCursor) {
-          await this.options.cursorStore?.set({
-            ...latestCursor,
-            fingerprint: fileState.fingerprint,
-            updatedAt: new Date().toISOString(),
-          });
+        const persistedCursor = latestCursor
+          ? await this.buildPersistedCursor({
+              cursor: latestCursor,
+              filePath,
+              preParseState: fileState,
+              source,
+            })
+          : null;
+
+        if (persistedCursor) {
+          await this.options.cursorStore?.set(persistedCursor);
         } else if (shouldClearStoredCursor) {
           await this.options.cursorStore?.delete(cursorKey);
         }
@@ -165,5 +169,47 @@ class DefaultSessionIngestService implements SessionIngestService {
 
   private async emitWarning(warning: IngestWarning): Promise<void> {
     await this.options.onWarning?.(warning);
+  }
+
+  private async buildPersistedCursor(options: {
+    cursor: IngestCursor;
+    filePath: string;
+    preParseState: SourceFileState;
+    source: ObservedEventSource;
+  }): Promise<IngestCursor | null> {
+    const postParseState = await readSourceFileState(options.filePath, options.cursor);
+
+    if (!postParseState) {
+      await this.emitWarning({
+        code: "file-open-failed",
+        message: "File disappeared or is no longer readable while updating the cursor",
+        provider: options.source.provider,
+        filePath: options.source.filePath,
+        source: options.source,
+      });
+      return null;
+    }
+
+    if (
+      postParseState.fingerprint !== options.preParseState.fingerprint ||
+      options.cursor.byteOffset > postParseState.size ||
+      (options.cursor.byteOffset > 0 && !postParseState.continuityToken)
+    ) {
+      await this.emitWarning({
+        code: "cursor-reset",
+        message: "File changed while parsing; not persisting the cursor",
+        provider: options.source.provider,
+        filePath: options.source.filePath,
+        source: options.source,
+      });
+      return null;
+    }
+
+    return {
+      ...options.cursor,
+      fingerprint: postParseState.fingerprint,
+      continuityToken: postParseState.continuityToken ?? undefined,
+      updatedAt: new Date().toISOString(),
+    };
   }
 }

@@ -40,6 +40,20 @@ export function resolveCursorRecovery(options: {
     };
   }
 
+  if (storedCursor.byteOffset > 0 && !storedCursor.continuityToken) {
+    return {
+      cursor: null,
+      skip: false,
+      warnings: [
+        createCursorWarning(
+          "cursor-reset",
+          "Stored cursor is missing continuity state; resetting cursor",
+          source,
+        ),
+      ],
+    };
+  }
+
   if (storedCursor.fingerprint !== fileState.fingerprint) {
     return {
       cursor: null,
@@ -53,6 +67,24 @@ export function resolveCursorRecovery(options: {
       cursor: null,
       skip: false,
       warnings: [createCursorWarning("truncated-file", "File shrank below stored cursor; resetting cursor", source)],
+    };
+  }
+
+  if (
+    storedCursor.byteOffset > 0 &&
+    storedCursor.continuityToken &&
+    storedCursor.continuityToken !== fileState.continuityToken
+  ) {
+    return {
+      cursor: null,
+      skip: false,
+      warnings: [
+        createCursorWarning(
+          "cursor-reset",
+          "File contents before the stored cursor changed; resetting cursor",
+          source,
+        ),
+      ],
     };
   }
 
