@@ -7,6 +7,7 @@ import type {
   ProviderId,
 } from "claudex";
 import type {
+  DiscoveryPhase,
   DiscoveryRootConfig,
   IngestCursor,
   IngestParseContext,
@@ -43,6 +44,30 @@ export async function rotateFile(filePath: string, nextContents: string): Promis
 
 export async function truncateFile(filePath: string, size: number): Promise<void> {
   await truncate(filePath, size);
+}
+
+export async function deleteFile(filePath: string): Promise<void> {
+  await rm(filePath, { force: true });
+}
+
+export async function waitForCondition(
+  predicate: () => boolean | Promise<boolean>,
+  options: {
+    timeoutMs?: number;
+    pollIntervalMs?: number;
+  } = {},
+): Promise<void> {
+  const timeoutMs = options.timeoutMs ?? 2_000;
+  const pollIntervalMs = options.pollIntervalMs ?? 20;
+  const startedAt = Date.now();
+
+  while (!(await predicate())) {
+    if (Date.now() - startedAt >= timeoutMs) {
+      throw new Error(`Timed out waiting for condition after ${timeoutMs}ms`);
+    }
+
+    await Bun.sleep(pollIntervalMs);
+  }
 }
 
 export function createRegistry(options: {
@@ -82,6 +107,7 @@ export function createObservedEventRecord(options: {
   filePath: string;
   root: DiscoveryRootConfig;
   sessionId: string;
+  discoveryPhase?: DiscoveryPhase;
   cursor?: IngestCursor;
   warnings?: IngestWarning[];
 }): ObservedAgentEvent {
@@ -108,7 +134,7 @@ export function createObservedEventRecord(options: {
     source: {
       provider: options.provider,
       kind: options.provider === "codex" ? "session-index" : "transcript",
-      discoveryPhase: "initial_scan",
+      discoveryPhase: options.discoveryPhase ?? "initial_scan",
       rootPath: options.root.path,
       filePath: options.filePath,
     },
@@ -124,6 +150,7 @@ export function createObservedSessionRecord(options: {
   filePath: string;
   root: DiscoveryRootConfig;
   sessionId: string;
+  discoveryPhase?: DiscoveryPhase;
   cursor?: IngestCursor;
   warnings?: IngestWarning[];
 }): ObservedSessionRecord {
@@ -137,7 +164,7 @@ export function createObservedSessionRecord(options: {
     source: {
       provider: options.provider,
       kind: options.provider === "codex" ? "session-index" : "transcript",
-      discoveryPhase: "initial_scan",
+      discoveryPhase: options.discoveryPhase ?? "initial_scan",
       rootPath: options.root.path,
       filePath: options.filePath,
     },

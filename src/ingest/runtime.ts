@@ -1,20 +1,19 @@
-import type { IngestCursor, IngestCursorKey } from "./cursor";
-import { resolveCursorRecovery } from "./cursor-recovery";
+import type { IngestCursorKey } from "./cursor";
 import type { DiscoveryEvent, DiscoveryRootConfig } from "./discovery";
-import type { ObservedIngestRecord } from "./events";
-import { readSourceFileState, type SourceFileState } from "./file-state";
-import { listDiscoveryRootFiles } from "./root-files";
-import { consumeParsedRecords } from "./record-consumption";
-import { selectRegistryForFile } from "./registry-selection";
-import { dispatchObservedRecord } from "./record-dispatch";
-import type { ObservedEventSource } from "./source";
+import { resolveActiveDiscoveryRoots, type SkippedDiscoveryRoot } from "./duplicate-roots";
+import { listMatchedRootFiles } from "./matched-root-files";
+import { processMatchedFile } from "./process-file";
+import {
+  createRootSnapshot,
+  reconcileRootSnapshot,
+  type RootSnapshot,
+} from "./reconcile";
+import type { DiscoveryPhase } from "./source";
 import type { SessionIngestService, SessionIngestServiceOptions } from "./service";
 import type { IngestWarning } from "./warnings";
+import { createIngestWatchLoop, type IngestWatchLoop } from "./watch-loop";
 
-type ContinuityCheckpoint = {
-  byteOffset: number;
-  continuityToken: string;
-};
+const DEFAULT_WATCH_INTERVAL_MS = 250;
 
 export function createSessionIngestService(
   options: SessionIngestServiceOptions,
@@ -25,174 +24,268 @@ export function createSessionIngestService(
 class DefaultSessionIngestService implements SessionIngestService {
   readonly roots: DiscoveryRootConfig[];
 
+  private readonly activeRoots: DiscoveryRootConfig[];
+  private readonly skippedRoots: SkippedDiscoveryRoot[];
+  private readonly rootSnapshots = new Map<string, RootSnapshot>();
+  private duplicateRootsEmitted = false;
+  private watchLoop: IngestWatchLoop | null = null;
+  private started = false;
+  private operationQueue: Promise<void> = Promise.resolve();
+
   constructor(private readonly options: SessionIngestServiceOptions) {
     this.roots = [...options.roots];
+
+    const resolvedRoots = resolveActiveDiscoveryRoots(this.roots);
+
+    this.activeRoots = resolvedRoots.activeRoots;
+    this.skippedRoots = resolvedRoots.skippedRoots;
   }
 
-  async start(): Promise<void> {}
+  async start(): Promise<void> {
+    await this.runSerialized(async () => {
+      if (this.started) {
+        return;
+      }
 
-  async stop(): Promise<void> {}
+      this.started = true;
+
+      await this.emitSkippedRoots();
+
+      const watchRoots = this.activeRoots.filter((root) => root.watch);
+
+      for (const root of watchRoots) {
+        await this.emitDiscoveryEvent({
+          type: "watch.started",
+          provider: root.provider,
+          rootPath: root.path,
+          discoveryPhase: "watch",
+        });
+      }
+
+      if (watchRoots.length > 0) {
+        await this.scanRoots(watchRoots, "initial_scan");
+        this.watchLoop = createIngestWatchLoop({
+          intervalMs: this.options.watchIntervalMs ?? DEFAULT_WATCH_INTERVAL_MS,
+          onTick: async () => {
+            await this.runSerialized(async () => {
+              await this.reconcileRoots(watchRoots, "watch");
+            });
+          },
+        });
+      }
+    });
+  }
+
+  async stop(): Promise<void> {
+    const wasStarted = this.started;
+    const watchLoop = this.watchLoop;
+
+    this.started = false;
+    this.watchLoop = null;
+
+    await watchLoop?.stop();
+
+    await this.runSerialized(async () => {
+      if (!wasStarted) {
+        return;
+      }
+
+      const watchRoots = this.activeRoots.filter((root) => root.watch);
+
+      for (const root of watchRoots) {
+        await this.emitDiscoveryEvent({
+          type: "watch.stopped",
+          provider: root.provider,
+          rootPath: root.path,
+          discoveryPhase: "watch",
+        });
+      }
+    });
+  }
 
   async scanNow(): Promise<void> {
-    for (const root of this.roots) {
+    await this.runSerialized(async () => {
+      await this.emitSkippedRoots();
+      await this.scanRoots(this.activeRoots, "initial_scan");
+    });
+  }
+
+  async reconcileNow(): Promise<void> {
+    await this.runSerialized(async () => {
+      await this.emitSkippedRoots();
+      await this.reconcileRoots(this.activeRoots, "reconcile");
+    });
+  }
+
+  private async scanRoots(
+    roots: DiscoveryRootConfig[],
+    discoveryPhase: Extract<DiscoveryPhase, "initial_scan">,
+  ): Promise<void> {
+    for (const root of roots) {
       await this.emitDiscoveryEvent({
         type: "scan.started",
         provider: root.provider,
         rootPath: root.path,
-        discoveryPhase: "initial_scan",
+        discoveryPhase,
       });
 
-      const files = await listDiscoveryRootFiles(root).catch(() => null);
+      const matchedFiles = await listMatchedRootFiles(root, this.options.registries);
 
-      if (!files) {
-        await this.emitDiscoveryEvent({
-          type: "root.skipped",
-          provider: root.provider,
-          rootPath: root.path,
-          discoveryPhase: "initial_scan",
-          detail: "Root path is missing or unreadable",
-        });
+      if (!matchedFiles) {
+        await this.handleMissingRoot(root, discoveryPhase);
         continue;
       }
 
-      for (const filePath of files) {
-        const selection = selectRegistryForFile(this.options.registries, root, filePath);
-
-        if (!selection) {
-          continue;
-        }
-
-        const source: ObservedEventSource = {
-          provider: root.provider,
-          kind: selection.match.kind,
-          discoveryPhase: "initial_scan",
-          rootPath: root.path,
-          filePath,
-          metadata: selection.match.metadata,
-        };
-
-        await this.emitDiscoveryEvent({
-          type: "file.discovered",
-          provider: root.provider,
-          rootPath: root.path,
-          filePath,
-          discoveryPhase: "initial_scan",
+      for (const file of matchedFiles) {
+        await processMatchedFile({
+          root,
+          filePath: file.filePath,
+          selection: file.selection,
+          discoveryPhase,
+          discoveryEventType: "file.discovered",
+          serviceOptions: this.options,
         });
-
-        const cursorKey: IngestCursorKey = {
-          provider: root.provider,
-          rootPath: root.path,
-          filePath,
-        };
-        const storedCursor = (await this.options.cursorStore?.get(cursorKey)) ?? null;
-        const fileState = await readSourceFileState(filePath, storedCursor);
-
-        if (!fileState) {
-          await this.emitWarning({
-            code: "file-open-failed",
-            message: "File disappeared or is no longer readable",
-            provider: root.provider,
-            filePath,
-            source,
-          });
-          continue;
-        }
-
-        const recovery = resolveCursorRecovery({
-          storedCursor,
-          fileState,
-          source,
-        });
-
-        for (const warning of recovery.warnings) {
-          await this.emitWarning(warning);
-        }
-
-        if (recovery.skip) {
-          continue;
-        }
-
-        const preParseContinuity = await this.capturePreParseContinuity({
-          cursor: recovery.cursor,
-          filePath,
-          fileState,
-          source,
-        });
-
-        let latestCursor = recovery.cursor;
-        let shouldClearStoredCursor = storedCursor !== null && recovery.cursor === null;
-        let parseError: unknown = null;
-        let consumerError: unknown = null;
-        let records: AsyncIterable<ObservedIngestRecord> | null = null;
-
-        try {
-          records = await selection.registry.parseFile({
-            root,
-            filePath,
-            discoveryPhase: "initial_scan",
-            cursor: recovery.cursor,
-            match: selection.match,
-          });
-        } catch (error) {
-          parseError = error;
-        }
-
-        if (records) {
-          const consumption = await consumeParsedRecords({
-            initialCursor: recovery.cursor,
-            records,
-            onRecord: async (record) => {
-              await dispatchObservedRecord(this.options, record);
-            },
-          });
-
-          latestCursor = consumption.latestCursor;
-          parseError = consumption.parseError;
-          consumerError = consumption.consumerError;
-          shouldClearStoredCursor = shouldClearStoredCursor && latestCursor === null;
-        }
-
-        if (parseError) {
-          await this.emitWarning({
-            code: "parse-failed",
-            message: "Registry parser failed while processing the file",
-            provider: root.provider,
-            filePath,
-            source,
-            cause: parseError,
-          });
-        }
-
-        const persistedCursor = latestCursor
-          ? await this.buildPersistedCursor({
-            cursor: latestCursor,
-            filePath,
-            preParseContinuity,
-            preParseState: fileState,
-            source,
-          })
-          : null;
-
-        if (persistedCursor) {
-          await this.options.cursorStore?.set(persistedCursor);
-        } else if (shouldClearStoredCursor) {
-          await this.options.cursorStore?.delete(cursorKey);
-        }
-
-        if (parseError) {
-          continue;
-        }
-
-        if (consumerError) {
-          throw consumerError;
-        }
       }
+
+      this.rootSnapshots.set(toRootSnapshotKey(root), createRootSnapshot(matchedFiles));
 
       await this.emitDiscoveryEvent({
         type: "scan.completed",
         provider: root.provider,
         rootPath: root.path,
+        discoveryPhase,
+      });
+    }
+  }
+
+  private async reconcileRoots(
+    roots: DiscoveryRootConfig[],
+    discoveryPhase: Extract<DiscoveryPhase, "reconcile" | "watch">,
+  ): Promise<void> {
+    for (const root of roots) {
+      if (discoveryPhase === "reconcile") {
+        await this.emitDiscoveryEvent({
+          type: "reconcile.started",
+          provider: root.provider,
+          rootPath: root.path,
+          discoveryPhase,
+        });
+      }
+
+      const matchedFiles = await listMatchedRootFiles(root, this.options.registries);
+
+      if (!matchedFiles) {
+        await this.handleMissingRoot(root, discoveryPhase);
+
+        if (discoveryPhase === "reconcile") {
+          await this.emitDiscoveryEvent({
+            type: "reconcile.completed",
+            provider: root.provider,
+            rootPath: root.path,
+            discoveryPhase,
+          });
+        }
+
+        continue;
+      }
+
+      const snapshotKey = toRootSnapshotKey(root);
+      const result = reconcileRootSnapshot(this.rootSnapshots.get(snapshotKey), matchedFiles);
+
+      for (const file of result.discoveredFiles) {
+        await processMatchedFile({
+          root,
+          filePath: file.filePath,
+          selection: file.selection,
+          discoveryPhase,
+          discoveryEventType: "file.discovered",
+          serviceOptions: this.options,
+        });
+      }
+
+      for (const file of result.changedFiles) {
+        await processMatchedFile({
+          root,
+          filePath: file.filePath,
+          selection: file.selection,
+          discoveryPhase,
+          discoveryEventType: "file.changed",
+          serviceOptions: this.options,
+        });
+      }
+
+      for (const file of result.deletedFiles) {
+        await this.handleDeletedFile(root, file.filePath, discoveryPhase);
+      }
+
+      this.rootSnapshots.set(snapshotKey, result.nextSnapshot);
+
+      if (discoveryPhase === "reconcile") {
+        await this.emitDiscoveryEvent({
+          type: "reconcile.completed",
+          provider: root.provider,
+          rootPath: root.path,
+          discoveryPhase,
+        });
+      }
+    }
+  }
+
+  private async handleDeletedFile(
+    root: DiscoveryRootConfig,
+    filePath: string,
+    discoveryPhase: Extract<DiscoveryPhase, "reconcile" | "watch">,
+  ): Promise<void> {
+    const cursorKey: IngestCursorKey = {
+      provider: root.provider,
+      rootPath: root.path,
+      filePath,
+    };
+
+    await this.options.cursorStore?.delete(cursorKey);
+    await this.emitDiscoveryEvent({
+      type: "file.deleted",
+      provider: root.provider,
+      rootPath: root.path,
+      filePath,
+      discoveryPhase,
+    });
+  }
+
+  private async handleMissingRoot(
+    root: DiscoveryRootConfig,
+    discoveryPhase: DiscoveryPhase,
+  ): Promise<void> {
+    await this.emitDiscoveryEvent({
+      type: "root.skipped",
+      provider: root.provider,
+      rootPath: root.path,
+      discoveryPhase,
+      detail: "Root path is missing or unreadable",
+    });
+  }
+
+  private async emitSkippedRoots(): Promise<void> {
+    if (this.duplicateRootsEmitted) {
+      return;
+    }
+
+    this.duplicateRootsEmitted = true;
+
+    for (const skippedRoot of this.skippedRoots) {
+      await this.emitWarning({
+        code: "duplicate-root",
+        message: skippedRoot.detail,
+        provider: skippedRoot.root.provider,
+        filePath: skippedRoot.root.path,
+      });
+
+      await this.emitDiscoveryEvent({
+        type: "root.skipped",
+        provider: skippedRoot.root.provider,
+        rootPath: skippedRoot.root.path,
         discoveryPhase: "initial_scan",
+        detail: skippedRoot.detail,
       });
     }
   }
@@ -205,139 +298,18 @@ class DefaultSessionIngestService implements SessionIngestService {
     await this.options.onWarning?.(warning);
   }
 
-  private async buildPersistedCursor(options: {
-    cursor: IngestCursor;
-    preParseContinuity: ContinuityCheckpoint | null | undefined;
-    filePath: string;
-    preParseState: SourceFileState;
-    source: ObservedEventSource;
-  }): Promise<IngestCursor | null> {
-    if (options.preParseContinuity === undefined) {
-      return null;
-    }
+  private runSerialized<T>(operation: () => Promise<T>): Promise<T> {
+    const nextOperation = this.operationQueue.then(operation, operation);
 
-    const postParseState = await readSourceFileState(options.filePath, options.cursor);
-
-    if (!postParseState) {
-      await this.emitWarning({
-        code: "file-open-failed",
-        message: "File disappeared or is no longer readable while updating the cursor",
-        provider: options.source.provider,
-        filePath: options.source.filePath,
-        source: options.source,
-      });
-      return null;
-    }
-
-    const preParseContinuityMatches = await this.preParseContinuityMatches({
-      filePath: options.filePath,
-      preParseContinuity: options.preParseContinuity,
-      preParseState: options.preParseState,
-      source: options.source,
-    });
-
-    if (preParseContinuityMatches === null) {
-      return null;
-    }
-
-    if (
-      postParseState.fingerprint !== options.preParseState.fingerprint ||
-      options.cursor.byteOffset > postParseState.size ||
-      (options.cursor.byteOffset > 0 && !postParseState.continuityToken) ||
-      !preParseContinuityMatches
-    ) {
-      await this.emitWarning({
-        code: "cursor-reset",
-        message: "File changed while parsing; not persisting the cursor",
-        provider: options.source.provider,
-        filePath: options.source.filePath,
-        source: options.source,
-      });
-      return null;
-    }
-
-    return {
-      ...options.cursor,
-      fingerprint: postParseState.fingerprint,
-      continuityToken: postParseState.continuityToken ?? undefined,
-      updatedAt: new Date().toISOString(),
-    };
-  }
-
-  private async preParseContinuityMatches(options: {
-    filePath: string;
-    preParseContinuity: ContinuityCheckpoint | null;
-    preParseState: SourceFileState;
-    source: ObservedEventSource;
-  }): Promise<boolean | null> {
-    if (!options.preParseContinuity || options.preParseContinuity.byteOffset <= 0) {
-      return true;
-    }
-
-    if (!options.preParseContinuity.continuityToken) {
-      return false;
-    }
-
-    const postParseCheckpointState = await readSourceFileState(options.filePath, {
-      byteOffset: options.preParseContinuity.byteOffset,
-    });
-
-    if (!postParseCheckpointState) {
-      await this.emitWarning({
-        code: "file-open-failed",
-        message: "File disappeared or is no longer readable while updating the cursor",
-        provider: options.source.provider,
-        filePath: options.source.filePath,
-        source: options.source,
-      });
-      return null;
-    }
-
-    return (
-      postParseCheckpointState.fingerprint === options.preParseState.fingerprint &&
-      postParseCheckpointState.continuityToken === options.preParseContinuity.continuityToken
+    this.operationQueue = nextOperation.then(
+      () => undefined,
+      () => undefined,
     );
+
+    return nextOperation;
   }
+}
 
-  private async capturePreParseContinuity(options: {
-    cursor: IngestCursor | null;
-    filePath: string;
-    fileState: SourceFileState;
-    source: ObservedEventSource;
-  }): Promise<ContinuityCheckpoint | null | undefined> {
-    if (options.cursor && options.cursor.byteOffset > 0) {
-      if (!options.fileState.continuityToken) {
-        return undefined;
-      }
-
-      return {
-        byteOffset: options.cursor.byteOffset,
-        continuityToken: options.fileState.continuityToken,
-      };
-    }
-
-    if (options.fileState.size <= 0) {
-      return null;
-    }
-
-    const endOfFileState = await readSourceFileState(options.filePath, {
-      byteOffset: options.fileState.size,
-    });
-
-    if (!endOfFileState?.continuityToken) {
-      await this.emitWarning({
-        code: "file-open-failed",
-        message: "File disappeared or is no longer readable while capturing the pre-parse continuity checkpoint",
-        provider: options.source.provider,
-        filePath: options.source.filePath,
-        source: options.source,
-      });
-      return undefined;
-    }
-
-    return {
-      byteOffset: options.fileState.size,
-      continuityToken: endOfFileState.continuityToken,
-    };
-  }
+function toRootSnapshotKey(root: DiscoveryRootConfig): string {
+  return `${root.provider}:${root.path}`;
 }

@@ -89,6 +89,22 @@ export function resolveCursorRecovery(options: {
   }
 
   if (storedCursor.byteOffset === fileState.size) {
+    const storedModifiedAtMs = readStoredModifiedAtMs(storedCursor);
+
+    if (storedModifiedAtMs !== null && storedModifiedAtMs !== fileState.modifiedAtMs) {
+      return {
+        cursor: null,
+        skip: false,
+        warnings: [
+          createCursorWarning(
+            "cursor-reset",
+            "File changed in place at the stored cursor; resetting cursor",
+            source,
+          ),
+        ],
+      };
+    }
+
     return {
       cursor: storedCursor,
       skip: true,
@@ -115,4 +131,10 @@ function createCursorWarning(
     filePath: source.filePath,
     source,
   };
+}
+
+function readStoredModifiedAtMs(cursor: IngestCursor): number | null {
+  const modifiedAtMs = cursor.metadata?.modifiedAtMs;
+
+  return typeof modifiedAtMs === "number" ? modifiedAtMs : null;
 }
