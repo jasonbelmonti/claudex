@@ -10,10 +10,20 @@ export type MatchedRootFile = {
   fileState: SourceFileState;
 };
 
+export type UnavailableRootFile = {
+  filePath: string;
+  selection: RegistrySelection;
+};
+
+export type MatchedRootFilesResult = {
+  files: MatchedRootFile[];
+  unavailableFiles: UnavailableRootFile[];
+};
+
 export async function listMatchedRootFiles(
   root: DiscoveryRootConfig,
   registries: IngestProviderRegistry[],
-): Promise<MatchedRootFile[] | null> {
+): Promise<MatchedRootFilesResult | null> {
   const files = await listDiscoveryRootFiles(root).catch(() => null);
 
   if (!files) {
@@ -21,6 +31,7 @@ export async function listMatchedRootFiles(
   }
 
   const matchedFiles: MatchedRootFile[] = [];
+  const unavailableFiles: UnavailableRootFile[] = [];
 
   for (const filePath of files) {
     const selection = selectRegistryForFile(registries, root, filePath);
@@ -32,6 +43,10 @@ export async function listMatchedRootFiles(
     const fileState = await readSourceFileState(filePath);
 
     if (!fileState) {
+      unavailableFiles.push({
+        filePath,
+        selection,
+      });
       continue;
     }
 
@@ -42,5 +57,8 @@ export async function listMatchedRootFiles(
     });
   }
 
-  return matchedFiles;
+  return {
+    files: matchedFiles,
+    unavailableFiles,
+  };
 }

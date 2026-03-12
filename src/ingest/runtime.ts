@@ -1,7 +1,7 @@
 import type { IngestCursorKey } from "./cursor";
 import type { DiscoveryEvent, DiscoveryRootConfig } from "./discovery";
 import { resolveActiveDiscoveryRoots, type SkippedDiscoveryRoot } from "./duplicate-roots";
-import { listMatchedRootFiles } from "./matched-root-files";
+import { listMatchedRootFiles, type UnavailableRootFile } from "./matched-root-files";
 import { processMatchedFile } from "./process-file";
 import {
   createRootSnapshot,
@@ -136,7 +136,9 @@ class DefaultSessionIngestService implements SessionIngestService {
         continue;
       }
 
-      for (const file of matchedFiles) {
+      await this.emitUnavailableFileWarnings(root, matchedFiles.unavailableFiles, discoveryPhase);
+
+      for (const file of matchedFiles.files) {
         await processMatchedFile({
           root,
           filePath: file.filePath,
@@ -147,7 +149,7 @@ class DefaultSessionIngestService implements SessionIngestService {
         });
       }
 
-      this.rootSnapshots.set(toRootSnapshotKey(root), createRootSnapshot(matchedFiles));
+      this.rootSnapshots.set(toRootSnapshotKey(root), createRootSnapshot(matchedFiles.files));
 
       await this.emitDiscoveryEvent({
         type: "scan.completed",
@@ -189,8 +191,14 @@ class DefaultSessionIngestService implements SessionIngestService {
         continue;
       }
 
+      await this.emitUnavailableFileWarnings(root, matchedFiles.unavailableFiles, discoveryPhase);
+
       const snapshotKey = toRootSnapshotKey(root);
-      const result = reconcileRootSnapshot(this.rootSnapshots.get(snapshotKey), matchedFiles);
+      const result = reconcileRootSnapshot(
+        this.rootSnapshots.get(snapshotKey),
+        matchedFiles.files,
+        matchedFiles.unavailableFiles.map((file) => file.filePath),
+      );
 
       for (const file of result.discoveredFiles) {
         await processMatchedFile({
@@ -296,6 +304,29 @@ class DefaultSessionIngestService implements SessionIngestService {
 
   private async emitWarning(warning: IngestWarning): Promise<void> {
     await this.options.onWarning?.(warning);
+  }
+
+  private async emitUnavailableFileWarnings(
+    root: DiscoveryRootConfig,
+    unavailableFiles: UnavailableRootFile[],
+    discoveryPhase: DiscoveryPhase,
+  ): Promise<void> {
+    for (const file of unavailableFiles) {
+      await this.emitWarning({
+        code: "file-open-failed",
+        message: "File disappeared or is no longer readable",
+        provider: root.provider,
+        filePath: file.filePath,
+        source: {
+          provider: root.provider,
+          kind: file.selection.match.kind,
+          discoveryPhase,
+          rootPath: root.path,
+          filePath: file.filePath,
+          metadata: file.selection.match.metadata,
+        },
+      });
+    }
   }
 
   private runSerialized<T>(operation: () => Promise<T>): Promise<T> {

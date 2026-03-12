@@ -24,8 +24,10 @@ export function createRootSnapshot(files: MatchedRootFile[]): RootSnapshot {
 export function reconcileRootSnapshot(
   previousSnapshot: RootSnapshot | undefined,
   currentFiles: MatchedRootFile[],
+  protectedFilePaths: Iterable<string> = [],
 ): RootReconcileResult {
   const priorSnapshot = previousSnapshot ?? new Map<string, RootSnapshotEntry>();
+  const protectedPaths = new Set(protectedFilePaths);
   const nextSnapshot = createRootSnapshot(currentFiles);
   const discoveredFiles: MatchedRootFile[] = [];
   const changedFiles: MatchedRootFile[] = [];
@@ -46,6 +48,11 @@ export function reconcileRootSnapshot(
 
   for (const [filePath, priorFile] of priorSnapshot) {
     if (!nextSnapshot.has(filePath)) {
+      if (protectedPaths.has(filePath)) {
+        nextSnapshot.set(filePath, priorFile);
+        continue;
+      }
+
       deletedFiles.push(priorFile);
     }
   }

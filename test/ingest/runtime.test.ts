@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { rm } from "node:fs/promises";
+import { rm, stat, utimes } from "node:fs/promises";
 import { basename, join } from "node:path";
 
 import type {
@@ -255,6 +255,79 @@ test("scanNow persists the latest cursor, skips unchanged files, and emits recor
   expect((storedCursor as IngestCursor).byteOffset).toBe(expectedCursor.byteOffset);
   expect(parseCursors).toEqual([null]);
   expect(warnings).toEqual([expectedWarning]);
+});
+
+test("scanNow does not replay EOF cursors when files are only touched", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/touched.jsonl": "{\"ok\":true}\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const filePath = join(workspace, "claude", "touched.jsonl");
+  const parseCursors: (IngestCursor | null)[] = [];
+  let storedCursor: IngestCursor | null = null;
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        recordFactory(context) {
+          parseCursors.push(context.cursor);
+
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: "session-touched",
+              cursor: {
+                provider: "claude",
+                rootPath: root.path,
+                filePath: context.filePath,
+                byteOffset: Number(Bun.file(context.filePath).size),
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    cursorStore: {
+      async get() {
+        return storedCursor;
+      },
+      async set(cursor) {
+        storedCursor = cursor;
+      },
+      async delete() {
+        storedCursor = null;
+      },
+    },
+  });
+
+  await service.scanNow();
+
+  const currentStats = await stat(filePath);
+  await utimes(filePath, currentStats.atime, new Date(currentStats.mtimeMs + 10_000));
+
+  await service.scanNow();
+
+  const persistedCursor = storedCursor;
+
+  if (!persistedCursor) {
+    throw new Error("Expected touched-file scan to preserve the stored cursor");
+  }
+
+  const persistedByteOffset = (persistedCursor as IngestCursor).byteOffset;
+
+  expect(parseCursors).toEqual([null]);
+  expect(persistedByteOffset).toBe(Number(Bun.file(filePath).size));
 });
 
 test("scanNow advances the cursor when an active file appends during parsing", async () => {
