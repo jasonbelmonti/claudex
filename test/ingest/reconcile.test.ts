@@ -55,7 +55,7 @@ function createMatchedRootFile(options: {
           return null;
         },
         parseFile: async function* () {
-          return;
+          yield* [];
         },
       },
       match: {
