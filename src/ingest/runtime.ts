@@ -63,6 +63,19 @@ class DefaultSessionIngestService implements SessionIngestService {
             return;
           }
 
+          for (const root of watchRoots) {
+            await this.emitDiscoveryEvent({
+              type: "watch.started",
+              provider: root.provider,
+              rootPath: root.path,
+              discoveryPhase: "watch",
+            });
+          }
+
+          if (this.startToken !== startToken) {
+            return;
+          }
+
           startupWatchLoop = createIngestWatchLoop({
             intervalMs: this.options.watchIntervalMs ?? DEFAULT_WATCH_INTERVAL_MS,
             onTick: async () => {
@@ -75,21 +88,11 @@ class DefaultSessionIngestService implements SessionIngestService {
             },
           });
 
-          if (this.startToken !== startToken) {
-            await startupWatchLoop.stop();
-            return;
-          }
-
           this.watchLoop = startupWatchLoop;
+        }
 
-          for (const root of watchRoots) {
-            await this.emitDiscoveryEvent({
-              type: "watch.started",
-              provider: root.provider,
-              rootPath: root.path,
-              discoveryPhase: "watch",
-            });
-          }
+        if (this.startToken !== startToken) {
+          return;
         }
 
         this.started = true;

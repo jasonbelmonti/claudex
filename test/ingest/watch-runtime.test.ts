@@ -311,6 +311,82 @@ test("stop waits for in-flight startup scans without leaving a watcher behind", 
   expect(discoveryEvents.some((event) => event.type === "watch.stopped")).toBe(false);
 });
 
+test("stop during watch.started does not strand startup state and allows restart", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/watch-startup-cancel.jsonl": "one\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+    watch: true,
+  };
+  const filePath = join(root.path, "watch-startup-cancel.jsonl");
+  const parsePhases: string[] = [];
+  const watchStartedEntered = createDeferredPromise<void>();
+  const watchStartedGate = createDeferredPromise<void>();
+  let blockWatchStarted = true;
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        recordFactory(context) {
+          parsePhases.push(context.discoveryPhase);
+
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: "session-watch-startup-cancel",
+              discoveryPhase: context.discoveryPhase,
+              cursor: {
+                provider: "claude",
+                rootPath: context.root.path,
+                filePath: context.filePath,
+                byteOffset: Number(Bun.file(context.filePath).size),
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    watchIntervalMs: 25,
+    async onDiscoveryEvent(event) {
+      if (!blockWatchStarted || event.type !== "watch.started") {
+        return;
+      }
+
+      watchStartedEntered.resolve();
+      await watchStartedGate.promise;
+    },
+  });
+
+  const startPromise = service.start();
+  await watchStartedEntered.promise;
+
+  const stopPromise = service.stop();
+  blockWatchStarted = false;
+  watchStartedGate.resolve();
+
+  await Promise.all([startPromise, stopPromise]);
+
+  await Bun.write(filePath, "one\ntwo\n");
+  await Bun.sleep(120);
+
+  expect(parsePhases).toEqual(["initial_scan"]);
+
+  await service.start();
+  await Bun.write(filePath, "one\ntwo\nthree\n");
+  await waitForCondition(() => parsePhases.includes("watch"));
+  await service.stop();
+});
+
 test("watch-driven deletions emit file.deleted and clear persisted cursors", async () => {
   const workspace = await createFixtureWorkspace({
     "claude/delete.jsonl": "one\n",
