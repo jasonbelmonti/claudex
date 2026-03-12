@@ -26,9 +26,17 @@ export function resolveCursorRecovery(options: {
 
   if (!storedCursor.fingerprint) {
     return {
-      cursor: storedCursor,
+      // Legacy cursors cannot prove continuity with the current file, so
+      // fail safe during migration and reparse from the beginning once.
+      cursor: null,
       skip: false,
-      warnings: [],
+      warnings: [
+        createCursorWarning(
+          "cursor-reset",
+          "Stored cursor is missing a file fingerprint; resetting cursor",
+          source,
+        ),
+      ],
     };
   }
 
@@ -64,7 +72,7 @@ export function resolveCursorRecovery(options: {
 }
 
 function createCursorWarning(
-  code: "rotated-file" | "truncated-file",
+  code: "cursor-reset" | "rotated-file" | "truncated-file",
   message: string,
   source: ObservedEventSource,
 ): IngestWarning {
