@@ -48,6 +48,7 @@ test("public ingest api exports the documented runtime surface", () => {
   ]);
   expect(ingest.INGEST_WARNING_CODES).toContain("parse-failed");
   expect(ingest.DISCOVERY_EVENT_TYPES).toContain("scan.completed");
+  expect(typeof ingest.createSessionIngestService).toBe("function");
 });
 
 test("public ingest api types model the documented contract", () => {
@@ -122,6 +123,9 @@ test("public ingest api types model the documented contract", () => {
     filePath: cursor.filePath,
     discoveryPhase: "initial_scan",
     cursor,
+    match: {
+      kind: "transcript",
+    },
   };
 
   const warning: IngestWarning = {
@@ -170,12 +174,7 @@ test("public ingest api types model the documented contract", () => {
     onDiscoveryEvent() {},
   };
 
-  const service: SessionIngestService = {
-    roots: options.roots,
-    async start() {},
-    async stop() {},
-    async scanNow() {},
-  };
+  const service = ingest.createSessionIngestService(options) as SessionIngestService;
 
   expect(observedEvent.observedSession).toEqual(observedSession);
   expect(observedSessionRecord.reason).toBe("index");
