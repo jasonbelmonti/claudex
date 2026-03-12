@@ -72,9 +72,15 @@ class DefaultSessionIngestService implements SessionIngestService {
           cursor,
           match: selection.match,
         });
+        let latestCursor = cursor;
 
         for await (const record of records) {
+          latestCursor = record.cursor ?? latestCursor;
           await dispatchObservedRecord(this.options, record);
+        }
+
+        if (latestCursor) {
+          await this.options.cursorStore?.set(latestCursor);
         }
       }
 

@@ -10,6 +10,7 @@ export async function dispatchObservedRecord(
   record: ObservedIngestRecord,
 ): Promise<void> {
   await options.onRecord?.(record);
+  await dispatchWarnings(options, record);
 
   if (record.kind === "event") {
     await dispatchObservedEvent(options, record);
@@ -31,4 +32,13 @@ async function dispatchObservedSession(
   record: ObservedSessionRecord,
 ): Promise<void> {
   await options.onObservedSession?.(record);
+}
+
+async function dispatchWarnings(
+  options: SessionIngestServiceOptions,
+  record: ObservedIngestRecord,
+): Promise<void> {
+  for (const warning of record.warnings ?? []) {
+    await options.onWarning?.(warning);
+  }
 }
