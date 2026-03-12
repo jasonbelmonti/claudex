@@ -190,7 +190,6 @@ async function buildPersistedCursor(options: {
 
   if (
     postParseState.fingerprint !== options.preParseState.fingerprint
-    || postParseState.revision !== options.preParseState.revision
     || options.cursor.byteOffset > postParseState.size
     || (options.cursor.byteOffset > 0 && !postParseState.continuityToken)
     || !preParseContinuityMatches
