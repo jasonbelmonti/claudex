@@ -10,6 +10,7 @@ export type IngestCursor = IngestCursorKey & {
   byteOffset: number;
   line: number;
   fingerprint?: string;
+  continuityToken?: string;
   updatedAt?: string;
   metadata?: Record<string, unknown>;
 };
