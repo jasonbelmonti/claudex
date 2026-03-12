@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rename, rm, truncate } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -36,11 +36,22 @@ export async function removeFixtureWorkspace(workspacePath: string): Promise<voi
   await rm(workspacePath, { recursive: true, force: true });
 }
 
+export async function rotateFile(filePath: string, nextContents: string): Promise<void> {
+  await rename(filePath, `${filePath}.rotated`);
+  await Bun.write(filePath, nextContents);
+}
+
+export async function truncateFile(filePath: string, size: number): Promise<void> {
+  await truncate(filePath, size);
+}
+
 export function createRegistry(options: {
   provider: ProviderId;
   matchExtension: string;
   recordFactory: (context: IngestParseContext) => ObservedIngestRecord[];
   parseCalls?: string[];
+  beforeParse?: (context: IngestParseContext) => Promise<void> | void;
+  errorFactory?: (context: IngestParseContext) => Error | null;
 }): IngestProviderRegistry {
   return {
     provider: options.provider,
@@ -51,6 +62,13 @@ export function createRegistry(options: {
     },
     async *parseFile(context) {
       options.parseCalls?.push(context.filePath);
+      await options.beforeParse?.(context);
+
+      const error = options.errorFactory?.(context);
+
+      if (error) {
+        throw error;
+      }
 
       for (const record of options.recordFactory(context)) {
         yield record;

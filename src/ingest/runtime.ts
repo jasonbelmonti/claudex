@@ -1,9 +1,15 @@
-import type { IngestCursorKey } from "./cursor";
+import type { IngestCursor, IngestCursorKey } from "./cursor";
+import { resolveCursorRecovery } from "./cursor-recovery";
 import type { DiscoveryEvent, DiscoveryRootConfig } from "./discovery";
+import type { ObservedIngestRecord } from "./events";
+import { readSourceFileState, type SourceFileState } from "./file-state";
 import { listDiscoveryRootFiles } from "./root-files";
+import { consumeParsedRecords } from "./record-consumption";
 import { selectRegistryForFile } from "./registry-selection";
 import { dispatchObservedRecord } from "./record-dispatch";
+import type { ObservedEventSource } from "./source";
 import type { SessionIngestService, SessionIngestServiceOptions } from "./service";
+import type { IngestWarning } from "./warnings";
 
 export function createSessionIngestService(
   options: SessionIngestServiceOptions,
@@ -13,17 +19,55 @@ export function createSessionIngestService(
 
 class DefaultSessionIngestService implements SessionIngestService {
   readonly roots: DiscoveryRootConfig[];
+  private isStarted = false;
+  private lifecycleToken = 0;
+  private startPromise: Promise<void> | null = null;
 
   constructor(private readonly options: SessionIngestServiceOptions) {
     this.roots = [...options.roots];
   }
 
-  async start(): Promise<void> {}
+  async start(): Promise<void> {
+    if (this.isStarted) {
+      return this.startPromise ?? Promise.resolve();
+    }
 
-  async stop(): Promise<void> {}
+    this.isStarted = true;
+    const token = ++this.lifecycleToken;
+    const startPromise = this.runScan(token)
+      .catch((error) => {
+        if (this.lifecycleToken === token) {
+          this.isStarted = false;
+          this.lifecycleToken += 1;
+        }
+
+        throw error;
+      })
+      .finally(() => {
+        if (this.startPromise === startPromise) {
+          this.startPromise = null;
+        }
+      });
+    this.startPromise = startPromise;
+    await startPromise;
+  }
 
   async scanNow(): Promise<void> {
+    await this.runScan();
+  }
+
+  async stop(): Promise<void> {
+    this.isStarted = false;
+    this.lifecycleToken += 1;
+    await this.startPromise;
+  }
+
+  private async runScan(lifecycleToken?: number): Promise<void> {
     for (const root of this.roots) {
+      if (this.shouldAbortLifecycleRun(lifecycleToken)) {
+        return;
+      }
+
       await this.emitDiscoveryEvent({
         type: "scan.started",
         provider: root.provider,
@@ -45,11 +89,24 @@ class DefaultSessionIngestService implements SessionIngestService {
       }
 
       for (const filePath of files) {
+        if (this.shouldAbortLifecycleRun(lifecycleToken)) {
+          return;
+        }
+
         const selection = selectRegistryForFile(this.options.registries, root, filePath);
 
         if (!selection) {
           continue;
         }
+
+        const source: ObservedEventSource = {
+          provider: root.provider,
+          kind: selection.match.kind,
+          discoveryPhase: "initial_scan",
+          rootPath: root.path,
+          filePath,
+          metadata: selection.match.metadata,
+        };
 
         await this.emitDiscoveryEvent({
           type: "file.discovered",
@@ -64,23 +121,99 @@ class DefaultSessionIngestService implements SessionIngestService {
           rootPath: root.path,
           filePath,
         };
-        const cursor = (await this.options.cursorStore?.get(cursorKey)) ?? null;
-        const records = await selection.registry.parseFile({
-          root,
-          filePath,
-          discoveryPhase: "initial_scan",
-          cursor,
-          match: selection.match,
-        });
-        let latestCursor = cursor;
+        const storedCursor = (await this.options.cursorStore?.get(cursorKey)) ?? null;
+        const fileState = await readSourceFileState(filePath, storedCursor);
 
-        for await (const record of records) {
-          latestCursor = record.cursor ?? latestCursor;
-          await dispatchObservedRecord(this.options, record);
+        if (!fileState) {
+          await this.emitWarning({
+            code: "file-open-failed",
+            message: "File disappeared or is no longer readable",
+            provider: root.provider,
+            filePath,
+            source,
+          });
+          continue;
         }
 
-        if (latestCursor) {
-          await this.options.cursorStore?.set(latestCursor);
+        const recovery = resolveCursorRecovery({
+          storedCursor,
+          fileState,
+          source,
+        });
+
+        for (const warning of recovery.warnings) {
+          await this.emitWarning(warning);
+        }
+
+        if (recovery.skip) {
+          continue;
+        }
+
+        let latestCursor = recovery.cursor;
+        let shouldClearStoredCursor = storedCursor !== null && recovery.cursor === null;
+        let parseError: unknown = null;
+        let consumerError: unknown = null;
+        let records: AsyncIterable<ObservedIngestRecord> | null = null;
+
+        try {
+          records = await selection.registry.parseFile({
+            root,
+            filePath,
+            discoveryPhase: "initial_scan",
+            cursor: recovery.cursor,
+            match: selection.match,
+          });
+        } catch (error) {
+          parseError = error;
+        }
+
+        if (records) {
+          const consumption = await consumeParsedRecords({
+            initialCursor: recovery.cursor,
+            records,
+            onRecord: async (record) => {
+              await dispatchObservedRecord(this.options, record);
+            },
+          });
+
+          latestCursor = consumption.latestCursor;
+          parseError = consumption.parseError;
+          consumerError = consumption.consumerError;
+          shouldClearStoredCursor = shouldClearStoredCursor && latestCursor === null;
+        }
+
+        if (parseError) {
+          await this.emitWarning({
+            code: "parse-failed",
+            message: "Registry parser failed while processing the file",
+            provider: root.provider,
+            filePath,
+            source,
+            cause: parseError,
+          });
+        }
+
+        const persistedCursor = latestCursor
+          ? await this.buildPersistedCursor({
+              cursor: latestCursor,
+              filePath,
+              preParseState: fileState,
+              source,
+            })
+          : null;
+
+        if (persistedCursor) {
+          await this.options.cursorStore?.set(persistedCursor);
+        } else if (shouldClearStoredCursor) {
+          await this.options.cursorStore?.delete(cursorKey);
+        }
+
+        if (parseError) {
+          continue;
+        }
+
+        if (consumerError) {
+          throw consumerError;
         }
       }
 
@@ -95,5 +228,56 @@ class DefaultSessionIngestService implements SessionIngestService {
 
   private async emitDiscoveryEvent(discoveryEvent: DiscoveryEvent): Promise<void> {
     await this.options.onDiscoveryEvent?.(discoveryEvent);
+  }
+
+  private async emitWarning(warning: IngestWarning): Promise<void> {
+    await this.options.onWarning?.(warning);
+  }
+
+  private shouldAbortLifecycleRun(lifecycleToken?: number): boolean {
+    return lifecycleToken !== undefined && lifecycleToken !== this.lifecycleToken;
+  }
+
+  private async buildPersistedCursor(options: {
+    cursor: IngestCursor;
+    filePath: string;
+    preParseState: SourceFileState;
+    source: ObservedEventSource;
+  }): Promise<IngestCursor | null> {
+    const postParseState = await readSourceFileState(options.filePath, options.cursor);
+
+    if (!postParseState) {
+      await this.emitWarning({
+        code: "file-open-failed",
+        message: "File disappeared or is no longer readable while updating the cursor",
+        provider: options.source.provider,
+        filePath: options.source.filePath,
+        source: options.source,
+      });
+      return null;
+    }
+
+    if (
+      postParseState.fingerprint !== options.preParseState.fingerprint ||
+      postParseState.revision !== options.preParseState.revision ||
+      options.cursor.byteOffset > postParseState.size ||
+      (options.cursor.byteOffset > 0 && !postParseState.continuityToken)
+    ) {
+      await this.emitWarning({
+        code: "cursor-reset",
+        message: "File changed while parsing; not persisting the cursor",
+        provider: options.source.provider,
+        filePath: options.source.filePath,
+        source: options.source,
+      });
+      return null;
+    }
+
+    return {
+      ...options.cursor,
+      fingerprint: postParseState.fingerprint,
+      continuityToken: postParseState.continuityToken ?? undefined,
+      updatedAt: new Date().toISOString(),
+    };
   }
 }

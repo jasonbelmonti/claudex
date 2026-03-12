@@ -2,6 +2,7 @@ export * from "./completeness";
 export * from "./cursor";
 export * from "./discovery";
 export * from "./events";
+export * from "./in-memory-cursor-store";
 export * from "./registry";
 export * from "./runtime";
 export * from "./service";

@@ -48,6 +48,7 @@ test("public ingest api exports the documented runtime surface", () => {
   ]);
   expect(ingest.INGEST_WARNING_CODES).toContain("parse-failed");
   expect(ingest.DISCOVERY_EVENT_TYPES).toContain("scan.completed");
+  expect(typeof ingest.createInMemoryCursorStore).toBe("function");
   expect(typeof ingest.createSessionIngestService).toBe("function");
 });
 
@@ -143,13 +144,7 @@ test("public ingest api types model the documented contract", () => {
     discoveryPhase: "initial_scan",
   };
 
-  const cursorStore: CursorStore = {
-    async get(key) {
-      return key.filePath === cursor.filePath ? cursor : null;
-    },
-    async set() {},
-    async delete() {},
-  };
+  const cursorStore = ingest.createInMemoryCursorStore([cursor]) as CursorStore;
 
   const records: ObservedIngestRecord[] = [observedEvent, observedSessionRecord];
 

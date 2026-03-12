@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import type {
@@ -16,6 +17,8 @@ import {
   createObservedSessionRecord,
   createRegistry,
   removeFixtureWorkspace,
+  rotateFile,
+  truncateFile,
 } from "./helpers";
 
 const workspaces: string[] = [];
@@ -131,7 +134,7 @@ test("scanNow dispatches matched files in deterministic order and fans out recor
   ]);
 });
 
-test("scanNow persists the latest cursor and emits record warnings", async () => {
+test("scanNow persists the latest cursor, skips unchanged files, and emits record warnings", async () => {
   const workspace = await createFixtureWorkspace({
     "claude/progress.jsonl": "{\"ok\":true}\n",
   });
@@ -146,8 +149,8 @@ test("scanNow persists the latest cursor and emits record warnings", async () =>
     provider: "claude",
     rootPath: root.path,
     filePath,
-    byteOffset: 42,
-    line: 2,
+    byteOffset: 12,
+    line: 1,
   };
   const expectedWarning: IngestWarning = {
     code: "parse-failed",
@@ -203,9 +206,457 @@ test("scanNow persists the latest cursor and emits record warnings", async () =>
     throw new Error("Expected scanNow() to persist the latest cursor");
   }
 
-  expect(storedCursor as IngestCursor).toEqual(expectedCursor);
-  expect(parseCursors).toEqual([null, expectedCursor]);
-  expect(warnings).toEqual([expectedWarning, expectedWarning]);
+  expect((storedCursor as IngestCursor).fingerprint).toBeDefined();
+  expect((storedCursor as IngestCursor).byteOffset).toBe(expectedCursor.byteOffset);
+  expect(parseCursors).toEqual([null]);
+  expect(warnings).toEqual([expectedWarning]);
+});
+
+test("scanNow resets the cursor and reprocesses truncated files", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/truncate.jsonl": "abcdef\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const filePath = join(workspace, "claude", "truncate.jsonl");
+
+  let nextByteOffset = 7;
+  const parseCursors: (IngestCursor | null)[] = [];
+  const warnings: IngestWarning[] = [];
+  let storedCursor: IngestCursor | null = null;
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        recordFactory(context) {
+          parseCursors.push(context.cursor);
+
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: "session-truncate",
+              cursor: {
+                provider: "claude",
+                rootPath: root.path,
+                filePath: context.filePath,
+                byteOffset: nextByteOffset,
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    cursorStore: {
+      async get() {
+        return storedCursor;
+      },
+      async set(cursor) {
+        storedCursor = cursor;
+      },
+      async delete() {},
+    },
+    onWarning(warning) {
+      warnings.push(warning);
+    },
+  });
+
+  await service.scanNow();
+  nextByteOffset = 1;
+  await truncateFile(filePath, 1);
+  await service.scanNow();
+
+  expect(parseCursors).toEqual([null, null]);
+  expect(warnings.map((warning) => warning.code)).toEqual(["truncated-file"]);
+});
+
+test("scanNow clears stale cursors after truncation when reprocessing yields no new cursor", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/truncate-empty.jsonl": "abcdef\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const filePath = join(workspace, "claude", "truncate-empty.jsonl");
+
+  const parseCursors: (IngestCursor | null)[] = [];
+  const warnings: IngestWarning[] = [];
+  let storedCursor: IngestCursor | null = null;
+  let emitCursor = true;
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        recordFactory(context) {
+          parseCursors.push(context.cursor);
+
+          if (!emitCursor) {
+            return [];
+          }
+
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: "session-truncate-empty",
+              cursor: {
+                provider: "claude",
+                rootPath: root.path,
+                filePath: context.filePath,
+                byteOffset: 7,
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    cursorStore: {
+      async get() {
+        return storedCursor;
+      },
+      async set(cursor) {
+        storedCursor = cursor;
+      },
+      async delete() {
+        storedCursor = null;
+      },
+    },
+    onWarning(warning) {
+      warnings.push(warning);
+    },
+  });
+
+  await service.scanNow();
+  emitCursor = false;
+  await truncateFile(filePath, 1);
+  await service.scanNow();
+  await service.scanNow();
+
+  expect(storedCursor).toBeNull();
+  expect(parseCursors).toEqual([null, null, null]);
+  expect(warnings.map((warning) => warning.code)).toEqual(["truncated-file"]);
+});
+
+test("scanNow resets the cursor and reprocesses rotated files", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/rotate.jsonl": "abcdef\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const filePath = join(workspace, "claude", "rotate.jsonl");
+
+  let nextByteOffset = 7;
+  const parseCursors: (IngestCursor | null)[] = [];
+  const warnings: IngestWarning[] = [];
+  let storedCursor: IngestCursor | null = null;
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        recordFactory(context) {
+          parseCursors.push(context.cursor);
+
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: "session-rotate",
+              cursor: {
+                provider: "claude",
+                rootPath: root.path,
+                filePath: context.filePath,
+                byteOffset: nextByteOffset,
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    cursorStore: {
+      async get() {
+        return storedCursor;
+      },
+      async set(cursor) {
+        storedCursor = cursor;
+      },
+      async delete() {},
+    },
+    onWarning(warning) {
+      warnings.push(warning);
+    },
+  });
+
+  await service.scanNow();
+  nextByteOffset = 3;
+  await rotateFile(filePath, "xy\n");
+  await service.scanNow();
+
+  expect(parseCursors).toEqual([null, null]);
+  expect(warnings.map((warning) => warning.code)).toEqual(["rotated-file"]);
+});
+
+test("scanNow emits parse-failed warnings and continues processing other files", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/a-bad.jsonl": "bad\n",
+    "claude/b-good.jsonl": "good\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const records: string[] = [];
+  const warnings: IngestWarning[] = [];
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        errorFactory(context) {
+          return context.filePath.endsWith("a-bad.jsonl")
+            ? new Error("bad parse")
+            : null;
+        },
+        recordFactory(context) {
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: `session:${context.filePath}`,
+            }),
+          ];
+        },
+      }),
+    ],
+    onRecord(record) {
+      records.push(record.source.filePath);
+    },
+    onWarning(warning) {
+      warnings.push(warning);
+    },
+  });
+
+  await service.scanNow();
+
+  expect(records).toEqual([join(workspace, "claude", "b-good.jsonl")]);
+  expect(warnings.map((warning) => warning.code)).toEqual(["parse-failed"]);
+});
+
+test("scanNow emits parse-failed warnings when parseFile throws before iteration starts", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/a-bad.jsonl": "bad\n",
+    "claude/b-good.jsonl": "good\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const records: string[] = [];
+  const warnings: IngestWarning[] = [];
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      {
+        provider: "claude",
+        matchFile(filePath) {
+          return filePath.endsWith(".jsonl") ? { kind: "transcript" as const } : null;
+        },
+        parseFile(context) {
+          if (context.filePath.endsWith("a-bad.jsonl")) {
+            throw new Error("failed before iteration");
+          }
+
+          return (async function* (): AsyncIterable<ObservedAgentEvent | ObservedSessionRecord> {
+            yield createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: `session:${context.filePath}`,
+            });
+          })();
+        },
+      },
+    ],
+    onRecord(record) {
+      records.push(record.source.filePath);
+    },
+    onWarning(warning) {
+      warnings.push(warning);
+    },
+  });
+
+  await service.scanNow();
+
+  expect(records).toEqual([join(workspace, "claude", "b-good.jsonl")]);
+  expect(warnings.map((warning) => warning.code)).toEqual(["parse-failed"]);
+});
+
+test("scanNow persists the latest cursor when parsing fails after emitting earlier records", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/partial-failure.jsonl": "abcdef\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const filePath = join(workspace, "claude", "partial-failure.jsonl");
+
+  const parseCursors: (IngestCursor | null)[] = [];
+  const warnings: IngestWarning[] = [];
+  let storedCursor: IngestCursor | null = null;
+  const readStoredCursor = (): IngestCursor | null => storedCursor;
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      {
+        provider: "claude",
+        matchFile(candidatePath) {
+          return candidatePath.endsWith(".jsonl") ? { kind: "transcript" as const } : null;
+        },
+        async *parseFile(context) {
+          parseCursors.push(context.cursor);
+
+          yield createObservedEventRecord({
+            provider: "claude",
+            filePath: context.filePath,
+            root: context.root,
+            sessionId: "session-partial-failure",
+            cursor: {
+              provider: "claude",
+              rootPath: root.path,
+              filePath: context.filePath,
+              byteOffset: 7,
+              line: 1,
+            },
+          });
+
+          throw new Error("trailing parse failure");
+        },
+      },
+    ],
+    cursorStore: {
+      async get() {
+        return storedCursor;
+      },
+      async set(cursor) {
+        storedCursor = cursor;
+      },
+      async delete() {
+        storedCursor = null;
+      },
+    },
+    onWarning(warning) {
+      warnings.push(warning);
+    },
+  });
+
+  await service.scanNow();
+  await service.scanNow();
+
+  const persistedCursor = readStoredCursor();
+
+  if (!persistedCursor) {
+    throw new Error("Expected scanNow() to persist the latest cursor after a partial parse failure");
+  }
+
+  expect(persistedCursor.filePath).toBe(filePath);
+  expect(persistedCursor.byteOffset).toBe(7);
+  expect(parseCursors).toEqual([null]);
+  expect(warnings.map((warning) => warning.code)).toEqual(["parse-failed"]);
+});
+
+test("scanNow emits file-open-failed warnings and continues processing other files", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/a-first.jsonl": "first\n",
+    "claude/b-vanish.jsonl": "vanish\n",
+    "claude/c-good.jsonl": "good\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const records: string[] = [];
+  const warnings: IngestWarning[] = [];
+  const vanishingFilePath = join(workspace, "claude", "b-vanish.jsonl");
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        async beforeParse(context) {
+          if (context.filePath.endsWith("a-first.jsonl")) {
+            await rotateFile(vanishingFilePath, "gone\n");
+            await rm(`${vanishingFilePath}.rotated`, { force: true });
+            await rm(vanishingFilePath, { force: true });
+          }
+        },
+        recordFactory(context) {
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: `session:${context.filePath}`,
+            }),
+          ];
+        },
+      }),
+    ],
+    onRecord(record) {
+      records.push(record.source.filePath);
+    },
+    onWarning(warning) {
+      warnings.push(warning);
+    },
+  });
+
+  await service.scanNow();
+
+  expect(records).toEqual([
+    join(workspace, "claude", "a-first.jsonl"),
+    join(workspace, "claude", "c-good.jsonl"),
+  ]);
+  expect(warnings.map((warning) => warning.code)).toEqual(["file-open-failed"]);
 });
 
 test("scanNow emits root.skipped for missing roots and ignores unmatched files", async () => {
