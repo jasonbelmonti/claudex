@@ -32,7 +32,7 @@ async function collectDirectoryFiles(
   const entries = await readdir(directoryPath, { withFileTypes: true });
   const files: string[] = [];
 
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+  for (const entry of entries.sort((left, right) => compareEntryNames(left.name, right.name))) {
     const entryPath = join(directoryPath, entry.name);
 
     if (entry.isFile()) {
@@ -48,4 +48,14 @@ async function collectDirectoryFiles(
   }
 
   return files;
+}
+
+function compareEntryNames(leftName: string, rightName: string): number {
+  if (leftName === rightName) {
+    return 0;
+  }
+
+  // Use raw string ordering instead of locale collation so ingest order is
+  // identical across environments.
+  return leftName < rightName ? -1 : 1;
 }

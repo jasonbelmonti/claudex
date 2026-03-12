@@ -11,6 +11,11 @@ import type { ObservedEventSource } from "./source";
 import type { SessionIngestService, SessionIngestServiceOptions } from "./service";
 import type { IngestWarning } from "./warnings";
 
+type ContinuityCheckpoint = {
+  byteOffset: number;
+  continuityToken: string | null;
+};
+
 export function createSessionIngestService(
   options: SessionIngestServiceOptions,
 ): SessionIngestService {
@@ -107,6 +112,14 @@ class DefaultSessionIngestService implements SessionIngestService {
           continue;
         }
 
+        const preParseContinuity =
+          recovery.cursor && recovery.cursor.byteOffset > 0
+            ? {
+                byteOffset: recovery.cursor.byteOffset,
+                continuityToken: fileState.continuityToken,
+              }
+            : null;
+
         let latestCursor = recovery.cursor;
         let shouldClearStoredCursor = storedCursor !== null && recovery.cursor === null;
         let parseError: unknown = null;
@@ -153,11 +166,12 @@ class DefaultSessionIngestService implements SessionIngestService {
 
         const persistedCursor = latestCursor
           ? await this.buildPersistedCursor({
-              cursor: latestCursor,
-              filePath,
-              preParseState: fileState,
-              source,
-            })
+            cursor: latestCursor,
+            filePath,
+            preParseContinuity,
+            preParseState: fileState,
+            source,
+          })
           : null;
 
         if (persistedCursor) {
@@ -195,6 +209,7 @@ class DefaultSessionIngestService implements SessionIngestService {
   private async buildPersistedCursor(options: {
     cursor: IngestCursor;
     filePath: string;
+    preParseContinuity: ContinuityCheckpoint | null;
     preParseState: SourceFileState;
     source: ObservedEventSource;
   }): Promise<IngestCursor | null> {
@@ -211,10 +226,18 @@ class DefaultSessionIngestService implements SessionIngestService {
       return null;
     }
 
+    const preParseContinuityMatches = await this.preParseContinuityMatches(options);
+
+    if (preParseContinuityMatches === null) {
+      return null;
+    }
+
     if (
       postParseState.fingerprint !== options.preParseState.fingerprint ||
+      postParseState.modifiedAtMs !== options.preParseState.modifiedAtMs ||
       options.cursor.byteOffset > postParseState.size ||
-      (options.cursor.byteOffset > 0 && !postParseState.continuityToken)
+      (options.cursor.byteOffset > 0 && !postParseState.continuityToken) ||
+      !preParseContinuityMatches
     ) {
       await this.emitWarning({
         code: "cursor-reset",
@@ -232,5 +255,40 @@ class DefaultSessionIngestService implements SessionIngestService {
       continuityToken: postParseState.continuityToken ?? undefined,
       updatedAt: new Date().toISOString(),
     };
+  }
+
+  private async preParseContinuityMatches(options: {
+    filePath: string;
+    preParseContinuity: ContinuityCheckpoint | null;
+    preParseState: SourceFileState;
+    source: ObservedEventSource;
+  }): Promise<boolean | null> {
+    if (!options.preParseContinuity || options.preParseContinuity.byteOffset <= 0) {
+      return true;
+    }
+
+    if (!options.preParseContinuity.continuityToken) {
+      return false;
+    }
+
+    const postParseCheckpointState = await readSourceFileState(options.filePath, {
+      byteOffset: options.preParseContinuity.byteOffset,
+    });
+
+    if (!postParseCheckpointState) {
+      await this.emitWarning({
+        code: "file-open-failed",
+        message: "File disappeared or is no longer readable while updating the cursor",
+        provider: options.source.provider,
+        filePath: options.source.filePath,
+        source: options.source,
+      });
+      return null;
+    }
+
+    return (
+      postParseCheckpointState.fingerprint === options.preParseState.fingerprint &&
+      postParseCheckpointState.continuityToken === options.preParseContinuity.continuityToken
+    );
   }
 }

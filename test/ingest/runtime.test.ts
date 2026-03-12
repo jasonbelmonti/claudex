@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { rm } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 import type {
   DiscoveryEvent,
@@ -131,6 +131,51 @@ test("scanNow dispatches matched files in deterministic order and fans out recor
     `scan.started:${codexRoot.path}`,
     `file.discovered:${join(workspace, "codex", "session-index.idx")}`,
     `scan.completed:${codexRoot.path}`,
+  ]);
+});
+
+test("scanNow orders discovered files with locale-independent name comparison", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/ä-after-z.jsonl": "{\"ok\":true}\n",
+    "claude/z-middle.jsonl": "{\"ok\":true}\n",
+    "claude/a-first.jsonl": "{\"ok\":true}\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+    recursive: true,
+  };
+  const parseCalls: string[] = [];
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        parseCalls,
+        recordFactory(context) {
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: `session:${context.filePath}`,
+            }),
+          ];
+        },
+      }),
+    ],
+  });
+
+  await service.scanNow();
+
+  expect(parseCalls.map((filePath) => basename(filePath).normalize("NFC"))).toEqual([
+    "a-first.jsonl",
+    "z-middle.jsonl",
+    "ä-after-z.jsonl",
   ]);
 });
 
