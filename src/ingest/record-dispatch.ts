@@ -9,15 +9,15 @@ export async function dispatchObservedRecord(
   options: SessionIngestServiceOptions,
   record: ObservedIngestRecord,
 ): Promise<void> {
-  await options.onRecord?.(record);
   await dispatchWarnings(options, record);
 
   if (record.kind === "event") {
     await dispatchObservedEvent(options, record);
-    return;
+  } else {
+    await dispatchObservedSession(options, record);
   }
 
-  await dispatchObservedSession(options, record);
+  await options.onRecord?.(record);
 }
 
 async function dispatchObservedEvent(

@@ -75,3 +75,81 @@ test("scanNow throws consumer callback failures without advancing the cursor", a
     await removeFixtureWorkspace(workspace);
   }
 });
+
+test("scanNow does not duplicate onRecord deliveries when a later typed callback fails", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/consumer-replay.jsonl": "abcdef\n",
+  });
+
+  try {
+    const root = {
+      provider: "claude" as const,
+      path: join(workspace, "claude"),
+    };
+    const filePath = join(workspace, "claude", "consumer-replay.jsonl");
+    const onRecordDeliveries: string[] = [];
+    let storedCursor: IngestCursor | null = null;
+    const readStoredCursor = (): IngestCursor | null => storedCursor;
+    let failObservedEvent = true;
+
+    const service = createSessionIngestService({
+      roots: [root],
+      registries: [
+        createRegistry({
+          provider: "claude",
+          matchExtension: ".jsonl",
+          recordFactory(context) {
+            return [
+              createObservedEventRecord({
+                provider: "claude",
+                filePath: context.filePath,
+                root: context.root,
+                sessionId: "session-consumer-replay",
+                cursor: {
+                  provider: "claude",
+                  rootPath: root.path,
+                  filePath: context.filePath,
+                  byteOffset: 7,
+                  line: 1,
+                },
+              }),
+            ];
+          },
+        }),
+      ],
+      cursorStore: {
+        async get() {
+          return storedCursor;
+        },
+        async set(cursor) {
+          storedCursor = cursor;
+        },
+        async delete() {
+          storedCursor = null;
+        },
+      },
+      onRecord(record) {
+        onRecordDeliveries.push(record.source.filePath);
+      },
+      onObservedEvent() {
+        if (!failObservedEvent) {
+          return;
+        }
+
+        failObservedEvent = false;
+        throw new Error("consumer callback failed");
+      },
+    });
+
+    await expect(service.scanNow()).rejects.toThrow("consumer callback failed");
+    expect(onRecordDeliveries).toEqual([]);
+    expect(readStoredCursor()).toBeNull();
+
+    await service.scanNow();
+
+    expect(onRecordDeliveries).toEqual([filePath]);
+    expect(readStoredCursor()?.byteOffset).toBe(7);
+  } finally {
+    await removeFixtureWorkspace(workspace);
+  }
+});

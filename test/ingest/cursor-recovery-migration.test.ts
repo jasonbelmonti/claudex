@@ -357,6 +357,94 @@ test("scanNow does not persist cursors when same-inode rewrites change the pre-p
   }
 });
 
+test("scanNow does not persist initial EOF cursors when same-inode rewrites change the file during parsing", async () => {
+  const initialContents = "a".repeat(16);
+  const rewrittenContents = "b".repeat(16);
+  const workspace = await createFixtureWorkspace({
+    "claude/initial-rewrite-race.jsonl": initialContents,
+  });
+
+  try {
+    const root = {
+      provider: "claude" as const,
+      path: join(workspace, "claude"),
+    };
+    const filePath = join(workspace, "claude", "initial-rewrite-race.jsonl");
+    const initialStats = await stat(filePath);
+
+    const parseCursors: (IngestCursor | null)[] = [];
+    const warnings: IngestWarning[] = [];
+    let storedCursor: IngestCursor | null = null;
+    const readStoredCursor = (): IngestCursor | null => storedCursor;
+    let rewriteBeforeParse = true;
+
+    const service = createSessionIngestService({
+      roots: [root],
+      registries: [
+        createRegistry({
+          provider: "claude",
+          matchExtension: ".jsonl",
+          async beforeParse(context) {
+            if (!rewriteBeforeParse) {
+              return;
+            }
+
+            rewriteBeforeParse = false;
+            await Bun.write(context.filePath, rewrittenContents);
+            await utimes(context.filePath, initialStats.atime, initialStats.mtime);
+          },
+          recordFactory(context) {
+            parseCursors.push(context.cursor);
+
+            return [
+              createObservedEventRecord({
+                provider: "claude",
+                filePath: context.filePath,
+                root: context.root,
+                sessionId: "session-initial-rewrite-race",
+                cursor: {
+                  provider: "claude",
+                  rootPath: root.path,
+                  filePath: context.filePath,
+                  byteOffset: initialContents.length,
+                  line: 1,
+                },
+              }),
+            ];
+          },
+        }),
+      ],
+      cursorStore: {
+        async get() {
+          return storedCursor;
+        },
+        async set(cursor) {
+          storedCursor = cursor;
+        },
+        async delete() {
+          storedCursor = null;
+        },
+      },
+      onWarning(warning) {
+        warnings.push(warning);
+      },
+    });
+
+    await service.scanNow();
+
+    expect(readStoredCursor()).toBeNull();
+
+    await service.scanNow();
+
+    expect(parseCursors).toEqual([null, null]);
+    expect(warnings.map((warning) => warning.code)).toEqual(["cursor-reset"]);
+    expect(readStoredCursor()?.byteOffset).toBe(initialContents.length);
+    expect(readStoredCursor()?.continuityToken).toBeDefined();
+  } finally {
+    await removeFixtureWorkspace(workspace);
+  }
+});
+
 test("scanNow keeps the stored cursor when file state cannot be read", async () => {
   const workspace = await createFixtureWorkspace({
     "claude/a-keep.jsonl": "keep\n",
