@@ -14,6 +14,7 @@ export type IngestParseContext = {
   filePath: string;
   discoveryPhase: DiscoveryPhase;
   cursor: IngestCursor | null;
+  match: IngestFileMatch;
 };
 
 export interface IngestProviderRegistry {
