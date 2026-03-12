@@ -50,6 +50,7 @@ class DefaultSessionIngestService implements SessionIngestService {
 
       const startToken = Symbol("ingest-start");
       let startupWatchLoop: IngestWatchLoop | null = null;
+      const startedWatchRoots: DiscoveryRootConfig[] = [];
       this.startToken = startToken;
       const watchRoots = this.activeRoots.filter((root) => root.watch);
 
@@ -70,9 +71,11 @@ class DefaultSessionIngestService implements SessionIngestService {
               rootPath: root.path,
               discoveryPhase: "watch",
             });
+            startedWatchRoots.push(root);
           }
 
           if (this.startToken !== startToken) {
+            await this.emitStartupWatchStopped(startedWatchRoots);
             return;
           }
 
@@ -399,6 +402,19 @@ class DefaultSessionIngestService implements SessionIngestService {
         rootPath: root.path,
         discoveryPhase: "watch",
         raw: error,
+      });
+    }
+  }
+
+  private async emitStartupWatchStopped(
+    roots: DiscoveryRootConfig[],
+  ): Promise<void> {
+    for (const root of roots) {
+      await this.emitDiscoveryEvent({
+        type: "watch.stopped",
+        provider: root.provider,
+        rootPath: root.path,
+        discoveryPhase: "watch",
       });
     }
   }

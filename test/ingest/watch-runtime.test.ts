@@ -324,6 +324,7 @@ test("stop during watch.started does not strand startup state and allows restart
   };
   const filePath = join(root.path, "watch-startup-cancel.jsonl");
   const parsePhases: string[] = [];
+  const discoveryEvents: DiscoveryEvent[] = [];
   const watchStartedEntered = createDeferredPromise<void>();
   const watchStartedGate = createDeferredPromise<void>();
   let blockWatchStarted = true;
@@ -358,6 +359,8 @@ test("stop during watch.started does not strand startup state and allows restart
     ],
     watchIntervalMs: 25,
     async onDiscoveryEvent(event) {
+      discoveryEvents.push(event);
+
       if (!blockWatchStarted || event.type !== "watch.started") {
         return;
       }
@@ -380,6 +383,13 @@ test("stop during watch.started does not strand startup state and allows restart
   await Bun.sleep(120);
 
   expect(parsePhases).toEqual(["initial_scan"]);
+  expect(discoveryEvents.map((event) => event.type)).toEqual([
+    "scan.started",
+    "file.discovered",
+    "scan.completed",
+    "watch.started",
+    "watch.stopped",
+  ]);
 
   await service.start();
   await Bun.write(filePath, "one\ntwo\nthree\n");
