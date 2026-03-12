@@ -30,6 +30,7 @@ class DefaultSessionIngestService implements SessionIngestService {
   private duplicateRootsEmitted = false;
   private watchLoop: IngestWatchLoop | null = null;
   private started = false;
+  private startToken: symbol | null = null;
   private operationQueue: Promise<void> = Promise.resolve();
 
   constructor(private readonly options: SessionIngestServiceOptions) {
@@ -43,50 +44,85 @@ class DefaultSessionIngestService implements SessionIngestService {
 
   async start(): Promise<void> {
     await this.runSerialized(async () => {
-      if (this.started) {
+      if (this.started || this.startToken) {
         return;
       }
 
-      this.started = true;
-
-      await this.emitSkippedRoots();
-
+      const startToken = Symbol("ingest-start");
+      this.startToken = startToken;
       const watchRoots = this.activeRoots.filter((root) => root.watch);
 
-      for (const root of watchRoots) {
-        await this.emitDiscoveryEvent({
-          type: "watch.started",
-          provider: root.provider,
-          rootPath: root.path,
-          discoveryPhase: "watch",
-        });
-      }
+      try {
+        await this.emitSkippedRoots();
 
-      if (watchRoots.length > 0) {
-        await this.scanRoots(watchRoots, "initial_scan");
-        this.watchLoop = createIngestWatchLoop({
-          intervalMs: this.options.watchIntervalMs ?? DEFAULT_WATCH_INTERVAL_MS,
-          onTick: async () => {
-            await this.runSerialized(async () => {
-              await this.reconcileRoots(watchRoots, "watch");
+        if (watchRoots.length > 0) {
+          await this.scanRoots(watchRoots, "initial_scan");
+
+          if (this.startToken !== startToken) {
+            return;
+          }
+
+          let watchLoop: IngestWatchLoop | null = null;
+
+          watchLoop = createIngestWatchLoop({
+            intervalMs: this.options.watchIntervalMs ?? DEFAULT_WATCH_INTERVAL_MS,
+            onTick: async () => {
+              await this.runSerialized(async () => {
+                await this.reconcileRoots(watchRoots, "watch");
+              });
+            },
+            onTickError: async (error) => {
+              await this.handleWatchTickFailure(watchRoots, watchLoop, error);
+            },
+          });
+
+          if (this.startToken !== startToken) {
+            await watchLoop.stop();
+            return;
+          }
+
+          this.watchLoop = watchLoop;
+
+          for (const root of watchRoots) {
+            await this.emitDiscoveryEvent({
+              type: "watch.started",
+              provider: root.provider,
+              rootPath: root.path,
+              discoveryPhase: "watch",
             });
-          },
-        });
+          }
+        }
+
+        this.started = true;
+      } catch (error) {
+        if (this.startToken === startToken) {
+          this.watchLoop = null;
+          this.started = false;
+        }
+
+        throw error;
+      } finally {
+        if (this.startToken === startToken) {
+          this.startToken = null;
+        }
       }
     });
   }
 
   async stop(): Promise<void> {
     const wasStarted = this.started;
+    const wasStarting = this.startToken !== null;
     const watchLoop = this.watchLoop;
+    const didCreateWatchLoop = watchLoop !== null;
 
     this.started = false;
+    this.startToken = null;
     this.watchLoop = null;
 
     await watchLoop?.stop();
 
     await this.runSerialized(async () => {
-      if (!wasStarted) {
+      if ((!wasStarted && !wasStarting) || !didCreateWatchLoop) {
         return;
       }
 
@@ -325,6 +361,38 @@ class DefaultSessionIngestService implements SessionIngestService {
           filePath: file.filePath,
           metadata: file.selection.match.metadata,
         },
+      });
+    }
+  }
+
+  private async handleWatchTickFailure(
+    roots: DiscoveryRootConfig[],
+    watchLoop: IngestWatchLoop | null,
+    error: unknown,
+  ): Promise<void> {
+    if (!watchLoop || this.watchLoop !== watchLoop) {
+      return;
+    }
+
+    this.started = false;
+    this.startToken = null;
+    this.watchLoop = null;
+
+    for (const root of roots) {
+      await this.emitWarning({
+        code: "watch-failed",
+        message: "Watch tick failed; watcher stopped until restart",
+        provider: root.provider,
+        raw: error,
+        cause: error,
+      });
+
+      await this.emitDiscoveryEvent({
+        type: "watch.stopped",
+        provider: root.provider,
+        rootPath: root.path,
+        discoveryPhase: "watch",
+        raw: error,
       });
     }
   }

@@ -104,6 +104,148 @@ test("start watches file changes and stop prevents further watch processing", as
   );
 });
 
+test("start resets lifecycle state after initial scan failures and can be retried", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/start-failure.jsonl": "one\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+    watch: true,
+  };
+  let failStartup = true;
+  const discoveryEvents: DiscoveryEvent[] = [];
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        recordFactory(context) {
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: "session-start-failure",
+              discoveryPhase: context.discoveryPhase,
+              cursor: {
+                provider: "claude",
+                rootPath: context.root.path,
+                filePath: context.filePath,
+                byteOffset: Number(Bun.file(context.filePath).size),
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    watchIntervalMs: 25,
+    onObservedEvent(record) {
+      if (failStartup && record.source.discoveryPhase === "initial_scan") {
+        throw new Error("startup failed");
+      }
+    },
+    onDiscoveryEvent(event) {
+      discoveryEvents.push(event);
+    },
+  });
+
+  await expect(service.start()).rejects.toThrow("startup failed");
+  expect(discoveryEvents.some((event) => event.type === "watch.started")).toBe(false);
+
+  failStartup = false;
+
+  await service.start();
+  await waitForCondition(() =>
+    discoveryEvents.some((event) => event.type === "watch.started"),
+  );
+
+  await service.stop();
+
+  expect(discoveryEvents.filter((event) => event.type === "watch.started")).toHaveLength(1);
+  expect(discoveryEvents.filter((event) => event.type === "watch.stopped")).toHaveLength(1);
+});
+
+test("stop waits for in-flight startup scans without leaving a watcher behind", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/start-stop-race.jsonl": "one\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+    watch: true,
+  };
+  const filePath = join(root.path, "start-stop-race.jsonl");
+  const parsePhases: string[] = [];
+  const discoveryEvents: DiscoveryEvent[] = [];
+  const initialScanEntered = createDeferredPromise<void>();
+  const initialScanGate = createDeferredPromise<void>();
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        async beforeParse(context) {
+          if (context.discoveryPhase !== "initial_scan") {
+            return;
+          }
+
+          initialScanEntered.resolve();
+          await initialScanGate.promise;
+        },
+        recordFactory(context) {
+          parsePhases.push(context.discoveryPhase);
+
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: "session-start-stop-race",
+              discoveryPhase: context.discoveryPhase,
+              cursor: {
+                provider: "claude",
+                rootPath: context.root.path,
+                filePath: context.filePath,
+                byteOffset: Number(Bun.file(context.filePath).size),
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    watchIntervalMs: 25,
+    onDiscoveryEvent(event) {
+      discoveryEvents.push(event);
+    },
+  });
+
+  const startPromise = service.start();
+  await initialScanEntered.promise;
+
+  const stopPromise = service.stop();
+  initialScanGate.resolve();
+
+  await Promise.all([startPromise, stopPromise]);
+
+  await Bun.write(filePath, "one\ntwo\n");
+  await Bun.sleep(120);
+
+  expect(parsePhases).toEqual(["initial_scan"]);
+  expect(discoveryEvents.some((event) => event.type === "watch.started")).toBe(false);
+  expect(discoveryEvents.some((event) => event.type === "watch.stopped")).toBe(false);
+});
+
 test("watch-driven deletions emit file.deleted and clear persisted cursors", async () => {
   const workspace = await createFixtureWorkspace({
     "claude/delete.jsonl": "one\n",
@@ -174,6 +316,104 @@ test("watch-driven deletions emit file.deleted and clear persisted cursors", asy
 
   await service.stop();
 });
+
+test("watch tick failures stop the watcher instead of retrying forever", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/watch-failure.jsonl": "one\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+    watch: true,
+  };
+  const filePath = join(root.path, "watch-failure.jsonl");
+  const discoveryEvents: DiscoveryEvent[] = [];
+  const warnings: IngestWarning[] = [];
+  let watchFailureCount = 0;
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        recordFactory(context) {
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: "session-watch-failure",
+              discoveryPhase: context.discoveryPhase,
+              cursor: {
+                provider: "claude",
+                rootPath: context.root.path,
+                filePath: context.filePath,
+                byteOffset: Number(Bun.file(context.filePath).size),
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    watchIntervalMs: 25,
+    onObservedEvent(record) {
+      if (record.source.discoveryPhase === "watch") {
+        watchFailureCount += 1;
+        throw new Error("watch consumer failed");
+      }
+    },
+    onWarning(warning) {
+      warnings.push(warning);
+    },
+    onDiscoveryEvent(event) {
+      discoveryEvents.push(event);
+    },
+  });
+
+  await service.start();
+  await waitForCondition(() =>
+    discoveryEvents.some((event) => event.type === "watch.started"),
+  );
+
+  await Bun.write(filePath, "one\ntwo\n");
+
+  await waitForCondition(() =>
+    warnings.some((warning) => warning.code === "watch-failed"),
+  );
+
+  const failuresAfterStop = watchFailureCount;
+
+  await Bun.sleep(120);
+
+  expect(failuresAfterStop).toBe(1);
+  expect(watchFailureCount).toBe(failuresAfterStop);
+  expect(discoveryEvents.filter((event) => event.type === "watch.stopped")).toHaveLength(1);
+
+  await Bun.write(filePath, "one\ntwo\nthree\n");
+  await Bun.sleep(120);
+
+  expect(watchFailureCount).toBe(failuresAfterStop);
+  expect(warnings.filter((warning) => warning.code === "watch-failed")).toHaveLength(1);
+});
+
+function createDeferredPromise<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+
+  return {
+    promise,
+    resolve,
+    reject,
+  };
+}
 
 test("reconcileNow detects drift and emits reconcile lifecycle events", async () => {
   const workspace = await createFixtureWorkspace({

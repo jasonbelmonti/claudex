@@ -2,6 +2,7 @@ import type { ProviderId } from "../core/provider";
 import type { ObservedEventSource } from "./source";
 
 export const INGEST_WARNING_CODES = [
+  "watch-failed",
   "file-open-failed",
   "parse-failed",
   "unsupported-record",

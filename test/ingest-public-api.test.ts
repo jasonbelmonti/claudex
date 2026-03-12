@@ -46,6 +46,7 @@ test("public ingest api exports the documented runtime surface", () => {
     "transcript",
     "reconcile",
   ]);
+  expect(ingest.INGEST_WARNING_CODES).toContain("watch-failed");
   expect(ingest.INGEST_WARNING_CODES).toContain("parse-failed");
   expect(ingest.DISCOVERY_EVENT_TYPES).toContain("scan.completed");
   expect(ingest.DISCOVERY_EVENT_TYPES).toContain("watch.started");

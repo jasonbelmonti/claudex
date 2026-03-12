@@ -5,6 +5,7 @@ export type IngestWatchLoop = {
 export function createIngestWatchLoop(options: {
   intervalMs: number;
   onTick: () => Promise<void>;
+  onTickError?: (error: unknown) => Promise<void> | void;
 }): IngestWatchLoop {
   let stopped = false;
   let inFlight: Promise<void> | null = null;
@@ -15,6 +16,11 @@ export function createIngestWatchLoop(options: {
     }
 
     inFlight = options.onTick()
+      .catch(async (error) => {
+        stopped = true;
+        clearInterval(timer);
+        await options.onTickError?.(error);
+      })
       .catch(() => undefined)
       .finally(() => {
         inFlight = null;
