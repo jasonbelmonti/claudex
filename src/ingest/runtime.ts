@@ -1,8 +1,10 @@
 import type { IngestCursor, IngestCursorKey } from "./cursor";
 import { resolveCursorRecovery } from "./cursor-recovery";
 import type { DiscoveryEvent, DiscoveryRootConfig } from "./discovery";
+import type { ObservedIngestRecord } from "./events";
 import { readSourceFileState, type SourceFileState } from "./file-state";
 import { listDiscoveryRootFiles } from "./root-files";
+import { consumeParsedRecords } from "./record-consumption";
 import { selectRegistryForFile } from "./registry-selection";
 import { dispatchObservedRecord } from "./record-dispatch";
 import type { ObservedEventSource } from "./source";
@@ -106,31 +108,46 @@ class DefaultSessionIngestService implements SessionIngestService {
         }
 
         let latestCursor = recovery.cursor;
-        const shouldClearStoredCursor = storedCursor !== null && recovery.cursor === null;
+        let shouldClearStoredCursor = storedCursor !== null && recovery.cursor === null;
         let parseError: unknown = null;
+        let consumerError: unknown = null;
+        let records: AsyncIterable<ObservedIngestRecord> | null = null;
 
         try {
-          const records = await selection.registry.parseFile({
+          records = await selection.registry.parseFile({
             root,
             filePath,
             discoveryPhase: "initial_scan",
             cursor: recovery.cursor,
             match: selection.match,
           });
-
-          for await (const record of records) {
-            latestCursor = record.cursor ?? latestCursor;
-            await dispatchObservedRecord(this.options, record);
-          }
         } catch (error) {
           parseError = error;
+        }
+
+        if (records) {
+          const consumption = await consumeParsedRecords({
+            initialCursor: recovery.cursor,
+            records,
+            onRecord: async (record) => {
+              await dispatchObservedRecord(this.options, record);
+            },
+          });
+
+          latestCursor = consumption.latestCursor;
+          parseError = consumption.parseError;
+          consumerError = consumption.consumerError;
+          shouldClearStoredCursor = shouldClearStoredCursor && latestCursor === null;
+        }
+
+        if (parseError) {
           await this.emitWarning({
             code: "parse-failed",
             message: "Registry parser failed while processing the file",
             provider: root.provider,
             filePath,
             source,
-            cause: error,
+            cause: parseError,
           });
         }
 
@@ -151,6 +168,10 @@ class DefaultSessionIngestService implements SessionIngestService {
 
         if (parseError) {
           continue;
+        }
+
+        if (consumerError) {
+          throw consumerError;
         }
       }
 
