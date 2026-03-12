@@ -21,7 +21,6 @@ test("scanNow throws consumer callback failures without advancing the cursor", a
       provider: "claude" as const,
       path: join(workspace, "claude"),
     };
-    const filePath = join(workspace, "claude", "consumer-failure.jsonl");
     const warnings: IngestWarning[] = [];
     let storedCursor: IngestCursor | null = null;
 

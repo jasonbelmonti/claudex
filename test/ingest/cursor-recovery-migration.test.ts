@@ -185,8 +185,6 @@ test("scanNow does not persist stale fingerprints when files rotate during parsi
       provider: "claude" as const,
       path: join(workspace, "claude"),
     };
-    const filePath = join(workspace, "claude", "rotate-race.jsonl");
-
     const parseCursors: (IngestCursor | null)[] = [];
     const warnings: IngestWarning[] = [];
     let storedCursor: IngestCursor | null = null;
