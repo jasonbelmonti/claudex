@@ -49,6 +49,7 @@ class DefaultSessionIngestService implements SessionIngestService {
       }
 
       const startToken = Symbol("ingest-start");
+      let startupWatchLoop: IngestWatchLoop | null = null;
       this.startToken = startToken;
       const watchRoots = this.activeRoots.filter((root) => root.watch);
 
@@ -62,9 +63,7 @@ class DefaultSessionIngestService implements SessionIngestService {
             return;
           }
 
-          let watchLoop: IngestWatchLoop | null = null;
-
-          watchLoop = createIngestWatchLoop({
+          startupWatchLoop = createIngestWatchLoop({
             intervalMs: this.options.watchIntervalMs ?? DEFAULT_WATCH_INTERVAL_MS,
             onTick: async () => {
               await this.runSerialized(async () => {
@@ -72,16 +71,16 @@ class DefaultSessionIngestService implements SessionIngestService {
               });
             },
             onTickError: async (error) => {
-              await this.handleWatchTickFailure(watchRoots, watchLoop, error);
+              await this.handleWatchTickFailure(watchRoots, startupWatchLoop, error);
             },
           });
 
           if (this.startToken !== startToken) {
-            await watchLoop.stop();
+            await startupWatchLoop.stop();
             return;
           }
 
-          this.watchLoop = watchLoop;
+          this.watchLoop = startupWatchLoop;
 
           for (const root of watchRoots) {
             await this.emitDiscoveryEvent({
@@ -95,6 +94,10 @@ class DefaultSessionIngestService implements SessionIngestService {
 
         this.started = true;
       } catch (error) {
+        if (startupWatchLoop) {
+          await startupWatchLoop.stop();
+        }
+
         if (this.startToken === startToken) {
           this.watchLoop = null;
           this.started = false;

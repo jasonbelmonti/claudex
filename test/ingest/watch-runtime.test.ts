@@ -171,6 +171,71 @@ test("start resets lifecycle state after initial scan failures and can be retrie
   expect(discoveryEvents.filter((event) => event.type === "watch.stopped")).toHaveLength(1);
 });
 
+test("start stops the created watcher when watch.started delivery fails", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/watch-started-failure.jsonl": "one\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+    watch: true,
+  };
+  const filePath = join(root.path, "watch-started-failure.jsonl");
+  const parsePhases: string[] = [];
+  let failWatchStarted = true;
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        recordFactory(context) {
+          parsePhases.push(context.discoveryPhase);
+
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: "session-watch-started-failure",
+              discoveryPhase: context.discoveryPhase,
+              cursor: {
+                provider: "claude",
+                rootPath: context.root.path,
+                filePath: context.filePath,
+                byteOffset: Number(Bun.file(context.filePath).size),
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    watchIntervalMs: 25,
+    onDiscoveryEvent(event) {
+      if (failWatchStarted && event.type === "watch.started") {
+        throw new Error("watch.started failed");
+      }
+    },
+  });
+
+  await expect(service.start()).rejects.toThrow("watch.started failed");
+
+  await Bun.write(filePath, "one\ntwo\n");
+  await Bun.sleep(120);
+
+  expect(parsePhases).toEqual(["initial_scan"]);
+
+  failWatchStarted = false;
+  await service.start();
+  await Bun.write(filePath, "one\ntwo\nthree\n");
+  await waitForCondition(() => parsePhases.includes("watch"));
+  await service.stop();
+});
+
 test("stop waits for in-flight startup scans without leaving a watcher behind", async () => {
   const workspace = await createFixtureWorkspace({
     "claude/start-stop-race.jsonl": "one\n",
