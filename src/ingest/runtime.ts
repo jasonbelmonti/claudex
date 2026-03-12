@@ -1,9 +1,13 @@
 import type { IngestCursorKey } from "./cursor";
+import { resolveCursorRecovery } from "./cursor-recovery";
 import type { DiscoveryEvent, DiscoveryRootConfig } from "./discovery";
+import { readSourceFileState } from "./file-state";
 import { listDiscoveryRootFiles } from "./root-files";
 import { selectRegistryForFile } from "./registry-selection";
 import { dispatchObservedRecord } from "./record-dispatch";
+import type { ObservedEventSource } from "./source";
 import type { SessionIngestService, SessionIngestServiceOptions } from "./service";
+import type { IngestWarning } from "./warnings";
 
 export function createSessionIngestService(
   options: SessionIngestServiceOptions,
@@ -51,6 +55,15 @@ class DefaultSessionIngestService implements SessionIngestService {
           continue;
         }
 
+        const source: ObservedEventSource = {
+          provider: root.provider,
+          kind: selection.match.kind,
+          discoveryPhase: "initial_scan",
+          rootPath: root.path,
+          filePath,
+          metadata: selection.match.metadata,
+        };
+
         await this.emitDiscoveryEvent({
           type: "file.discovered",
           provider: root.provider,
@@ -64,23 +77,76 @@ class DefaultSessionIngestService implements SessionIngestService {
           rootPath: root.path,
           filePath,
         };
-        const cursor = (await this.options.cursorStore?.get(cursorKey)) ?? null;
-        const records = await selection.registry.parseFile({
-          root,
-          filePath,
-          discoveryPhase: "initial_scan",
-          cursor,
-          match: selection.match,
-        });
-        let latestCursor = cursor;
+        const storedCursor = (await this.options.cursorStore?.get(cursorKey)) ?? null;
+        const fileState = await readSourceFileState(filePath);
 
-        for await (const record of records) {
-          latestCursor = record.cursor ?? latestCursor;
-          await dispatchObservedRecord(this.options, record);
+        if (!fileState) {
+          await this.emitWarning({
+            code: "file-open-failed",
+            message: "File disappeared or is no longer readable",
+            provider: root.provider,
+            filePath,
+            source,
+          });
+          await this.options.cursorStore?.delete(cursorKey);
+          continue;
+        }
+
+        const recovery = resolveCursorRecovery({
+          storedCursor,
+          fileState,
+          source,
+        });
+
+        for (const warning of recovery.warnings) {
+          await this.emitWarning(warning);
+        }
+
+        if (recovery.skip) {
+          continue;
+        }
+
+        let latestCursor = recovery.cursor;
+        const shouldClearStoredCursor = storedCursor !== null && recovery.cursor === null;
+        let parseError: unknown = null;
+
+        try {
+          const records = await selection.registry.parseFile({
+            root,
+            filePath,
+            discoveryPhase: "initial_scan",
+            cursor: recovery.cursor,
+            match: selection.match,
+          });
+
+          for await (const record of records) {
+            latestCursor = record.cursor ?? latestCursor;
+            await dispatchObservedRecord(this.options, record);
+          }
+        } catch (error) {
+          parseError = error;
+          await this.emitWarning({
+            code: "parse-failed",
+            message: "Registry parser failed while processing the file",
+            provider: root.provider,
+            filePath,
+            source,
+            cause: error,
+          });
         }
 
         if (latestCursor) {
-          await this.options.cursorStore?.set(latestCursor);
+          await this.options.cursorStore?.set({
+            ...latestCursor,
+            fingerprint: fileState.fingerprint,
+            updatedAt: new Date().toISOString(),
+          });
+        } else if (shouldClearStoredCursor) {
+          await this.options.cursorStore?.delete(cursorKey);
+        }
+
+        if (parseError) {
+          continue;
         }
       }
 
@@ -95,5 +161,9 @@ class DefaultSessionIngestService implements SessionIngestService {
 
   private async emitDiscoveryEvent(discoveryEvent: DiscoveryEvent): Promise<void> {
     await this.options.onDiscoveryEvent?.(discoveryEvent);
+  }
+
+  private async emitWarning(warning: IngestWarning): Promise<void> {
+    await this.options.onWarning?.(warning);
   }
 }
