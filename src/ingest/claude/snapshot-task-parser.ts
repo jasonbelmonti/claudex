@@ -62,7 +62,7 @@ export async function* parseSnapshotTaskFile(
   const normalizationContext = createClaudeArtifactNormalizationContext();
   const resumeRecordIndex = readSnapshotReplayIndex(context.cursor?.metadata);
   const file = Bun.file(context.filePath);
-  const cursorStart = context.cursor?.byteOffset ?? 0;
+  const cursorStart = resumeRecordIndex > 0 ? 0 : context.cursor?.byteOffset ?? 0;
 
   if (cursorStart >= file.size) {
     return;
@@ -359,8 +359,10 @@ function createSnapshotReplayCursor(params: {
     provider: params.context.root.provider,
     rootPath: params.context.root.path,
     filePath: params.context.filePath,
-    byteOffset: 0,
-    line: 0,
+    // Keep a continuity-checked byte offset while still replaying from byte 0
+    // on the next parse pass via the replay-index metadata.
+    byteOffset: params.byteOffset,
+    line: params.line,
     metadata: {
       [SNAPSHOT_REPLAY_INDEX_METADATA_KEY]: params.deliveredRecordCount,
     },

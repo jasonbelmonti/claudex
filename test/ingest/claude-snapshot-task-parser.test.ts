@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type {
@@ -187,4 +188,105 @@ test("snapshot/task parser resumes remaining records after a consumer failure", 
   await service.scanNow();
 
   expect(deliveredTexts).toEqual(["first", "second", "third"]);
+});
+
+test("snapshot/task parser resets stale partial replay progress after an in-place rewrite", async () => {
+  const initialContents = JSON.stringify({
+    type: "snapshot",
+    records: [
+      {
+        type: "assistant",
+        session_id: "session-1",
+        message: {
+          content: [{ type: "text", text: "a" }],
+        },
+      },
+      {
+        type: "assistant",
+        session_id: "session-1",
+        message: {
+          content: [{ type: "text", text: "b" }],
+        },
+      },
+      {
+        type: "assistant",
+        session_id: "session-1",
+        message: {
+          content: [{ type: "text", text: "c" }],
+        },
+      },
+    ],
+  });
+  const rewrittenContents = JSON.stringify({
+    type: "snapshot",
+    records: [
+      {
+        type: "assistant",
+        session_id: "session-1",
+        message: {
+          content: [{ type: "text", text: "x" }],
+        },
+      },
+      {
+        type: "assistant",
+        session_id: "session-1",
+        message: {
+          content: [{ type: "text", text: "y" }],
+        },
+      },
+      {
+        type: "assistant",
+        session_id: "session-1",
+        message: {
+          content: [{ type: "text", text: "z" }],
+        },
+      },
+    ],
+  });
+
+  expect(initialContents.length).toBe(rewrittenContents.length);
+
+  const workspace = await createFixtureWorkspace({
+    "claude/snapshot-task.json": initialContents,
+  });
+  workspaces.push(workspace);
+
+  const filePath = join(workspace, "claude", "snapshot-task.json");
+  const deliveredTexts: string[] = [];
+  let failSecondEvent = true;
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [createClaudeSnapshotTaskIngestRegistry()],
+    cursorStore: createInMemoryCursorStore(),
+    onObservedEvent(record: ObservedAgentEvent) {
+      if (record.event.type !== "message.completed") {
+        return;
+      }
+
+      if (failSecondEvent && record.event.text === "b") {
+        failSecondEvent = false;
+        throw new Error("consumer callback failed");
+      }
+
+      deliveredTexts.push(record.event.text);
+    },
+  });
+
+  await expect(service.scanNow()).rejects.toThrow("consumer callback failed");
+  expect(deliveredTexts).toEqual(["a"]);
+
+  const beforeRewrite = await stat(filePath);
+  await writeFile(filePath, rewrittenContents);
+  const afterRewrite = await stat(filePath);
+
+  expect(afterRewrite.dev).toBe(beforeRewrite.dev);
+  expect(afterRewrite.ino).toBe(beforeRewrite.ino);
+
+  await service.scanNow();
+
+  expect(deliveredTexts).toEqual(["a", "x", "y", "z"]);
 });
