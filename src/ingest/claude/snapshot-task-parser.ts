@@ -23,6 +23,8 @@ import {
   normalizeClaudeArtifactRecord,
 } from "./normalize";
 
+const SNAPSHOT_REPLAY_INDEX_METADATA_KEY = "claudeSnapshotReplayIndex";
+
 type ArtifactRecordContainer = {
   type?: unknown;
   records?: unknown;
@@ -58,6 +60,7 @@ export async function* parseSnapshotTaskFile(
 ): AsyncIterable<ObservedIngestRecord> {
   const source = createSourceBase(context);
   const normalizationContext = createClaudeArtifactNormalizationContext();
+  const resumeRecordIndex = readSnapshotReplayIndex(context.cursor?.metadata);
   const file = Bun.file(context.filePath);
   const cursorStart = context.cursor?.byteOffset ?? 0;
 
@@ -73,7 +76,7 @@ export async function* parseSnapshotTaskFile(
   }
 
   const nextByteOffset = cursorStart + bytes.length;
-  const line = (context.cursor?.line ?? 0) + 1;
+  const line = 1;
   const cursor = createIngestCursor(context, nextByteOffset, line);
   const parsedPayload = parseSnapshotPayload(payloadText);
 
@@ -120,27 +123,29 @@ export async function* parseSnapshotTaskFile(
     return;
   }
 
+  const observedRecords: ObservedIngestRecord[] = [];
+
   for (const record of artifactRecords) {
     const { events, warnings, sessionId } = normalizeClaudeArtifactRecord(record, normalizationContext);
     const completeWarnings = withIngestWarnings(warnings, source);
 
     if (events.length === 0) {
       for (const warning of completeWarnings) {
-        yield createSessionRecordForWarnings({
+        observedRecords.push(createSessionRecordForWarnings({
           baseSource: source,
           reason: "snapshot",
           warnings: [warning],
           cursor,
           sessionId: deriveSessionId(sessionId, context.filePath),
           completeness: "partial",
-        });
+        }));
       }
 
       continue;
     }
 
     for (const [index, event] of events.entries()) {
-      yield createObservedEventRecord({
+      observedRecords.push(createObservedEventRecord({
         context,
         sourceKind: "snapshot",
         line,
@@ -149,8 +154,28 @@ export async function* parseSnapshotTaskFile(
         observedSession: createObservedSessionIdentityFromEvent(event, sessionId),
         completeness: selectCompleteness(completeWarnings),
         warnings: index === 0 && completeWarnings.length > 0 ? completeWarnings : undefined,
-      });
+      }));
     }
+  }
+
+  for (const [index, record] of observedRecords.entries()) {
+    const deliveredRecordCount = index + 1;
+    const cursorWithProgress = createSnapshotReplayCursor({
+      context,
+      byteOffset: nextByteOffset,
+      line,
+      deliveredRecordCount,
+      totalRecordCount: observedRecords.length,
+    });
+
+    if (deliveredRecordCount <= resumeRecordIndex) {
+      continue;
+    }
+
+    yield {
+      ...record,
+      cursor: cursorWithProgress,
+    };
   }
 }
 
@@ -309,6 +334,37 @@ function deriveSessionId(sessionId: string | undefined, filePath: string): strin
 
 function createSourceBase(context: IngestParseContext): ObservedEventSource {
   return createIngestSource(context);
+}
+
+function readSnapshotReplayIndex(metadata: Record<string, unknown> | undefined): number {
+  const value = metadata?.[SNAPSHOT_REPLAY_INDEX_METADATA_KEY];
+
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : 0;
+}
+
+function createSnapshotReplayCursor(params: {
+  context: IngestParseContext;
+  byteOffset: number;
+  line: number;
+  deliveredRecordCount: number;
+  totalRecordCount: number;
+}): IngestCursor {
+  if (params.deliveredRecordCount >= params.totalRecordCount) {
+    return createIngestCursor(params.context, params.byteOffset, params.line);
+  }
+
+  return {
+    provider: params.context.root.provider,
+    rootPath: params.context.root.path,
+    filePath: params.context.filePath,
+    byteOffset: 0,
+    line: 0,
+    metadata: {
+      [SNAPSHOT_REPLAY_INDEX_METADATA_KEY]: params.deliveredRecordCount,
+    },
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

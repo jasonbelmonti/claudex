@@ -6,7 +6,10 @@ import type {
   ObservedAgentEvent,
   ObservedSessionRecord,
 } from "claudex/ingest";
-import { createSessionIngestService } from "claudex/ingest";
+import {
+  createInMemoryCursorStore,
+  createSessionIngestService,
+} from "claudex/ingest";
 import { createClaudeSnapshotTaskIngestRegistry } from "../../src/ingest/claude";
 import {
   createFixtureWorkspace,
@@ -121,4 +124,67 @@ test("snapshot/task parser ignores unrelated JSON files without warning", async 
   expect(eventTypes).toEqual([]);
   expect(sessionKinds).toEqual([]);
   expect(warningCodes).toEqual([]);
+});
+
+test("snapshot/task parser resumes remaining records after a consumer failure", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/snapshot-task.json": JSON.stringify({
+      type: "snapshot",
+      records: [
+        {
+          type: "assistant",
+          session_id: "session-1",
+          message: {
+            content: [{ type: "text", text: "first" }],
+          },
+        },
+        {
+          type: "assistant",
+          session_id: "session-1",
+          message: {
+            content: [{ type: "text", text: "second" }],
+          },
+        },
+        {
+          type: "assistant",
+          session_id: "session-1",
+          message: {
+            content: [{ type: "text", text: "third" }],
+          },
+        },
+      ],
+    }),
+  });
+  workspaces.push(workspace);
+
+  const deliveredTexts: string[] = [];
+  let failSecondEvent = true;
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [createClaudeSnapshotTaskIngestRegistry()],
+    cursorStore: createInMemoryCursorStore(),
+    onObservedEvent(record: ObservedAgentEvent) {
+      if (record.event.type !== "message.completed") {
+        return;
+      }
+
+      if (failSecondEvent && record.event.text === "second") {
+        failSecondEvent = false;
+        throw new Error("consumer callback failed");
+      }
+
+      deliveredTexts.push(record.event.text);
+    },
+  });
+
+  await expect(service.scanNow()).rejects.toThrow("consumer callback failed");
+  expect(deliveredTexts).toEqual(["first"]);
+
+  await service.scanNow();
+
+  expect(deliveredTexts).toEqual(["first", "second", "third"]);
 });
