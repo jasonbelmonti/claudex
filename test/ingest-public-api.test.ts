@@ -46,8 +46,11 @@ test("public ingest api exports the documented runtime surface", () => {
     "transcript",
     "reconcile",
   ]);
+  expect(ingest.INGEST_WARNING_CODES).toContain("watch-failed");
   expect(ingest.INGEST_WARNING_CODES).toContain("parse-failed");
   expect(ingest.DISCOVERY_EVENT_TYPES).toContain("scan.completed");
+  expect(ingest.DISCOVERY_EVENT_TYPES).toContain("watch.started");
+  expect(ingest.DISCOVERY_EVENT_TYPES).toContain("reconcile.completed");
   expect(typeof ingest.createInMemoryCursorStore).toBe("function");
   expect(typeof ingest.createSessionIngestService).toBe("function");
 });
@@ -162,6 +165,7 @@ test("public ingest api types model the documented contract", () => {
     roots: [root],
     registries: [registry],
     cursorStore,
+    watchIntervalMs: 50,
     onRecord() {},
     onObservedEvent() {},
     onObservedSession() {},
@@ -180,4 +184,5 @@ test("public ingest api types model the documented contract", () => {
   expect(warning.code).toBe("parse-failed");
   expect(discoveryEvent.type).toBe("scan.completed");
   expect(service.roots).toEqual([root]);
+  expect(typeof service.reconcileNow).toBe("function");
 });

@@ -32,6 +32,7 @@ export type SessionIngestServiceOptions = {
   roots: DiscoveryRootConfig[];
   registries: IngestProviderRegistry[];
   cursorStore?: CursorStore;
+  watchIntervalMs?: number;
   onRecord?: IngestRecordHandler;
   onObservedEvent?: ObservedEventHandler;
   onObservedSession?: ObservedSessionHandler;
@@ -45,4 +46,5 @@ export interface SessionIngestService {
   start(): Promise<void>;
   stop(): Promise<void>;
   scanNow(): Promise<void>;
+  reconcileNow(): Promise<void>;
 }

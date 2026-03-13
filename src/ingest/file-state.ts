@@ -7,6 +7,7 @@ export type SourceFileState = {
   size: number;
   fingerprint: string;
   continuityToken: string | null;
+  modifiedAtMs: number;
 };
 
 export async function readSourceFileState(
@@ -33,6 +34,7 @@ export async function readSourceFileState(
     size: fileStats.size,
     fingerprint: `${fileStats.dev}:${fileStats.ino}`,
     continuityToken,
+    modifiedAtMs: Number(fileStats.mtimeMs),
   };
 }
 

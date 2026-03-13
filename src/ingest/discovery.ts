@@ -4,6 +4,10 @@ import type { DiscoveryPhase } from "./source";
 export const DISCOVERY_EVENT_TYPES = [
   "scan.started",
   "scan.completed",
+  "watch.started",
+  "watch.stopped",
+  "reconcile.started",
+  "reconcile.completed",
   "file.discovered",
   "file.changed",
   "file.deleted",
