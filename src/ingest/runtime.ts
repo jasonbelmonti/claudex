@@ -8,6 +8,7 @@ import {
   reconcileRootSnapshot,
   type RootSnapshot,
 } from "./reconcile";
+import { getDiscoveryRootIdentityKey } from "./root-identity";
 import type { DiscoveryPhase } from "./source";
 import type { SessionIngestService, SessionIngestServiceOptions } from "./service";
 import type { IngestWarning } from "./warnings";
@@ -65,17 +66,18 @@ class DefaultSessionIngestService implements SessionIngestService {
           }
 
           for (const root of watchRoots) {
+            startedWatchRoots.push(root);
             await this.emitDiscoveryEvent({
               type: "watch.started",
               provider: root.provider,
               rootPath: root.path,
               discoveryPhase: "watch",
             });
-            startedWatchRoots.push(root);
           }
 
           if (this.startToken !== startToken) {
             await this.emitStartupWatchStopped(startedWatchRoots);
+            startedWatchRoots.length = 0;
             return;
           }
 
@@ -102,6 +104,11 @@ class DefaultSessionIngestService implements SessionIngestService {
       } catch (error) {
         if (startupWatchLoop) {
           await startupWatchLoop.stop();
+        }
+
+        if (startedWatchRoots.length > 0) {
+          await this.emitStartupWatchStopped(startedWatchRoots);
+          startedWatchRoots.length = 0;
         }
 
         if (this.startToken === startToken) {
@@ -194,7 +201,7 @@ class DefaultSessionIngestService implements SessionIngestService {
         });
       }
 
-      this.rootSnapshots.set(toRootSnapshotKey(root), createRootSnapshot(matchedFiles.files));
+      this.rootSnapshots.set(getDiscoveryRootIdentityKey(root), createRootSnapshot(matchedFiles.files));
 
       await this.emitDiscoveryEvent({
         type: "scan.completed",
@@ -238,7 +245,7 @@ class DefaultSessionIngestService implements SessionIngestService {
 
       await this.emitUnavailableFileWarnings(root, matchedFiles.unavailableFiles, discoveryPhase);
 
-      const snapshotKey = toRootSnapshotKey(root);
+      const snapshotKey = getDiscoveryRootIdentityKey(root);
       const result = reconcileRootSnapshot(
         this.rootSnapshots.get(snapshotKey),
         matchedFiles.files,
@@ -429,8 +436,4 @@ class DefaultSessionIngestService implements SessionIngestService {
 
     return nextOperation;
   }
-}
-
-function toRootSnapshotKey(root: DiscoveryRootConfig): string {
-  return `${root.provider}:${root.path}`;
 }

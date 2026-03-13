@@ -236,6 +236,90 @@ test("start stops the created watcher when watch.started delivery fails", async 
   await service.stop();
 });
 
+test("start emits watch.stopped for already-started roots when a later watch.started fails", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/first.jsonl": "one\n",
+    "claude/second.jsonl": "two\n",
+  });
+  workspaces.push(workspace);
+
+  const firstRoot = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+    include: ["first.jsonl"],
+    watch: true,
+    metadata: { lane: "first" },
+  };
+  const secondRoot = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+    include: ["second.jsonl"],
+    watch: true,
+    metadata: { lane: "second" },
+  };
+  const discoveryEvents: DiscoveryEvent[] = [];
+  let watchStartedCount = 0;
+
+  const service = createSessionIngestService({
+    roots: [firstRoot, secondRoot],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        recordFactory(context) {
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: `session:${context.root.metadata?.lane}:${context.filePath}`,
+              discoveryPhase: context.discoveryPhase,
+              cursor: {
+                provider: "claude",
+                rootPath: context.root.path,
+                filePath: context.filePath,
+                byteOffset: Number(Bun.file(context.filePath).size),
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    watchIntervalMs: 25,
+    onDiscoveryEvent(event) {
+      discoveryEvents.push(event);
+
+      if (event.type !== "watch.started") {
+        return;
+      }
+
+      watchStartedCount += 1;
+
+      if (watchStartedCount === 2) {
+        throw new Error("second watch.started failed");
+      }
+    },
+  });
+
+  await expect(service.start()).rejects.toThrow("second watch.started failed");
+
+  expect(
+    discoveryEvents.map((event) => `${event.type}:${event.filePath ?? event.rootPath}`),
+  ).toEqual([
+    `scan.started:${firstRoot.path}`,
+    `file.discovered:${join(firstRoot.path, "first.jsonl")}`,
+    `scan.completed:${firstRoot.path}`,
+    `scan.started:${secondRoot.path}`,
+    `file.discovered:${join(secondRoot.path, "second.jsonl")}`,
+    `scan.completed:${secondRoot.path}`,
+    `watch.started:${firstRoot.path}`,
+    `watch.started:${secondRoot.path}`,
+    `watch.stopped:${firstRoot.path}`,
+    `watch.stopped:${secondRoot.path}`,
+  ]);
+});
+
 test("stop waits for in-flight startup scans without leaving a watcher behind", async () => {
   const workspace = await createFixtureWorkspace({
     "claude/start-stop-race.jsonl": "one\n",

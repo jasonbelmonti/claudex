@@ -257,6 +257,87 @@ test("scanNow persists the latest cursor, skips unchanged files, and emits recor
   expect(warnings).toEqual([expectedWarning]);
 });
 
+test("reconcileNow keeps independent snapshots for roots with the same path but different semantics", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/alpha.jsonl": "{\"ok\":true}\n",
+    "claude/beta.jsonl": "{\"ok\":true}\n",
+  });
+  workspaces.push(workspace);
+
+  const rootPath = join(workspace, "claude");
+  const alphaRoot = {
+    provider: "claude" as const,
+    path: rootPath,
+    include: ["alpha.jsonl"],
+    metadata: { lane: "alpha" },
+  };
+  const betaRoot = {
+    provider: "claude" as const,
+    path: rootPath,
+    include: ["beta.jsonl"],
+    metadata: { lane: "beta" },
+  };
+
+  const alphaFilePath = join(rootPath, "alpha.jsonl");
+  const betaFilePath = join(rootPath, "beta.jsonl");
+  const parseCalls: string[] = [];
+  const discoveryEvents: DiscoveryEvent[] = [];
+  const deletedCursorKeys: string[] = [];
+
+  const service = createSessionIngestService({
+    roots: [alphaRoot, betaRoot],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        parseCalls,
+        recordFactory(context) {
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: `session:${context.root.metadata?.lane}:${context.filePath}`,
+              discoveryPhase: context.discoveryPhase,
+              cursor: {
+                provider: "claude",
+                rootPath: context.root.path,
+                filePath: context.filePath,
+                byteOffset: Number(Bun.file(context.filePath).size),
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    cursorStore: {
+      async get() {
+        return null;
+      },
+      async set() {},
+      async delete(cursorKey) {
+        deletedCursorKeys.push(`${cursorKey.rootPath}:${cursorKey.filePath}`);
+      },
+    },
+    onDiscoveryEvent(event) {
+      discoveryEvents.push(event);
+    },
+  });
+
+  await service.scanNow();
+  await service.reconcileNow();
+
+  expect(parseCalls).toEqual([alphaFilePath, betaFilePath]);
+  expect(
+    discoveryEvents.filter((event) => event.type === "file.deleted"),
+  ).toHaveLength(0);
+  expect(
+    discoveryEvents.filter((event) => event.type === "file.discovered").map((event) => event.filePath),
+  ).toEqual([alphaFilePath, betaFilePath]);
+  expect(deletedCursorKeys).toEqual([]);
+});
+
 test("scanNow does not replay EOF cursors when files are only touched", async () => {
   const workspace = await createFixtureWorkspace({
     "claude/touched.jsonl": "{\"ok\":true}\n",

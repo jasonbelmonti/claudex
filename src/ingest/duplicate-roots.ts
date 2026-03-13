@@ -1,6 +1,10 @@
-import { resolve, sep } from "node:path";
+import { sep } from "node:path";
 
 import type { DiscoveryRootConfig } from "./discovery";
+import {
+  haveEquivalentDiscoveryRootSemantics,
+  normalizeDiscoveryRootPath,
+} from "./root-identity";
 
 export type SkippedDiscoveryRoot = {
   root: DiscoveryRootConfig;
@@ -58,7 +62,7 @@ function coversDiscoveryRoot(
     return false;
   }
 
-  if (!hasEquivalentRootSemantics(activeRoot, candidateRoot)) {
+  if (!haveEquivalentDiscoveryRootSemantics(activeRoot, candidateRoot)) {
     return false;
   }
 
@@ -86,50 +90,5 @@ function describeDuplicateRoot(
 }
 
 function normalizeRootPath(rootPath: string): string {
-  return resolve(rootPath);
-}
-
-function hasEquivalentRootSemantics(
-  left: DiscoveryRootConfig,
-  right: DiscoveryRootConfig,
-): boolean {
-  return Boolean(left.recursive) === Boolean(right.recursive)
-    && Boolean(left.watch) === Boolean(right.watch)
-    && haveEquivalentGlobLists(left.include, right.include)
-    && haveEquivalentGlobLists(left.exclude, right.exclude)
-    && stableSerializeValue(left.metadata ?? null) === stableSerializeValue(right.metadata ?? null);
-}
-
-function haveEquivalentGlobLists(
-  left: string[] | undefined,
-  right: string[] | undefined,
-): boolean {
-  return stableSerializeValue(normalizeGlobList(left))
-    === stableSerializeValue(normalizeGlobList(right));
-}
-
-function normalizeGlobList(globs: string[] | undefined): string[] {
-  return [...(globs ?? [])].sort((left, right) => left.localeCompare(right));
-}
-
-function stableSerializeValue(value: unknown): string {
-  if (value === null || value === undefined) {
-    return String(value);
-  }
-
-  if (Array.isArray(value)) {
-    return `[${value.map((entry) => stableSerializeValue(entry)).join(",")}]`;
-  }
-
-  if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .filter(([, entryValue]) => entryValue !== undefined)
-      .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
-
-    return `{${entries
-      .map(([key, entryValue]) => `${JSON.stringify(key)}:${stableSerializeValue(entryValue)}`)
-      .join(",")}}`;
-  }
-
-  return JSON.stringify(value);
+  return normalizeDiscoveryRootPath(rootPath);
 }
