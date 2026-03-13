@@ -29,9 +29,10 @@ test("snapshot/task parser normalizes artifact arrays and records malformed reco
   const root = {
     provider: "claude" as const,
     path: join(workspace, "claude"),
+    metadata: { lane: "snapshot" },
   };
 
-  const eventTypes: string[] = [];
+  const observedEvents: ObservedAgentEvent[] = [];
   const warningCodes: string[] = [];
   const observedSessionReasons: string[] = [];
 
@@ -39,7 +40,7 @@ test("snapshot/task parser normalizes artifact arrays and records malformed reco
     roots: [root],
     registries: [createClaudeSnapshotTaskIngestRegistry()],
     onObservedEvent(record: ObservedAgentEvent) {
-      eventTypes.push(record.event.type);
+      observedEvents.push(record);
     },
     onObservedSession(record: ObservedSessionRecord) {
       observedSessionReasons.push(record.reason);
@@ -51,10 +52,11 @@ test("snapshot/task parser normalizes artifact arrays and records malformed reco
 
   await service.scanNow();
 
-  expect(eventTypes).toEqual([
+  expect(observedEvents.map((record) => record.event.type)).toEqual([
     "message.completed",
     "message.delta",
   ]);
+  expect(observedEvents[0]?.source.metadata).toEqual({ lane: "snapshot" });
   expect(observedSessionReasons).toEqual(["snapshot"]);
   expect(warningCodes).toEqual(["unsupported-record"]);
 });

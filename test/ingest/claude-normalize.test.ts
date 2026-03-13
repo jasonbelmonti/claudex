@@ -265,6 +265,9 @@ test("serializes Claude structured output when replayed success results omit ter
     type: "turn.completed",
     result: {
       text: JSON.stringify({ status: "ok" }),
+      structuredOutput: {
+        status: "ok",
+      },
       usage: {
         tokens: {
           input: 3,

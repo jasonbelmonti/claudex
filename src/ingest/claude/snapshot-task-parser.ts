@@ -11,6 +11,7 @@ import type {
 import type { ObservedIngestRecord } from "../events";
 import {
   createIngestCursor,
+  createIngestSource,
   createObservedEventRecord,
   createObservedSessionRecord,
   withIngestWarnings,
@@ -307,14 +308,7 @@ function deriveSessionId(sessionId: string | undefined, filePath: string): strin
 }
 
 function createSourceBase(context: IngestParseContext): ObservedEventSource {
-  return {
-    provider: context.root.provider,
-    kind: context.match.kind,
-    discoveryPhase: context.discoveryPhase,
-    rootPath: context.root.path,
-    filePath: context.filePath,
-    metadata: context.match.metadata,
-  };
+  return createIngestSource(context);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -6,7 +6,10 @@ import type {
   ObservedAgentEvent,
   ObservedSessionRecord,
 } from "claudex/ingest";
-import { createSessionIngestService } from "claudex/ingest";
+import {
+  createInMemoryCursorStore,
+  createSessionIngestService,
+} from "claudex/ingest";
 import { createClaudeTranscriptIngestRegistry } from "../../src/ingest/claude";
 import {
   createFixtureWorkspace,
@@ -29,9 +32,10 @@ test("transcript parser emits normalized events and warnings for malformed lines
   const root = {
     provider: "claude" as const,
     path: join(workspace, "claude"),
+    metadata: { lane: "transcript" },
   };
 
-  const eventTypes: string[] = [];
+  const observedEvents: ObservedAgentEvent[] = [];
   const sessionKinds: string[] = [];
   const warningCodes: string[] = [];
 
@@ -39,7 +43,7 @@ test("transcript parser emits normalized events and warnings for malformed lines
     roots: [root],
     registries: [createClaudeTranscriptIngestRegistry()],
     onObservedEvent(record: ObservedAgentEvent) {
-      eventTypes.push(record.event.type);
+      observedEvents.push(record);
     },
     onObservedSession(record: ObservedSessionRecord) {
       sessionKinds.push(record.reason);
@@ -51,11 +55,12 @@ test("transcript parser emits normalized events and warnings for malformed lines
 
   await service.scanNow();
 
-  expect(eventTypes).toEqual([
+  expect(observedEvents.map((record) => record.event.type)).toEqual([
     "message.completed",
     "message.delta",
     "turn.completed",
   ]);
+  expect(observedEvents[0]?.source.metadata).toEqual({ lane: "transcript" });
   expect(sessionKinds).toEqual(["transcript"]);
   expect(warningCodes).toEqual(["parse-failed"]);
 });
@@ -140,6 +145,59 @@ test("transcript parser reuses assistant text for success results with empty ter
   });
 
   await service.scanNow();
+
+  expect(observedEvents).toHaveLength(2);
+  expect(observedEvents[1]?.event).toMatchObject({
+    type: "turn.completed",
+    result: {
+      text: "Assistant fallback",
+      usage: null,
+    },
+  });
+});
+
+test("transcript parser preserves assistant fallback across incremental reconcile passes", async () => {
+  const initialContents = `${JSON.stringify({
+    type: "assistant",
+    session_id: "session-1",
+    message: {
+      content: [
+        {
+          type: "text",
+          text: "Assistant fallback",
+        },
+      ],
+    },
+  })}\n`;
+  const appendedResult = `${JSON.stringify({
+    type: "result",
+    subtype: "success",
+    session_id: "session-1",
+    result: "",
+  })}\n`;
+  const workspace = await createFixtureWorkspace({
+    "claude/transcript.jsonl": initialContents,
+  });
+  workspaces.push(workspace);
+
+  const filePath = join(workspace, "claude", "transcript.jsonl");
+  const observedEvents: ObservedAgentEvent[] = [];
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [createClaudeTranscriptIngestRegistry()],
+    cursorStore: createInMemoryCursorStore(),
+    onObservedEvent(record: ObservedAgentEvent) {
+      observedEvents.push(record);
+    },
+  });
+
+  await service.scanNow();
+  await Bun.write(filePath, initialContents + appendedResult);
+  await service.reconcileNow();
 
   expect(observedEvents).toHaveLength(2);
   expect(observedEvents[1]?.event).toMatchObject({

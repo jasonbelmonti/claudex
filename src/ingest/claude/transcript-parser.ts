@@ -14,8 +14,12 @@ import type {
 } from "../events";
 import type { ObservedEventSource } from "../source";
 import type { IngestWarning } from "../warnings";
-import { withIngestWarnings } from "./parser-core";
 import {
+  createIngestSource,
+  withIngestWarnings,
+} from "./parser-core";
+import {
+  createClaudeArtifactNormalizationMetadata,
   createClaudeArtifactNormalizationContext,
   type ClaudeArtifactNormalizationContext,
   normalizeClaudeArtifactRecord,
@@ -40,7 +44,7 @@ export async function* parseTranscriptFile(
   context: IngestParseContext,
 ): AsyncIterable<ObservedIngestRecord> {
   const source = createSourceBase(context);
-  const normalizationContext = createClaudeArtifactNormalizationContext();
+  const normalizationContext = createClaudeArtifactNormalizationContext(context.cursor?.metadata);
   const file = Bun.file(context.filePath);
   const cursorStart = context.cursor?.byteOffset ?? 0;
 
@@ -70,11 +74,11 @@ export async function* parseTranscriptFile(
     const nextByteOffset = byteOffset + bytesConsumed;
 
     if (lineText.length > 0) {
-      const recordCursor = createCursor(context, nextByteOffset, line);
       const parsedRecords = parseTranscriptLine(
         lineText,
         source,
-        recordCursor,
+        context,
+        nextByteOffset,
         line,
         normalizationContext,
       );
@@ -93,7 +97,8 @@ export async function* parseTranscriptFile(
 function parseTranscriptLine(
   lineText: string,
   baseSource: ObservedEventSource,
-  cursor: IngestCursor,
+  context: IngestParseContext,
+  byteOffset: number,
   line: number,
   normalizationContext: ClaudeArtifactNormalizationContext,
 ): ObservedIngestRecord[] {
@@ -109,6 +114,7 @@ function parseTranscriptLine(
       source: baseSource,
       raw: lineText,
     }], baseSource);
+    const cursor = createCursor(context, byteOffset, line, normalizationContext);
 
     return [
       createSessionRecordForWarnings({
@@ -126,6 +132,7 @@ function parseTranscriptLine(
     parsedPayload,
     normalizationContext,
   );
+  const cursor = createCursor(context, byteOffset, line, normalizationContext);
   const completeWarnings = withIngestWarnings(warnings, baseSource);
   if (events.length === 0) {
     return completeWarnings.map((warning) =>
@@ -167,14 +174,7 @@ function parseTranscriptLine(
 }
 
 function createSourceBase(context: IngestParseContext): ObservedEventSource {
-  return {
-    provider: context.root.provider,
-    kind: context.match.kind,
-    discoveryPhase: context.discoveryPhase,
-    rootPath: context.root.path,
-    filePath: context.filePath,
-    metadata: context.match.metadata,
-  };
+  return createIngestSource(context);
 }
 
 function createSessionRecordForWarnings(params: {
@@ -209,6 +209,7 @@ function createCursor(
   context: IngestParseContext,
   byteOffset: number,
   line: number,
+  normalizationContext: ClaudeArtifactNormalizationContext,
 ): IngestCursor {
   return {
     provider: context.root.provider,
@@ -216,6 +217,7 @@ function createCursor(
     filePath: context.filePath,
     byteOffset,
     line,
+    metadata: createClaudeArtifactNormalizationMetadata(normalizationContext),
   };
 }
 

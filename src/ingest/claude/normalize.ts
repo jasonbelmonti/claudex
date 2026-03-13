@@ -18,11 +18,46 @@ export type ClaudeArtifactNormalizationContext = {
   sessions: Map<string, ClaudeArtifactNormalizationSessionState>;
 };
 
+const CLAUDE_ARTIFACT_NORMALIZATION_METADATA_KEY = "claudePendingAssistantTexts";
 const DEFAULT_CONTEXT_SESSION_KEY = "__default__";
 
-export function createClaudeArtifactNormalizationContext(): ClaudeArtifactNormalizationContext {
+export function createClaudeArtifactNormalizationContext(
+  metadata?: Record<string, unknown>,
+): ClaudeArtifactNormalizationContext {
+  const persistedSessions = metadata?.[CLAUDE_ARTIFACT_NORMALIZATION_METADATA_KEY];
+  const sessions = new Map<string, ClaudeArtifactNormalizationSessionState>();
+
+  if (isRecord(persistedSessions)) {
+    for (const [sessionKey, latestAssistantText] of Object.entries(persistedSessions)) {
+      if (!isString(latestAssistantText)) {
+        continue;
+      }
+
+      sessions.set(sessionKey, {
+        latestAssistantText,
+      });
+    }
+  }
+
   return {
-    sessions: new Map(),
+    sessions,
+  };
+}
+
+export function createClaudeArtifactNormalizationMetadata(
+  context: ClaudeArtifactNormalizationContext,
+): Record<string, unknown> | undefined {
+  if (context.sessions.size === 0) {
+    return;
+  }
+
+  return {
+    [CLAUDE_ARTIFACT_NORMALIZATION_METADATA_KEY]: Object.fromEntries(
+      [...context.sessions.entries()].map(([sessionKey, sessionState]) => [
+        sessionKey,
+        sessionState.latestAssistantText,
+      ]),
+    ),
   };
 }
 
@@ -165,6 +200,7 @@ export function normalizeClaudeArtifactRecord(
                 provider: "claude",
                 session,
                 text: resolveClaudeResultText(record, assistantText),
+                structuredOutput: record.structured_output,
                 usage: parseUsage(record.usage, record),
                 stopReason: getString(record.stop_reason),
                 raw: record,
