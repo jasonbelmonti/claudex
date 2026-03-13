@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 
-import { normalizeClaudeArtifactRecord } from "../../src/ingest/claude/normalize";
+import {
+  createClaudeArtifactNormalizationContext,
+  normalizeClaudeArtifactRecord,
+} from "../../src/ingest/claude/normalize";
 
 test("normalizes Claude auth status payloads emitted by replay artifacts", () => {
   const normalized = normalizeClaudeArtifactRecord({
@@ -268,6 +271,69 @@ test("serializes Claude structured output when replayed success results omit ter
           output: 5,
         },
       },
+    },
+  });
+});
+
+test("replayed success results fall back to the latest assistant text when terminal text is empty", () => {
+  const context = createClaudeArtifactNormalizationContext();
+
+  const assistant = normalizeClaudeArtifactRecord({
+    type: "assistant",
+    session_id: "session-1",
+    message: {
+      content: [
+        {
+          type: "text",
+          text: "Assistant fallback",
+        },
+      ],
+    },
+  }, context);
+
+  const result = normalizeClaudeArtifactRecord({
+    type: "result",
+    subtype: "success",
+    session_id: "session-1",
+    result: "",
+    usage: {
+      input_tokens: 1,
+      output_tokens: 2,
+    },
+  }, context);
+
+  expect(assistant.events).toHaveLength(1);
+  expect(result.warnings).toEqual([]);
+  expect(result.events).toHaveLength(1);
+  expect(result.events[0]).toMatchObject({
+    type: "turn.completed",
+    result: {
+      text: "Assistant fallback",
+      usage: {
+        tokens: {
+          input: 1,
+          output: 2,
+        },
+      },
+    },
+  });
+});
+
+test("successful replay results allow missing usage metadata", () => {
+  const normalized = normalizeClaudeArtifactRecord({
+    type: "result",
+    subtype: "success",
+    session_id: "session-1",
+    result: "done",
+  });
+
+  expect(normalized.warnings).toEqual([]);
+  expect(normalized.events).toHaveLength(1);
+  expect(normalized.events[0]).toMatchObject({
+    type: "turn.completed",
+    result: {
+      text: "done",
+      usage: null,
     },
   });
 });

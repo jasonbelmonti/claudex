@@ -15,7 +15,11 @@ import type {
 import type { ObservedEventSource } from "../source";
 import type { IngestWarning } from "../warnings";
 import { withIngestWarnings } from "./parser-core";
-import { normalizeClaudeArtifactRecord } from "./normalize";
+import {
+  createClaudeArtifactNormalizationContext,
+  type ClaudeArtifactNormalizationContext,
+  normalizeClaudeArtifactRecord,
+} from "./normalize";
 
 const NEWLINE = 10;
 const CARRIAGE_RETURN = 13;
@@ -36,6 +40,7 @@ export async function* parseTranscriptFile(
   context: IngestParseContext,
 ): AsyncIterable<ObservedIngestRecord> {
   const source = createSourceBase(context);
+  const normalizationContext = createClaudeArtifactNormalizationContext();
   const file = Bun.file(context.filePath);
   const cursorStart = context.cursor?.byteOffset ?? 0;
 
@@ -71,6 +76,7 @@ export async function* parseTranscriptFile(
         source,
         recordCursor,
         line,
+        normalizationContext,
       );
 
       for (const parsedRecord of parsedRecords) {
@@ -89,6 +95,7 @@ function parseTranscriptLine(
   baseSource: ObservedEventSource,
   cursor: IngestCursor,
   line: number,
+  normalizationContext: ClaudeArtifactNormalizationContext,
 ): ObservedIngestRecord[] {
   let parsedPayload: unknown;
 
@@ -115,7 +122,10 @@ function parseTranscriptLine(
     ];
   }
 
-  const { events, warnings, sessionId } = normalizeClaudeArtifactRecord(parsedPayload);
+  const { events, warnings, sessionId } = normalizeClaudeArtifactRecord(
+    parsedPayload,
+    normalizationContext,
+  );
   const completeWarnings = withIngestWarnings(warnings, baseSource);
   if (events.length === 0) {
     return completeWarnings.map((warning) =>

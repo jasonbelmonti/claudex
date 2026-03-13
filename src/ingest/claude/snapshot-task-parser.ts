@@ -17,7 +17,10 @@ import {
 } from "./parser-core";
 import type { ObservedEventSource } from "../source";
 import type { IngestWarning } from "../warnings";
-import { normalizeClaudeArtifactRecord } from "./normalize";
+import {
+  createClaudeArtifactNormalizationContext,
+  normalizeClaudeArtifactRecord,
+} from "./normalize";
 
 type ArtifactRecordContainer = {
   type?: unknown;
@@ -53,6 +56,7 @@ export async function* parseSnapshotTaskFile(
   context: IngestParseContext,
 ): AsyncIterable<ObservedIngestRecord> {
   const source = createSourceBase(context);
+  const normalizationContext = createClaudeArtifactNormalizationContext();
   const file = Bun.file(context.filePath);
   const cursorStart = context.cursor?.byteOffset ?? 0;
 
@@ -116,7 +120,7 @@ export async function* parseSnapshotTaskFile(
   }
 
   for (const record of artifactRecords) {
-    const { events, warnings, sessionId } = normalizeClaudeArtifactRecord(record);
+    const { events, warnings, sessionId } = normalizeClaudeArtifactRecord(record, normalizationContext);
     const completeWarnings = withIngestWarnings(warnings, source);
 
     if (events.length === 0) {

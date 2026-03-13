@@ -10,8 +10,26 @@ type ParsedArtifact = {
   sessionId?: string;
 };
 type ClaudeIngestSession = ReturnType<typeof createClaudeSessionReference> | null;
+type ClaudeArtifactNormalizationSessionState = {
+  latestAssistantText: string;
+};
 
-export function normalizeClaudeArtifactRecord(record: unknown): ParsedArtifact {
+export type ClaudeArtifactNormalizationContext = {
+  sessions: Map<string, ClaudeArtifactNormalizationSessionState>;
+};
+
+const DEFAULT_CONTEXT_SESSION_KEY = "__default__";
+
+export function createClaudeArtifactNormalizationContext(): ClaudeArtifactNormalizationContext {
+  return {
+    sessions: new Map(),
+  };
+}
+
+export function normalizeClaudeArtifactRecord(
+  record: unknown,
+  context?: ClaudeArtifactNormalizationContext,
+): ParsedArtifact {
   try {
     if (!isRecord(record) || typeof record.type !== "string") {
       return {
@@ -26,6 +44,7 @@ export function normalizeClaudeArtifactRecord(record: unknown): ParsedArtifact {
 
     const sessionId = extractSessionId(record);
     const session = sessionId ? createClaudeSessionReference(sessionId) : null;
+    const sessionKey = getContextSessionKey(sessionId);
 
     switch (record.type) {
       case "assistant": {
@@ -44,6 +63,8 @@ export function normalizeClaudeArtifactRecord(record: unknown): ParsedArtifact {
             ],
           };
         }
+
+        setLatestAssistantText(context, sessionKey, text);
 
         return {
           sessionId,
@@ -114,6 +135,7 @@ export function normalizeClaudeArtifactRecord(record: unknown): ParsedArtifact {
       }
       case "result": {
         if (record.subtype !== "success") {
+          clearLatestAssistantText(context, sessionKey);
           const error = createClaudeResultError(record);
           return {
             sessionId,
@@ -130,26 +152,7 @@ export function normalizeClaudeArtifactRecord(record: unknown): ParsedArtifact {
           };
         }
 
-        if (!isRecord(record.usage)) {
-          return {
-            sessionId,
-            events: [
-              {
-                type: "turn.failed",
-                provider: "claude",
-                session,
-                error: new AgentError({
-                  code: "provider_failure",
-                  provider: "claude",
-                  message: "Claude result record is missing usage metadata.",
-                  raw: record,
-                }),
-                raw: record,
-              },
-            ],
-            warnings: [],
-          };
-        }
+        const assistantText = consumeLatestAssistantText(context, sessionKey);
 
         return {
           sessionId,
@@ -161,7 +164,7 @@ export function normalizeClaudeArtifactRecord(record: unknown): ParsedArtifact {
               result: {
                 provider: "claude",
                 session,
-                text: resolveClaudeResultText(record),
+                text: resolveClaudeResultText(record, assistantText),
                 usage: parseUsage(record.usage, record),
                 stopReason: getString(record.stop_reason),
                 raw: record,
@@ -562,11 +565,18 @@ function createClaudeResultError(record: Record<string, unknown>): AgentError {
   });
 }
 
-function resolveClaudeResultText(record: Record<string, unknown>): string {
+function resolveClaudeResultText(
+  record: Record<string, unknown>,
+  assistantText?: string,
+): string {
   const resultText = asString(record.result);
 
   if (resultText && resultText.trim().length > 0) {
     return resultText;
+  }
+
+  if (assistantText && assistantText.length > 0) {
+    return assistantText;
   }
 
   if (record.structured_output === undefined) {
@@ -656,6 +666,44 @@ function extractMessageText(message: unknown): string {
 
 function extractSessionId(record: Record<string, unknown>): string | undefined {
   return asString(record.session_id) ?? asString(record.sessionId);
+}
+
+function getContextSessionKey(sessionId: string | undefined): string {
+  return sessionId ?? DEFAULT_CONTEXT_SESSION_KEY;
+}
+
+function setLatestAssistantText(
+  context: ClaudeArtifactNormalizationContext | undefined,
+  sessionKey: string,
+  text: string,
+): void {
+  if (!context) {
+    return;
+  }
+
+  context.sessions.set(sessionKey, {
+    latestAssistantText: text,
+  });
+}
+
+function consumeLatestAssistantText(
+  context: ClaudeArtifactNormalizationContext | undefined,
+  sessionKey: string,
+): string | undefined {
+  if (!context) {
+    return;
+  }
+
+  const sessionState = context.sessions.get(sessionKey);
+  context.sessions.delete(sessionKey);
+  return sessionState?.latestAssistantText;
+}
+
+function clearLatestAssistantText(
+  context: ClaudeArtifactNormalizationContext | undefined,
+  sessionKey: string,
+): void {
+  context?.sessions.delete(sessionKey);
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

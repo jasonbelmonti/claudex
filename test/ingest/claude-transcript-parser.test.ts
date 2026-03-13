@@ -98,3 +98,55 @@ test("transcript parser enriches unsupported-record warnings with file attributi
     },
   });
 });
+
+test("transcript parser reuses assistant text for success results with empty terminal text", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/transcript.jsonl": [
+      JSON.stringify({
+        type: "assistant",
+        session_id: "session-1",
+        message: {
+          content: [
+            {
+              type: "text",
+              text: "Assistant fallback",
+            },
+          ],
+        },
+      }),
+      JSON.stringify({
+        type: "result",
+        subtype: "success",
+        session_id: "session-1",
+        result: "",
+      }),
+      "",
+    ].join("\n"),
+  });
+  workspaces.push(workspace);
+
+  const observedEvents: ObservedAgentEvent[] = [];
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [createClaudeTranscriptIngestRegistry()],
+    onObservedEvent(record: ObservedAgentEvent) {
+      observedEvents.push(record);
+    },
+  });
+
+  await service.scanNow();
+
+  expect(observedEvents).toHaveLength(2);
+  expect(observedEvents[1]?.event).toMatchObject({
+    type: "turn.completed",
+    result: {
+      text: "Assistant fallback",
+      usage: null,
+    },
+  });
+});
