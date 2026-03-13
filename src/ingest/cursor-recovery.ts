@@ -3,6 +3,8 @@ import type { SourceFileState } from "./file-state";
 import type { ObservedEventSource } from "./source";
 import type { IngestWarning } from "./warnings";
 
+const SNAPSHOT_REPLAY_INDEX_METADATA_KEY = "claudeSnapshotReplayIndex";
+
 export type CursorRecoveryResult = {
   cursor: IngestCursor | null;
   skip: boolean;
@@ -91,7 +93,7 @@ export function resolveCursorRecovery(options: {
   if (storedCursor.byteOffset === fileState.size) {
     return {
       cursor: storedCursor,
-      skip: true,
+      skip: !hasDeferredSnapshotReplay(storedCursor),
       warnings: [],
     };
   }
@@ -101,6 +103,11 @@ export function resolveCursorRecovery(options: {
     skip: false,
     warnings: [],
   };
+}
+
+function hasDeferredSnapshotReplay(cursor: IngestCursor): boolean {
+  const value = cursor.metadata?.[SNAPSHOT_REPLAY_INDEX_METADATA_KEY];
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
 function createCursorWarning(
