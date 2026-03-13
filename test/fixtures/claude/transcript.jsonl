@@ -1,0 +1,4 @@
+{"type":"assistant","uuid":"transcript-uuid","session_id":"transcript-session-1","message":{"content":[{"type":"text","text":"Hello"}]}}
+not-json-line
+{"type":"stream_event","uuid":"transcript-uuid","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":" there"}}}
+{"type":"result","uuid":"transcript-uuid","subtype":"success","result":"Hello there","usage":{"input_tokens":3,"output_tokens":4},"session_id":"transcript-session-1"}

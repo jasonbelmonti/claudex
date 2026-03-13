@@ -1,0 +1,31 @@
+{
+  "type": "snapshot",
+  "records": [
+    {
+      "type": "assistant",
+      "uuid": "snapshot-uuid",
+      "session_id": "snapshot-session-1",
+      "message": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Task started"
+          }
+        ]
+      }
+    },
+    42,
+    {
+      "type": "stream_event",
+      "uuid": "snapshot-uuid",
+      "session_id": "snapshot-session-1",
+      "event": {
+        "type": "content_block_delta",
+        "delta": {
+          "type": "text_delta",
+          "text": " then progress"
+        }
+      }
+    }
+  ]
+}
