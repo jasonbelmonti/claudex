@@ -108,8 +108,7 @@ export function normalizeWebSearchRecord(
 ): ParsedArtifact {
   const status = getString(payload.status);
   const query = getString(payload.query);
-  const toolCallId = getString(payload.call_id)
-    ?? createSyntheticToolCallId(context, "web_search");
+  const toolCallId = resolveWebSearchToolCallId(payload, context, status);
 
   if (status === "completed") {
     context.pendingToolCalls.delete(toolCallId);
@@ -171,4 +170,42 @@ export function normalizeWebSearchRecord(
     ],
     warnings: [],
   };
+}
+
+function resolveWebSearchToolCallId(
+  payload: Record<string, unknown>,
+  context: CodexTranscriptNormalizationContext,
+  status: string | null,
+): string {
+  const explicitCallId = getString(payload.call_id);
+
+  if (explicitCallId) {
+    return explicitCallId;
+  }
+
+  if (status === "completed") {
+    const pendingWebSearchToolCallId = findLatestPendingWebSearchToolCallId(context);
+
+    if (pendingWebSearchToolCallId) {
+      return pendingWebSearchToolCallId;
+    }
+  }
+
+  return createSyntheticToolCallId(context, "web_search");
+}
+
+function findLatestPendingWebSearchToolCallId(
+  context: CodexTranscriptNormalizationContext,
+): string | null {
+  const pendingEntries = [...context.pendingToolCalls.entries()];
+
+  for (let index = pendingEntries.length - 1; index >= 0; index -= 1) {
+    const [toolCallId, pendingTool] = pendingEntries[index]!;
+
+    if (pendingTool.toolName === "web_search") {
+      return toolCallId;
+    }
+  }
+
+  return null;
 }

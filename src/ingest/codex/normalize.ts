@@ -80,6 +80,9 @@ function normalizeSessionMetaRecord(
     );
   }
 
+  context.activeTurn = null;
+  context.pendingToolCalls.clear();
+  context.syntheticToolCallCounter = 0;
   context.sessionId = sessionId;
 
   return {
