@@ -1,6 +1,6 @@
 import type { ObservedEventCompleteness } from "../completeness";
 import type { ObservedIngestRecord } from "../events";
-import type { IngestParseContext, IngestProviderRegistry } from "../registry";
+import type { IngestParseContext } from "../registry";
 import {
   createCodexIngestSource,
   createCodexObservedEventRecord,
@@ -15,24 +15,6 @@ import {
 
 const NEWLINE = 10;
 const CARRIAGE_RETURN = 13;
-
-export function createCodexTranscriptIngestRegistry(): IngestProviderRegistry {
-  return {
-    provider: "codex",
-    matchFile(filePath) {
-      const normalizedPath = filePath.toLowerCase();
-
-      if (!normalizedPath.endsWith(".jsonl")) {
-        return null;
-      }
-
-      return normalizedPath.endsWith("session_index.jsonl")
-        ? null
-        : { kind: "transcript" };
-    },
-    parseFile: parseCodexTranscriptFile,
-  };
-}
 
 export async function* parseCodexTranscriptFile(
   context: IngestParseContext,
