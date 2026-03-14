@@ -6,7 +6,7 @@ export function createCodexTranscriptIngestRegistry(): IngestProviderRegistry {
     provider: "codex",
     matchFile(filePath) {
       const normalizedPath = filePath.toLowerCase();
-      const fileName = normalizedPath.slice(normalizedPath.lastIndexOf("/") + 1);
+      const fileName = getPathFileName(normalizedPath);
 
       if (!normalizedPath.endsWith(".jsonl")) {
         return null;
@@ -22,4 +22,13 @@ export function createCodexTranscriptIngestRegistry(): IngestProviderRegistry {
 
 export function createCodexIngestRegistries(): IngestProviderRegistry[] {
   return [createCodexTranscriptIngestRegistry()];
+}
+
+function getPathFileName(filePath: string): string {
+  const lastPathSeparator = Math.max(
+    filePath.lastIndexOf("/"),
+    filePath.lastIndexOf("\\"),
+  );
+
+  return filePath.slice(lastPathSeparator + 1);
 }
