@@ -36,6 +36,8 @@ export async function* parseCodexTranscriptFile(
   let line = (context.cursor?.line ?? 0) + 1;
   let byteOffset = cursorStart;
   let lineStart = 0;
+  let latestDeliveredByteOffset = cursorStart;
+  let latestDeliveredLine = context.cursor?.line ?? 0;
 
   for (let index = 0; index <= bytes.length; index += 1) {
     const atEnd = index === bytes.length;
@@ -64,11 +66,34 @@ export async function* parseCodexTranscriptFile(
       for (const parsedRecord of parsedRecords) {
         yield parsedRecord;
       }
+
+      if (parsedRecords.length > 0) {
+        latestDeliveredByteOffset = nextByteOffset;
+        latestDeliveredLine = line;
+      }
     }
 
     line += 1;
     byteOffset = nextByteOffset;
     lineStart = index + 1;
+  }
+
+  if (byteOffset > latestDeliveredByteOffset) {
+    const metadata = createCodexTranscriptNormalizationMetadata(
+      normalizationContext,
+    );
+
+    yield createCodexObservedSessionRecord({
+      context,
+      line: line - 1,
+      byteOffset,
+      metadata,
+      reason: "transcript",
+      sessionId: deriveSessionId(normalizationContext, context.filePath),
+      completeness: "complete",
+      state: normalizationContext.sessionId ? "canonical" : "provisional",
+      warnings: [],
+    });
   }
 }
 
