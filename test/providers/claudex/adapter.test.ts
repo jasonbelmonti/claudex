@@ -294,3 +294,26 @@ test("custom preferred provider order is honored during resolution", async () =>
   expect(codex.createSessionCallCount).toBe(0);
   expect(claude.createSessionCallCount).toBe(1);
 });
+
+test("invalid preferred provider ids fail with a typed AgentError", async () => {
+  try {
+    new ClaudexAdapter({
+      preferredProviders: ["bogus"] as unknown as ProviderId[],
+    });
+    throw new Error("Expected constructor to throw");
+  } catch (error) {
+    expect(isAgentError(error)).toBe(true);
+
+    if (!isAgentError(error)) {
+      return;
+    }
+
+    expect(error.code).toBe("provider_failure");
+    expect(error.provider).toBe("codex");
+    expect(error.details).toMatchObject({
+      invalidPreferredProviders: ["bogus"],
+      supportedProviders: ["claude", "codex"],
+      configuredPreferredProviders: ["bogus"],
+    });
+  }
+});

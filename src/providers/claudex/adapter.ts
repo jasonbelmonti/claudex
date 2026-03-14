@@ -1,6 +1,10 @@
 import { AgentError } from "../../core/errors";
 import type { ProviderCapabilities } from "../../core/capabilities";
-import type { AgentProviderAdapter, ProviderId } from "../../core/provider";
+import {
+  PROVIDER_IDS,
+  type AgentProviderAdapter,
+  type ProviderId,
+} from "../../core/provider";
 import type { ProviderReadiness } from "../../core/readiness";
 import type {
   AgentSession,
@@ -20,6 +24,8 @@ export const DEFAULT_CLAUDEX_PROVIDER_ORDER = [
   "claude",
 ] as const satisfies readonly ProviderId[];
 
+const VALID_PROVIDER_IDS = new Set<string>(PROVIDER_IDS);
+
 function normalizePreferredProviders(
   preferredProviders?: readonly ProviderId[],
 ): readonly ProviderId[] {
@@ -27,6 +33,23 @@ function normalizePreferredProviders(
     preferredProviders && preferredProviders.length > 0
       ? preferredProviders
       : DEFAULT_CLAUDEX_PROVIDER_ORDER;
+
+  const invalidProviders = configured.filter(
+    (provider) => !VALID_PROVIDER_IDS.has(provider),
+  );
+
+  if (invalidProviders.length > 0) {
+    throw new AgentError({
+      code: "provider_failure",
+      provider: DEFAULT_CLAUDEX_PROVIDER_ORDER[0],
+      message: `ClaudexAdapter preferredProviders contains unsupported providers: ${invalidProviders.join(", ")}.`,
+      details: {
+        invalidPreferredProviders: [...invalidProviders],
+        supportedProviders: [...PROVIDER_IDS],
+        configuredPreferredProviders: [...configured],
+      },
+    });
+  }
 
   return [...new Set(configured)];
 }
