@@ -18,6 +18,66 @@ afterEach(async () => {
   await Promise.all(workspaces.splice(0).map((workspace) => removeFixtureWorkspace(workspace)));
 });
 
+test("transcript registry ignores Codex session-index files", async () => {
+  const workspace = await createFixtureWorkspace({
+    "codex/session-index.jsonl": "{\"hello\":\"world\"}\n",
+  });
+  workspaces.push(workspace);
+
+  const sessions: string[] = [];
+  const warnings: string[] = [];
+  const service = createSessionIngestService({
+    roots: [
+      {
+        provider: "codex" as const,
+        path: join(workspace, "codex"),
+      },
+    ],
+    registries: [createCodexTranscriptIngestRegistry()],
+    onObservedSession(record) {
+      sessions.push(record.source.filePath);
+    },
+    onWarning(warning) {
+      warnings.push(warning.code);
+    },
+  });
+
+  await service.scanNow();
+
+  expect(sessions).toEqual([]);
+  expect(warnings).toEqual([]);
+});
+
+test("transcript parser does not invent sessions for blank files", async () => {
+  const workspace = await createFixtureWorkspace({
+    "codex/blank.jsonl": "\n   \n",
+  });
+  workspaces.push(workspace);
+
+  const sessions: string[] = [];
+  const warnings: string[] = [];
+  const service = createSessionIngestService({
+    roots: [
+      {
+        provider: "codex" as const,
+        path: join(workspace, "codex"),
+      },
+    ],
+    registries: [createCodexTranscriptIngestRegistry()],
+    onObservedSession(record) {
+      sessions.push(record.observedSession.sessionId);
+    },
+    onWarning(warning) {
+      warnings.push(warning.code);
+    },
+  });
+
+  await service.scanNow();
+
+  expect(sessions).toEqual([]);
+  expect(warnings).toEqual([]);
+});
+
 test("transcript parser persists an EOF cursor for trailing turn_context lines", async () => {
   const transcript = [
     JSON.stringify({

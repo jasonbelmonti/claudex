@@ -6,12 +6,13 @@ export function createCodexTranscriptIngestRegistry(): IngestProviderRegistry {
     provider: "codex",
     matchFile(filePath) {
       const normalizedPath = filePath.toLowerCase();
+      const fileName = normalizedPath.slice(normalizedPath.lastIndexOf("/") + 1);
 
       if (!normalizedPath.endsWith(".jsonl")) {
         return null;
       }
 
-      return normalizedPath.endsWith("session_index.jsonl")
+      return fileName === "session-index.jsonl" || fileName === "session_index.jsonl"
         ? null
         : { kind: "transcript" };
     },

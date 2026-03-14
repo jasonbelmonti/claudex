@@ -37,7 +37,6 @@ export async function* parseCodexTranscriptFile(
   let byteOffset = cursorStart;
   let lineStart = 0;
   let latestDeliveredByteOffset = cursorStart;
-  let latestDeliveredLine = context.cursor?.line ?? 0;
 
   for (let index = 0; index <= bytes.length; index += 1) {
     const atEnd = index === bytes.length;
@@ -69,7 +68,6 @@ export async function* parseCodexTranscriptFile(
 
       if (parsedRecords.length > 0) {
         latestDeliveredByteOffset = nextByteOffset;
-        latestDeliveredLine = line;
       }
     }
 
@@ -82,6 +80,10 @@ export async function* parseCodexTranscriptFile(
     const metadata = createCodexTranscriptNormalizationMetadata(
       normalizationContext,
     );
+
+    if (!shouldEmitProgressSession(normalizationContext, metadata)) {
+      return;
+    }
 
     yield createCodexObservedSessionRecord({
       context,
@@ -197,6 +199,13 @@ function deriveSessionId(
   filePath: string,
 ): string {
   return normalizationContext.sessionId ?? `file:${filePath}`;
+}
+
+function shouldEmitProgressSession(
+  normalizationContext: ReturnType<typeof createCodexTranscriptNormalizationContext>,
+  metadata: Record<string, unknown> | undefined,
+): boolean {
+  return normalizationContext.sessionId !== null || metadata !== undefined;
 }
 
 function selectCompleteness(
