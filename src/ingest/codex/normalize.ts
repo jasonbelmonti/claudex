@@ -27,7 +27,7 @@ export function normalizeCodexTranscriptRecord(
     return unsupportedRecord("Skipped malformed Codex transcript record.", record, context);
   }
 
-  const timestamp = getString(record.timestamp);
+  const timestamp = getString(record.timestamp) ?? undefined;
   const payload = asRecord(record.payload);
 
   switch (record.type) {

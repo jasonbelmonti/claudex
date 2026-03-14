@@ -129,7 +129,7 @@ export function createToolDescriptor(params: {
 }): PendingToolCall {
   const mcpMatch = /^mcp__([^_]+)__(.+)$/.exec(params.name);
 
-  if (mcpMatch) {
+  if (mcpMatch?.[1] && mcpMatch[2]) {
     return {
       toolName: mcpMatch[2],
       kind: "mcp",
