@@ -81,7 +81,7 @@ export async function* parseCodexTranscriptFile(
       normalizationContext,
     );
 
-    if (!shouldEmitProgressSession(normalizationContext, metadata)) {
+    if (!shouldEmitProgressSession(normalizationContext)) {
       return;
     }
 
@@ -203,9 +203,8 @@ function deriveSessionId(
 
 function shouldEmitProgressSession(
   normalizationContext: ReturnType<typeof createCodexTranscriptNormalizationContext>,
-  metadata: Record<string, unknown> | undefined,
 ): boolean {
-  return normalizationContext.sessionId !== null || metadata !== undefined;
+  return normalizationContext.sessionId !== null;
 }
 
 function selectCompleteness(

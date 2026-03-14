@@ -48,6 +48,21 @@ test("transcript registry ignores Codex session-index files", async () => {
   expect(warnings).toEqual([]);
 });
 
+test("transcript registry ignores Windows session-index paths", () => {
+  const registry = createCodexTranscriptIngestRegistry();
+  const root = {
+    provider: "codex" as const,
+    path: "C:\\repo\\codex",
+  };
+
+  expect(
+    registry.matchFile("C:\\repo\\codex\\session-index.jsonl", root),
+  ).toBeNull();
+  expect(
+    registry.matchFile("C:\\repo\\codex\\session_index.jsonl", root),
+  ).toBeNull();
+});
+
 test("transcript parser does not invent sessions for blank files", async () => {
   const workspace = await createFixtureWorkspace({
     "codex/blank.jsonl": "\n   \n",
@@ -143,4 +158,40 @@ test("transcript parser persists an EOF cursor for trailing turn_context lines",
   await service.reconcileNow();
 
   expect(parseCursors).toEqual([null]);
+});
+
+test("transcript parser does not invent sessions for turn_context-only files", async () => {
+  const transcript = `${JSON.stringify({
+    type: "turn_context",
+    payload: {
+      turn_id: "turn-1",
+    },
+  })}\n`;
+  const workspace = await createFixtureWorkspace({
+    "codex/turn-context-only.jsonl": transcript,
+  });
+  workspaces.push(workspace);
+
+  const sessions: string[] = [];
+  const warnings: string[] = [];
+  const service = createSessionIngestService({
+    roots: [
+      {
+        provider: "codex" as const,
+        path: join(workspace, "codex"),
+      },
+    ],
+    registries: [createCodexTranscriptIngestRegistry()],
+    onObservedSession(record) {
+      sessions.push(record.observedSession.sessionId);
+    },
+    onWarning(warning) {
+      warnings.push(warning.code);
+    },
+  });
+
+  await service.scanNow();
+
+  expect(sessions).toEqual([]);
+  expect(warnings).toEqual([]);
 });
