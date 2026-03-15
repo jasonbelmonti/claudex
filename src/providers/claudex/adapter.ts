@@ -1,0 +1,230 @@
+import { AgentError } from "../../core/errors";
+import type { ProviderCapabilities } from "../../core/capabilities";
+import {
+  PROVIDER_IDS,
+  type AgentProviderAdapter,
+  type ProviderId,
+} from "../../core/provider";
+import type { ProviderReadiness } from "../../core/readiness";
+import type {
+  AgentSession,
+  SessionOptions,
+  SessionReference,
+} from "../../core/session";
+import { createNoRunnableProviderError } from "./errors";
+import { createProviderAdapters } from "./factory";
+import {
+  type ClaudexResolutionStrategy,
+  extendReadinessWithResolution,
+  probeProvidersInOrder,
+} from "./resolution";
+import type { ClaudexAdapterOptions } from "./types";
+
+export const DEFAULT_CLAUDEX_PROVIDER_ORDER = [
+  "codex",
+  "claude",
+] as const satisfies readonly ProviderId[];
+
+const VALID_PROVIDER_IDS = new Set<string>(PROVIDER_IDS);
+
+function normalizePreferredProviders(
+  preferredProviders?: readonly ProviderId[],
+): readonly ProviderId[] {
+  const configured =
+    preferredProviders && preferredProviders.length > 0
+      ? preferredProviders
+      : DEFAULT_CLAUDEX_PROVIDER_ORDER;
+
+  const invalidProviders = configured.filter(
+    (provider) => !VALID_PROVIDER_IDS.has(provider),
+  );
+
+  if (invalidProviders.length > 0) {
+    throw new AgentError({
+      code: "provider_failure",
+      provider: DEFAULT_CLAUDEX_PROVIDER_ORDER[0],
+      message: `ClaudexAdapter preferredProviders contains unsupported providers: ${invalidProviders.join(", ")}.`,
+      details: {
+        invalidPreferredProviders: [...invalidProviders],
+        supportedProviders: [...PROVIDER_IDS],
+        configuredPreferredProviders: [...configured],
+      },
+    });
+  }
+
+  return [...new Set(configured)];
+}
+
+function validateResumeProvider(params: {
+  provider: unknown;
+  preferredProviders: readonly ProviderId[];
+}): ProviderId {
+  if (typeof params.provider === "string" && VALID_PROVIDER_IDS.has(params.provider)) {
+    return params.provider as ProviderId;
+  }
+
+  throw new AgentError({
+    code: "provider_failure",
+    provider: params.preferredProviders[0] ?? DEFAULT_CLAUDEX_PROVIDER_ORDER[0],
+    message: `ClaudexAdapter resumeSession received unsupported provider: ${String(params.provider)}.`,
+    details: {
+      requestedProvider: params.provider,
+      supportedProviders: [...PROVIDER_IDS],
+      preferredProviders: [...params.preferredProviders],
+    },
+    raw: params.provider,
+  });
+}
+
+type PinnedResolutionMetadata = {
+  probes: readonly ProviderReadiness[];
+  strategy: ClaudexResolutionStrategy;
+};
+
+export class ClaudexAdapter {
+  readonly preferredProviders: readonly ProviderId[];
+
+  private readonly adapters: Record<ProviderId, AgentProviderAdapter>;
+  private resolvedAdapter: AgentProviderAdapter | null = null;
+  private pinnedResolution: PinnedResolutionMetadata | null = null;
+
+  constructor(readonly options: ClaudexAdapterOptions = {}) {
+    this.preferredProviders = normalizePreferredProviders(
+      options.preferredProviders,
+    );
+    this.adapters = createProviderAdapters(options);
+  }
+
+  get provider(): ProviderId | null {
+    return this.resolvedAdapter?.provider ?? null;
+  }
+
+  get capabilities(): ProviderCapabilities | null {
+    return this.resolvedAdapter?.capabilities ?? null;
+  }
+
+  async checkReadiness(): Promise<ProviderReadiness> {
+    if (this.resolvedAdapter) {
+      const readiness = await this.resolvedAdapter.checkReadiness();
+      return this.extendPinnedReadiness(readiness);
+    }
+
+    const resolution = await probeProvidersInOrder({
+      adapters: this.adapters,
+      preferredProviders: this.preferredProviders,
+    });
+
+    if (
+      resolution.selected.status === "ready" ||
+      resolution.selected.status === "degraded"
+    ) {
+      this.pinAdapter(resolution.selectedAdapter, {
+        probes: [...resolution.probes],
+        strategy: resolution.resolution,
+      });
+    }
+
+    return extendReadinessWithResolution({
+      readiness: resolution.selected,
+      preferredProviders: this.preferredProviders,
+      probes: resolution.probes,
+      resolution: resolution.resolution,
+    });
+  }
+
+  async createSession(options: SessionOptions = {}): Promise<AgentSession> {
+    const adapter = await this.resolveRunnableAdapter();
+    return adapter.createSession(options);
+  }
+
+  async resumeSession(
+    reference: SessionReference,
+    options: SessionOptions = {},
+  ): Promise<AgentSession> {
+    const provider = validateResumeProvider({
+      provider: reference.provider,
+      preferredProviders: this.preferredProviders,
+    });
+    const normalizedReference: SessionReference = {
+      ...reference,
+      provider,
+    };
+
+    if (this.resolvedAdapter) {
+      if (this.resolvedAdapter.provider !== normalizedReference.provider) {
+        throw new AgentError({
+          code: "unsupported_feature",
+          provider: this.resolvedAdapter.provider,
+          message: `ClaudexAdapter is pinned to ${this.resolvedAdapter.provider} and cannot resume a ${normalizedReference.provider} session.`,
+          details: {
+            pinnedProvider: this.resolvedAdapter.provider,
+            requestedProvider: normalizedReference.provider,
+          },
+        });
+      }
+
+      return this.resolvedAdapter.resumeSession(normalizedReference, options);
+    }
+
+    const adapter = this.adapters[normalizedReference.provider];
+    this.pinAdapter(adapter, {
+      probes: [],
+      strategy: "pinned",
+    });
+
+    return adapter.resumeSession(normalizedReference, options);
+  }
+
+  private async resolveRunnableAdapter(): Promise<AgentProviderAdapter> {
+    if (this.resolvedAdapter) {
+      return this.resolvedAdapter;
+    }
+
+    const resolution = await probeProvidersInOrder({
+      adapters: this.adapters,
+      preferredProviders: this.preferredProviders,
+    });
+
+    if (
+      resolution.selected.status !== "ready" &&
+      resolution.selected.status !== "degraded"
+    ) {
+      throw createNoRunnableProviderError({
+        selected: resolution.selected,
+        preferredProviders: this.preferredProviders,
+        probes: resolution.probes,
+      });
+    }
+
+    this.pinAdapter(resolution.selectedAdapter, {
+      probes: [...resolution.probes],
+      strategy: resolution.resolution,
+    });
+    return resolution.selectedAdapter;
+  }
+
+  private extendPinnedReadiness(readiness: ProviderReadiness): ProviderReadiness {
+    const cachedProbes = this.pinnedResolution?.probes ?? [];
+    const probes =
+      cachedProbes.length > 0
+        ? cachedProbes.map((probe) =>
+            probe.provider === readiness.provider ? readiness : probe,
+          )
+        : [readiness];
+
+    return extendReadinessWithResolution({
+      readiness,
+      preferredProviders: this.preferredProviders,
+      probes,
+      resolution: this.pinnedResolution?.strategy ?? "pinned",
+    });
+  }
+
+  private pinAdapter(
+    adapter: AgentProviderAdapter,
+    resolution: PinnedResolutionMetadata,
+  ): void {
+    this.resolvedAdapter = adapter;
+    this.pinnedResolution = resolution;
+  }
+}
