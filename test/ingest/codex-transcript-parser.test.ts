@@ -93,6 +93,44 @@ test("transcript parser does not invent sessions for blank files", async () => {
   expect(warnings).toEqual([]);
 });
 
+test("transcript parser emits a canonical session when the final line also emits events", async () => {
+  const workspace = await createFixtureWorkspace({
+    "codex/transcript.jsonl": `${JSON.stringify({
+      type: "session_meta",
+      payload: {
+        id: "session-codex-final-line",
+      },
+    })}\n`,
+  });
+  workspaces.push(workspace);
+
+  const sessions: Array<{ sessionId: string; state: string }> = [];
+  const service = createSessionIngestService({
+    roots: [
+      {
+        provider: "codex" as const,
+        path: join(workspace, "codex"),
+      },
+    ],
+    registries: [createCodexTranscriptIngestRegistry()],
+    onObservedSession(record) {
+      sessions.push({
+        sessionId: record.observedSession.sessionId,
+        state: record.observedSession.state,
+      });
+    },
+  });
+
+  await service.scanNow();
+
+  expect(sessions).toEqual([
+    {
+      sessionId: "session-codex-final-line",
+      state: "canonical",
+    },
+  ]);
+});
+
 test("transcript parser persists an EOF cursor for trailing turn_context lines", async () => {
   const transcript = [
     JSON.stringify({

@@ -24,7 +24,10 @@ export function createCodexTranscriptIngestRegistry(): IngestProviderRegistry {
 }
 
 export function createCodexIngestRegistries(): IngestProviderRegistry[] {
-  return [createCodexTranscriptIngestRegistry()];
+  return [
+    createCodexSessionIndexIngestRegistry(),
+    createCodexTranscriptIngestRegistry(),
+  ];
 }
 
 function getPathFileName(filePath: string): string {
