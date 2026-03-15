@@ -52,6 +52,7 @@ test("public ingest api exports the documented runtime surface", () => {
   expect(ingest.DISCOVERY_EVENT_TYPES).toContain("watch.started");
   expect(ingest.DISCOVERY_EVENT_TYPES).toContain("reconcile.completed");
   expect(typeof ingest.createInMemoryCursorStore).toBe("function");
+  expect(typeof ingest.createCodexSessionIndexIngestRegistry).toBe("function");
   expect(typeof ingest.createSessionIngestService).toBe("function");
 });
 
