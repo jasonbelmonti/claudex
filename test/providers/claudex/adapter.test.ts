@@ -248,6 +248,40 @@ test("resumeSession pins from the reference provider when unresolved", async () 
   expect(claude.resumeSessionCallCount).toBe(1);
 });
 
+test("resumeSession rejects unknown providers with a typed AgentError before pinning", async () => {
+  const codex = new FakeAdapter("codex", [createReadiness("codex", "ready")]);
+  const claude = new FakeAdapter("claude", [createReadiness("claude", "ready")]);
+  const adapter = new ClaudexAdapter({
+    providers: { codex, claude },
+  });
+
+  try {
+    await adapter.resumeSession({
+      provider: "bogus" as ProviderId,
+      sessionId: "bogus-123",
+    });
+    throw new Error("Expected resumeSession to throw");
+  } catch (error) {
+    expect(isAgentError(error)).toBe(true);
+
+    if (!isAgentError(error)) {
+      return;
+    }
+
+    expect(error.code).toBe("provider_failure");
+    expect(error.provider).toBe("codex");
+    expect(error.details).toMatchObject({
+      requestedProvider: "bogus",
+      supportedProviders: ["claude", "codex"],
+      preferredProviders: ["codex", "claude"],
+    });
+  }
+
+  expect(adapter.provider).toBeNull();
+  expect(codex.resumeSessionCallCount).toBe(0);
+  expect(claude.resumeSessionCallCount).toBe(0);
+});
+
 test("resumeSession rejects mismatched providers after the adapter is pinned", async () => {
   const codex = new FakeAdapter("codex", [createReadiness("codex", "ready")]);
   const claude = new FakeAdapter("claude", [createReadiness("claude", "ready")]);

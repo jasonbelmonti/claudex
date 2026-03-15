@@ -54,6 +54,27 @@ function normalizePreferredProviders(
   return [...new Set(configured)];
 }
 
+function validateResumeProvider(params: {
+  provider: unknown;
+  preferredProviders: readonly ProviderId[];
+}): ProviderId {
+  if (typeof params.provider === "string" && VALID_PROVIDER_IDS.has(params.provider)) {
+    return params.provider as ProviderId;
+  }
+
+  throw new AgentError({
+    code: "provider_failure",
+    provider: params.preferredProviders[0] ?? DEFAULT_CLAUDEX_PROVIDER_ORDER[0],
+    message: `ClaudexAdapter resumeSession received unsupported provider: ${String(params.provider)}.`,
+    details: {
+      requestedProvider: params.provider,
+      supportedProviders: [...PROVIDER_IDS],
+      preferredProviders: [...params.preferredProviders],
+    },
+    raw: params.provider,
+  });
+}
+
 export class ClaudexAdapter {
   readonly preferredProviders: readonly ProviderId[];
 
@@ -109,26 +130,35 @@ export class ClaudexAdapter {
     reference: SessionReference,
     options: SessionOptions = {},
   ): Promise<AgentSession> {
+    const provider = validateResumeProvider({
+      provider: reference.provider,
+      preferredProviders: this.preferredProviders,
+    });
+    const normalizedReference: SessionReference = {
+      ...reference,
+      provider,
+    };
+
     if (this.resolvedAdapter) {
-      if (this.resolvedAdapter.provider !== reference.provider) {
+      if (this.resolvedAdapter.provider !== normalizedReference.provider) {
         throw new AgentError({
           code: "unsupported_feature",
           provider: this.resolvedAdapter.provider,
-          message: `ClaudexAdapter is pinned to ${this.resolvedAdapter.provider} and cannot resume a ${reference.provider} session.`,
+          message: `ClaudexAdapter is pinned to ${this.resolvedAdapter.provider} and cannot resume a ${normalizedReference.provider} session.`,
           details: {
             pinnedProvider: this.resolvedAdapter.provider,
-            requestedProvider: reference.provider,
+            requestedProvider: normalizedReference.provider,
           },
         });
       }
 
-      return this.resolvedAdapter.resumeSession(reference, options);
+      return this.resolvedAdapter.resumeSession(normalizedReference, options);
     }
 
-    const adapter = this.adapters[reference.provider];
+    const adapter = this.adapters[normalizedReference.provider];
     this.pinAdapter(adapter);
 
-    return adapter.resumeSession(reference, options);
+    return adapter.resumeSession(normalizedReference, options);
   }
 
   private async resolveRunnableAdapter(): Promise<AgentProviderAdapter> {
