@@ -10,8 +10,9 @@ import type {
   ObservedSessionRecord,
 } from "claudex/ingest";
 import {
-  createInMemoryCursorStore,
+  createClaudeIngestRegistries,
   createCodexIngestRegistries,
+  createInMemoryCursorStore,
   createSessionIngestService,
 } from "claudex/ingest";
 
@@ -305,6 +306,146 @@ test("scanNow integrates Codex bootstrap and transcript registries with canonica
     `event:transcript:${transcriptFilePath}:${sessionId}:canonical`,
     `session:transcript:${transcriptFilePath}:${sessionId}:canonical`,
   ]);
+});
+
+test("scanNow integrates Claude transcript and snapshot registries across the supported parity set", async () => {
+  const transcriptFixture = await Bun.file(
+    new URL("../fixtures/claude/transcript.jsonl", import.meta.url),
+  ).text();
+  const snapshotFixture = await Bun.file(
+    new URL("../fixtures/claude/snapshot-task.json", import.meta.url),
+  ).text();
+  const workspace = await createFixtureWorkspace({
+    "claude/a-snapshot.json": snapshotFixture,
+    "claude/b-transcript.jsonl": transcriptFixture,
+    "claude/ignore.txt": "skip\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+    recursive: true,
+    metadata: { lane: "parity" },
+  };
+  const snapshotFilePath = join(workspace, "claude", "a-snapshot.json");
+  const transcriptFilePath = join(workspace, "claude", "b-transcript.jsonl");
+
+  const discoveryEvents: DiscoveryEvent[] = [];
+  const warnings: IngestWarning[] = [];
+  const observedEvents: ObservedAgentEvent[] = [];
+  const observedSessions: ObservedSessionRecord[] = [];
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: createClaudeIngestRegistries(),
+    onObservedEvent(record) {
+      observedEvents.push(record);
+    },
+    onObservedSession(record) {
+      observedSessions.push(record);
+    },
+    onWarning(warning) {
+      warnings.push(warning);
+    },
+    onDiscoveryEvent(event) {
+      discoveryEvents.push(event);
+    },
+  });
+
+  await service.scanNow();
+
+  expect(
+    discoveryEvents
+      .filter((event) => event.type === "file.discovered")
+      .map((event) => event.filePath),
+  ).toEqual([snapshotFilePath, transcriptFilePath]);
+  expect(observedEvents.map((record) => ({
+    kind: record.source.kind,
+    type: record.event.type,
+    filePath: record.source.filePath,
+    discoveryPhase: record.source.discoveryPhase,
+    state: record.observedSession?.state,
+  }))).toEqual([
+    {
+      kind: "snapshot",
+      type: "message.completed",
+      filePath: snapshotFilePath,
+      discoveryPhase: "initial_scan",
+      state: "canonical",
+    },
+    {
+      kind: "snapshot",
+      type: "message.delta",
+      filePath: snapshotFilePath,
+      discoveryPhase: "initial_scan",
+      state: "canonical",
+    },
+    {
+      kind: "transcript",
+      type: "message.completed",
+      filePath: transcriptFilePath,
+      discoveryPhase: "initial_scan",
+      state: "canonical",
+    },
+    {
+      kind: "transcript",
+      type: "message.delta",
+      filePath: transcriptFilePath,
+      discoveryPhase: "initial_scan",
+      state: undefined,
+    },
+    {
+      kind: "transcript",
+      type: "turn.completed",
+      filePath: transcriptFilePath,
+      discoveryPhase: "initial_scan",
+      state: "canonical",
+    },
+  ]);
+  expect(observedSessions.map((record) => ({
+    reason: record.reason,
+    kind: record.source.kind,
+    state: record.observedSession.state,
+    filePath: record.source.filePath,
+  }))).toEqual([
+    {
+      reason: "snapshot",
+      kind: "snapshot",
+      state: "provisional",
+      filePath: snapshotFilePath,
+    },
+    {
+      reason: "transcript",
+      kind: "transcript",
+      state: "provisional",
+      filePath: transcriptFilePath,
+    },
+  ]);
+  expect(warnings.map((warning) => ({
+    code: warning.code,
+    kind: warning.source?.kind,
+    filePath: warning.filePath,
+  }))).toEqual([
+    {
+      code: "unsupported-record",
+      kind: "snapshot",
+      filePath: snapshotFilePath,
+    },
+    {
+      code: "parse-failed",
+      kind: "transcript",
+      filePath: transcriptFilePath,
+    },
+  ]);
+  expect([...observedEvents, ...observedSessions].every((record) =>
+    record.source.metadata?.lane === "parity"
+    && record.cursor?.provider === "claude"
+    && record.cursor.rootPath === root.path
+    && record.cursor.filePath === record.source.filePath
+    && typeof record.cursor.byteOffset === "number"
+    && record.cursor.byteOffset > 0
+  )).toBe(true);
 });
 
 test("scanNow does not re-emit the canonical Codex transcript session for event-only appends", async () => {

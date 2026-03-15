@@ -1,6 +1,6 @@
 # Consumer Guide
 
-This guide is for orchestration and agent-console consumers that want one surface over Claude and Codex without pretending the providers are identical.
+This guide is for orchestration and agent-console consumers that want one surface over Claude and Codex without pretending the providers are identical. It covers both the live SDK adapters and the passive `claudex/ingest` observation surface.
 
 ## 1. Default To ClaudexAdapter
 
@@ -166,7 +166,89 @@ If you need those advanced surfaces:
 - use `capabilities` to detect whether the provider can do the thing at all
 - use `raw` payloads and provider `extensions` when you intentionally step outside the common contract
 
-## 8. Suggested Console UX
+## 8. Passive Ingest Is Observation, Not Control
+
+`claudex/ingest` is the read-only companion surface for replaying local Claude and Codex artifacts after the fact. It emits `ObservedIngestRecord` envelopes and does not create sessions, resume sessions, send turns, or represent authoritative live control state.
+
+```ts
+import {
+  createClaudeIngestRegistries,
+  createCodexIngestRegistries,
+  createSessionIngestService,
+} from "claudex/ingest";
+
+const service = createSessionIngestService({
+  roots: [
+    {
+      provider: "claude",
+      path: "/Users/me/.claude",
+      recursive: true,
+      watch: true,
+    },
+    {
+      provider: "codex",
+      path: "/Users/me/.codex",
+      recursive: true,
+      watch: true,
+    },
+  ],
+  registries: [
+    ...createClaudeIngestRegistries(),
+    ...createCodexIngestRegistries(),
+  ],
+  onObservedEvent(record) {
+    console.log(record.source.kind, record.event.type, record.completeness);
+  },
+  onObservedSession(record) {
+    console.log(record.reason, record.observedSession.state);
+  },
+});
+
+await service.scanNow();
+```
+
+Treat ingest output as best-effort observation:
+
+- `completeness` may be `partial` or `best-effort` when files are malformed, truncated, or only partially observable
+- `observedSession.state` may be `provisional` until a richer artifact refines it to a canonical session identity
+- `source.discoveryPhase` tells you whether the record came from an initial scan, a watch tick, or a reconcile pass
+- warnings are part of the contract; parse failures, duplicate roots, and cursor resets are surfaced instead of hidden
+
+## 9. Supported Passive Sources
+
+Supported by the current ingest contract:
+
+- Claude transcript `.jsonl`
+- Claude snapshot/task `.json`
+- Codex transcript `.jsonl`
+- Codex session-index `.jsonl`
+
+Outside the current ingest contract:
+
+- other provider-native logs, temp files, or extension metadata
+- live approvals, hooks, plugins, MCP state, or provider control channels
+- authoritative live session status
+
+## 10. Choose Live SDK vs Passive Ingest
+
+Use the live SDK when:
+
+- you are starting or resuming a session
+- you need authoritative `turn.completed` or `turn.failed` semantics
+- you need interactive capabilities such as fork, attachments, or other session control actions
+
+Use passive ingest when:
+
+- you are backfilling or tailing local history from disk
+- you are building read-only observability, analytics, or transcript views
+- you are recovering context after the fact from provider-owned artifacts
+
+Practical rule:
+
+- if your code needs to change provider state, use the live SDK
+- if your code only needs to observe local artifacts, use `claudex/ingest`
+
+## 11. Suggested Console UX
 
 For an orchestration console, the pragmatic rendering model is:
 
