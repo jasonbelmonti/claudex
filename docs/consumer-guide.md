@@ -2,24 +2,35 @@
 
 This guide is for orchestration and agent-console consumers that want one surface over Claude and Codex without pretending the providers are identical.
 
-## 1. Pick An Adapter, Not A Special Case
+## 1. Default To ClaudexAdapter
 
-Instantiate either provider behind the same `AgentProviderAdapter` contract:
+Use `ClaudexAdapter` when you want provider-agnostic startup and let it resolve
+the first runnable provider in priority order:
 
 ```ts
 import {
+  ClaudexAdapter,
   ClaudeAdapter,
   CodexAdapter,
   supportsCapability,
-  type AgentProviderAdapter,
 } from "claudex";
 
-function createAdapter(provider: "claude" | "codex"): AgentProviderAdapter {
-  return provider === "claude" ? new ClaudeAdapter() : new CodexAdapter();
-}
+const adapter = new ClaudexAdapter();
 ```
 
-Both adapters in v1 assume CLI-authenticated local environments. API-key and env-based auth are intentionally out of scope.
+`ClaudexAdapter` defaults to `["codex", "claude"]`, exposes
+`provider === null` and `capabilities === null` before resolution, and pins to
+the selected provider after `checkReadiness()`, `createSession()`, or
+`resumeSession()`.
+
+Instantiate `ClaudeAdapter` or `CodexAdapter` directly when:
+
+- you already know the provider up front
+- you want provider-specific dependency injection or test doubles
+- you intentionally do not want default-provider resolution
+
+All adapters in v1 assume CLI-authenticated local environments. API-key and
+env-based auth are intentionally out of scope.
 
 ## 2. Treat Readiness As A First-Class Gate
 
@@ -35,7 +46,7 @@ switch (readiness.status) {
   case "missing_cli":
   case "needs_auth":
   case "error":
-    throw new Error(`Cannot run ${adapter.provider}: ${readiness.status}`);
+    throw new Error(`Cannot run ${readiness.provider}: ${readiness.status}`);
 }
 ```
 
@@ -54,10 +65,15 @@ Important note:
 
 ## 3. Prefer Capabilities Over Provider Name
 
-When behavior is optional, branch on capabilities instead of hard-coding `if (provider === "...")`.
+When behavior is optional, branch on capabilities instead of hard-coding
+`if (provider === "...")`.
+
+If you are using `ClaudexAdapter`, prefer `session.capabilities` or resolved
+adapter metadata after readiness/session creation rather than assuming
+capabilities exist before resolution.
 
 ```ts
-if (supportsCapability(adapter.capabilities, "session:fork") && session.fork) {
+if (supportsCapability(session.capabilities, "session:fork") && session.fork) {
   const forked = await session.fork();
   // ...
 }
@@ -86,6 +102,9 @@ The contract intentionally separates session creation from session identity mint
 Important orchestration implication:
 
 - Persist the minted `SessionReference` from the session object or terminal result after the first turn, not before it.
+- `ClaudexAdapter.resumeSession(reference)` pins directly to `reference.provider`
+  when the adapter has not resolved yet.
+- once `ClaudexAdapter` is pinned, it does not silently fail over to another provider
 
 ## 5. Streaming Contract
 

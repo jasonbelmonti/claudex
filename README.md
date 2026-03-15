@@ -6,6 +6,7 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 
 ## Status
 
+- ClaudexAdapter default resolver: merged
 - Claude adapter: merged
 - Codex adapter: merged
 - Shared contract harness: merged
@@ -27,13 +28,15 @@ bun install
 ## Quick Start
 
 ```ts
-import { ClaudeAdapter, CodexAdapter, supportsCapability } from "claudex";
+import { ClaudexAdapter, supportsCapability } from "claudex";
 
-const adapter = new CodexAdapter();
+const adapter = new ClaudexAdapter();
 const readiness = await adapter.checkReadiness();
 
 if (readiness.status !== "ready" && readiness.status !== "degraded") {
-  throw new Error(`Provider is not runnable: ${readiness.status}`);
+  throw new Error(
+    `Provider is not runnable: ${readiness.provider} (${readiness.status})`,
+  );
 }
 
 const session = await adapter.createSession({
@@ -47,13 +50,16 @@ const result = await session.run({
 
 console.log(result.text);
 
-if (supportsCapability(adapter.capabilities, "session:fork") && session.fork) {
+if (supportsCapability(session.capabilities, "session:fork") && session.fork) {
   const forked = await session.fork();
   await forked.run({
     prompt: "Take a different approach.",
   });
 }
 ```
+
+Use `ClaudeAdapter` or `CodexAdapter` directly when you already know the target
+provider or want explicit provider-specific wiring.
 
 ## What The Contract Guarantees
 
