@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { join } from "node:path";
 
-import type { IngestCursor } from "claudex/ingest";
+import type { IngestCursor, IngestWarning } from "claudex/ingest";
 import {
   createInMemoryCursorStore,
   createSessionIngestService,
@@ -91,6 +91,260 @@ test("transcript parser does not invent sessions for blank files", async () => {
 
   expect(sessions).toEqual([]);
   expect(warnings).toEqual([]);
+});
+
+test("transcript parser collapses mirrored assistant and reasoning records", async () => {
+  const assistantText = "Codex should say this once.";
+  const reasoningText = "Codex should summarize this once.";
+  const workspace = await createFixtureWorkspace({
+    "codex/transcript.jsonl": [
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:00.000Z",
+        type: "session_meta",
+        payload: {
+          id: "session-codex-bel-392",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:01.000Z",
+        type: "event_msg",
+        payload: {
+          type: "task_started",
+          turn_id: "turn-bel-392",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:02.000Z",
+        type: "event_msg",
+        payload: {
+          type: "user_message",
+          message: "Verify BEL-392",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:03.000Z",
+        type: "event_msg",
+        payload: {
+          type: "agent_message",
+          message: assistantText,
+          phase: "commentary",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:03.100Z",
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "assistant",
+          content: [
+            {
+              type: "output_text",
+              text: assistantText,
+            },
+          ],
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:03.200Z",
+        type: "event_msg",
+        payload: {
+          type: "agent_reasoning",
+          text: reasoningText,
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:03.300Z",
+        type: "response_item",
+        payload: {
+          type: "reasoning",
+          summary: [
+            {
+              type: "summary_text",
+              text: reasoningText,
+            },
+          ],
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:04.000Z",
+        type: "event_msg",
+        payload: {
+          type: "task_complete",
+          turn_id: "turn-bel-392",
+          last_agent_message: assistantText,
+        },
+      }),
+      "",
+    ].join("\n"),
+  });
+  workspaces.push(workspace);
+
+  const eventTypes: string[] = [];
+  const warnings: string[] = [];
+  const service = createSessionIngestService({
+    roots: [
+      {
+        provider: "codex" as const,
+        path: join(workspace, "codex"),
+      },
+    ],
+    registries: [createCodexTranscriptIngestRegistry()],
+    onObservedEvent(record) {
+      eventTypes.push(record.event.type);
+    },
+    onWarning(warning) {
+      warnings.push(warning.code);
+    },
+  });
+
+  await service.scanNow();
+
+  expect(eventTypes).toEqual([
+    "session.started",
+    "turn.started",
+    "message.completed",
+    "reasoning.summary",
+    "turn.completed",
+  ]);
+  expect(warnings).toEqual([]);
+});
+
+test("transcript parser preserves mirror-collapse across cursor resumes", async () => {
+  const assistantText = "Resume should not duplicate this.";
+  const reasoningText = "Resume should not duplicate this summary.";
+  const initialTranscript = [
+    JSON.stringify({
+      timestamp: "2026-03-15T14:29:00.000Z",
+      type: "session_meta",
+      payload: {
+        id: "session-codex-resume",
+      },
+    }),
+    JSON.stringify({
+      timestamp: "2026-03-15T14:29:01.000Z",
+      type: "event_msg",
+      payload: {
+        type: "task_started",
+        turn_id: "turn-bel-392-resume",
+      },
+    }),
+    JSON.stringify({
+      timestamp: "2026-03-15T14:29:02.000Z",
+      type: "event_msg",
+      payload: {
+        type: "user_message",
+        message: "Verify BEL-392 resume coverage",
+      },
+    }),
+    JSON.stringify({
+      timestamp: "2026-03-15T14:29:03.000Z",
+      type: "event_msg",
+      payload: {
+        type: "agent_message",
+        message: assistantText,
+        phase: "commentary",
+      },
+    }),
+    JSON.stringify({
+      timestamp: "2026-03-15T14:29:03.100Z",
+      type: "event_msg",
+      payload: {
+        type: "agent_reasoning",
+        text: reasoningText,
+      },
+    }),
+    "",
+  ].join("\n");
+  const resumedTranscript = [
+    initialTranscript.trimEnd(),
+    JSON.stringify({
+      timestamp: "2026-03-15T14:29:03.200Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "assistant",
+        content: [
+          {
+            type: "output_text",
+            text: assistantText,
+          },
+        ],
+      },
+    }),
+    JSON.stringify({
+      timestamp: "2026-03-15T14:29:03.300Z",
+      type: "response_item",
+      payload: {
+        type: "reasoning",
+        summary: [
+          {
+            type: "summary_text",
+            text: reasoningText,
+          },
+        ],
+      },
+    }),
+    JSON.stringify({
+      timestamp: "2026-03-15T14:29:04.000Z",
+      type: "event_msg",
+      payload: {
+        type: "task_complete",
+        turn_id: "turn-bel-392-resume",
+        last_agent_message: assistantText,
+      },
+    }),
+    "",
+  ].join("\n");
+  const workspace = await createFixtureWorkspace({
+    "codex/transcript.jsonl": initialTranscript,
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "codex" as const,
+    path: join(workspace, "codex"),
+  };
+  const filePath = join(workspace, "codex", "transcript.jsonl");
+  const observedEvents: string[] = [];
+  const parseCursors: (IngestCursor | null)[] = [];
+  const baseRegistry = createCodexTranscriptIngestRegistry();
+  const cursorStore = createInMemoryCursorStore();
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      {
+        ...baseRegistry,
+        async *parseFile(context) {
+          parseCursors.push(context.cursor);
+          const records = await baseRegistry.parseFile(context);
+          yield* records;
+        },
+      },
+    ],
+    cursorStore,
+    onObservedEvent(record) {
+      observedEvents.push(record.event.type);
+    },
+  });
+
+  await service.scanNow();
+
+  expect(observedEvents).toEqual([
+    "session.started",
+    "turn.started",
+    "message.completed",
+    "reasoning.summary",
+  ]);
+
+  observedEvents.length = 0;
+  await Bun.write(filePath, resumedTranscript);
+  await service.scanNow();
+
+  expect(parseCursors).toHaveLength(2);
+  expect(parseCursors[0]).toBeNull();
+  expect(parseCursors[1]?.byteOffset).toBe(initialTranscript.length);
+  expect(observedEvents).toEqual(["turn.completed"]);
 });
 
 test("transcript parser emits a canonical session when the final line also emits events", async () => {
@@ -232,4 +486,68 @@ test("transcript parser does not invent sessions for turn_context-only files", a
 
   expect(sessions).toEqual([]);
   expect(warnings).toEqual([]);
+});
+
+test("transcript parser surfaces malformed and partial transcript warnings through onWarning", async () => {
+  const transcript = [
+    JSON.stringify({
+      timestamp: "2026-03-15T14:29:00.000Z",
+      type: "session_meta",
+      payload: {
+        id: "session-codex-warning-path",
+      },
+    }),
+    JSON.stringify({
+      timestamp: "2026-03-15T14:29:01.000Z",
+      type: "event_msg",
+      payload: {},
+    }),
+    JSON.stringify({
+      timestamp: "2026-03-15T14:29:02.000Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "assistant",
+        content: [],
+      },
+    }),
+    "{ bad json",
+    "",
+  ].join("\n");
+  const workspace = await createFixtureWorkspace({
+    "codex/warnings.jsonl": transcript,
+  });
+  workspaces.push(workspace);
+
+  const filePath = join(workspace, "codex", "warnings.jsonl");
+  const warnings: IngestWarning[] = [];
+  const service = createSessionIngestService({
+    roots: [
+      {
+        provider: "codex" as const,
+        path: join(workspace, "codex"),
+      },
+    ],
+    registries: [createCodexTranscriptIngestRegistry()],
+    onWarning(warning) {
+      warnings.push(warning);
+    },
+  });
+
+  await service.scanNow();
+
+  expect(warnings.map((warning) => warning.code)).toEqual([
+    "unsupported-record",
+    "unsupported-record",
+    "parse-failed",
+  ]);
+  expect(warnings[0]).toMatchObject({
+    provider: "codex",
+    filePath,
+    source: {
+      provider: "codex",
+      kind: "transcript",
+      filePath,
+    },
+  });
 });

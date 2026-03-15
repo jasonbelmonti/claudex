@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import type { IngestCursor, IngestWarning } from "claudex/ingest";
 import { createSessionIngestService } from "claudex/ingest";
+import { createCodexTranscriptIngestRegistry } from "../../src/ingest/codex";
 
 import {
   createFixtureWorkspace,
@@ -261,6 +262,85 @@ test("scanNow preserves the original consumer error when iterator cleanup fails"
     await expect(service.scanNow()).rejects.toThrow("consumer callback failed");
     expect(readStoredCursor()?.filePath).toBe(filePath);
     expect(readStoredCursor()?.byteOffset).toBe(3);
+  } finally {
+    await removeFixtureWorkspace(workspace);
+  }
+});
+
+test("scanNow delivers Codex transcript warnings before a later typed callback failure", async () => {
+  const workspace = await createFixtureWorkspace({
+    "codex/consumer-warning.jsonl": [
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:00.000Z",
+        type: "session_meta",
+        payload: {
+          id: "session-codex-consumer-warning",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:01.000Z",
+        type: "event_msg",
+        payload: {},
+      }),
+      "",
+    ].join("\n"),
+  });
+
+  try {
+    const root = {
+      provider: "codex" as const,
+      path: join(workspace, "codex"),
+    };
+    const filePath = join(workspace, "codex", "consumer-warning.jsonl");
+    const warnings: IngestWarning[] = [];
+    const callbackOrder: string[] = [];
+    let storedCursor: IngestCursor | null = null;
+
+    const service = createSessionIngestService({
+      roots: [root],
+      registries: [createCodexTranscriptIngestRegistry()],
+      cursorStore: {
+        async get() {
+          return storedCursor;
+        },
+        async set(cursor) {
+          storedCursor = cursor;
+        },
+        async delete() {
+          storedCursor = null;
+        },
+      },
+      onWarning(warning) {
+        warnings.push(warning);
+        callbackOrder.push(`warning:${warning.code}`);
+      },
+      onObservedSession(record) {
+        if (record.warnings?.length) {
+          callbackOrder.push(`typed:${record.warnings[0]?.code}`);
+          throw new Error("consumer callback failed");
+        }
+      },
+    });
+
+    await expect(service.scanNow()).rejects.toThrow("consumer callback failed");
+    expect(warnings.map((warning) => warning.code)).toEqual(["unsupported-record"]);
+    expect(callbackOrder).toEqual([
+      "warning:unsupported-record",
+      "typed:unsupported-record",
+    ]);
+    expect(warnings[0]).toMatchObject({
+      provider: "codex",
+      filePath,
+      source: {
+        provider: "codex",
+        kind: "transcript",
+        filePath,
+      },
+    });
+    expect(storedCursor).toMatchObject({
+      filePath,
+      line: 1,
+    });
   } finally {
     await removeFixtureWorkspace(workspace);
   }
