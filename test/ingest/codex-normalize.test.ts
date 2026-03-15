@@ -108,3 +108,139 @@ test("session_meta resets stale turn and pending tool state", () => {
   expect(context.pendingToolCalls.size).toBe(0);
   expect(context.syntheticToolCallCounter).toBe(0);
 });
+
+test("mirrored assistant and reasoning records collapse to single semantic events", () => {
+  const context = createCodexTranscriptNormalizationContext();
+  const assistantText = "Mirror once, not twice.";
+  const reasoningText = "Collapsed reasoning summary.";
+
+  normalizeCodexTranscriptRecord(
+    {
+      timestamp: "2026-03-15T14:29:00.000Z",
+      type: "session_meta",
+      payload: {
+        id: "session-bel-392",
+      },
+    },
+    context,
+  );
+
+  normalizeCodexTranscriptRecord(
+    {
+      timestamp: "2026-03-15T14:29:01.000Z",
+      type: "event_msg",
+      payload: {
+        type: "task_started",
+        turn_id: "turn-bel-392",
+      },
+    },
+    context,
+  );
+
+  normalizeCodexTranscriptRecord(
+    {
+      timestamp: "2026-03-15T14:29:02.000Z",
+      type: "event_msg",
+      payload: {
+        type: "user_message",
+        message: "Verify BEL-392",
+      },
+    },
+    context,
+  );
+
+  const assistantFromEvent = normalizeCodexTranscriptRecord(
+    {
+      timestamp: "2026-03-15T14:29:03.000Z",
+      type: "event_msg",
+      payload: {
+        type: "agent_message",
+        message: assistantText,
+        phase: "commentary",
+      },
+    },
+    context,
+  );
+
+  const assistantFromResponseItem = normalizeCodexTranscriptRecord(
+    {
+      timestamp: "2026-03-15T14:29:03.100Z",
+      type: "response_item",
+      payload: {
+        type: "message",
+        role: "assistant",
+        content: [
+          {
+            type: "output_text",
+            text: assistantText,
+          },
+        ],
+      },
+    },
+    context,
+  );
+
+  const reasoningFromEvent = normalizeCodexTranscriptRecord(
+    {
+      timestamp: "2026-03-15T14:29:03.200Z",
+      type: "event_msg",
+      payload: {
+        type: "agent_reasoning",
+        text: reasoningText,
+      },
+    },
+    context,
+  );
+
+  const reasoningFromResponseItem = normalizeCodexTranscriptRecord(
+    {
+      timestamp: "2026-03-15T14:29:03.300Z",
+      type: "response_item",
+      payload: {
+        type: "reasoning",
+        summary: [
+          {
+            type: "summary_text",
+            text: reasoningText,
+          },
+        ],
+      },
+    },
+    context,
+  );
+
+  const completed = normalizeCodexTranscriptRecord(
+    {
+      timestamp: "2026-03-15T14:29:04.000Z",
+      type: "event_msg",
+      payload: {
+        type: "task_complete",
+        turn_id: "turn-bel-392",
+        last_agent_message: assistantText,
+      },
+    },
+    context,
+  );
+
+  expect(assistantFromEvent.events).toHaveLength(1);
+  expect(assistantFromEvent.events[0]).toMatchObject({
+    type: "message.completed",
+    text: assistantText,
+  });
+  expect(assistantFromResponseItem.events).toEqual([]);
+
+  expect(reasoningFromEvent.events).toHaveLength(1);
+  expect(reasoningFromEvent.events[0]).toMatchObject({
+    type: "reasoning.summary",
+    summary: reasoningText,
+  });
+  expect(reasoningFromResponseItem.events).toEqual([]);
+
+  expect(completed.events).toHaveLength(1);
+  expect(completed.events[0]?.type).toBe("turn.completed");
+  if (completed.events[0]?.type !== "turn.completed") {
+    throw new Error("Expected Codex turn completion event.");
+  }
+
+  expect(completed.events[0].result.text).toBe(assistantText);
+});

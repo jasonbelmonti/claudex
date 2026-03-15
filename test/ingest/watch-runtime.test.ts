@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { stat, utimes } from "node:fs/promises";
 import { join } from "node:path";
 
 import type {
@@ -7,6 +8,7 @@ import type {
   IngestWarning,
 } from "claudex/ingest";
 import {
+  createCodexIngestRegistries,
   createInMemoryCursorStore,
   createSessionIngestService,
 } from "claudex/ingest";
@@ -711,6 +713,138 @@ test("reconcileNow detects drift and emits reconcile lifecycle events", async ()
     "reconcile.completed",
   ]);
   expect(discoveryEvents[4]?.discoveryPhase).toBe("reconcile");
+});
+
+test("watch does not re-emit unchanged Codex bootstrap and transcript files when only mtimes change", async () => {
+  const sessionId = "019cbbf0-9d22-72c2-982c-8ac623e7998f";
+  const transcriptRelativePath = join(
+    ".codex",
+    "sessions",
+    "2026",
+    "03",
+    "15",
+    `rollout-2026-03-15T09-29-00-${sessionId}.jsonl`,
+  );
+  const workspace = await createFixtureWorkspace({
+    ".codex/session_index.jsonl": `${JSON.stringify({
+      id: sessionId,
+      thread_name: "BEL-392 watch coverage",
+      updated_at: "2026-03-15T14:29:00.000Z",
+    })}\n`,
+    [transcriptRelativePath]: [
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:00.000Z",
+        type: "session_meta",
+        payload: {
+          id: sessionId,
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:01.000Z",
+        type: "event_msg",
+        payload: {
+          type: "task_started",
+          turn_id: "turn-bel-392",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:02.000Z",
+        type: "event_msg",
+        payload: {
+          type: "user_message",
+          message: "Verify watch touch behavior",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:03.000Z",
+        type: "event_msg",
+        payload: {
+          type: "agent_message",
+          message: "Watch should stay quiet.",
+          phase: "final_answer",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:04.000Z",
+        type: "event_msg",
+        payload: {
+          type: "task_complete",
+          turn_id: "turn-bel-392",
+          last_agent_message: "Watch should stay quiet.",
+        },
+      }),
+      "",
+    ].join("\n"),
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "codex" as const,
+    path: join(workspace, ".codex"),
+    recursive: true,
+    watch: true,
+  };
+  const bootstrapFilePath = join(workspace, ".codex", "session_index.jsonl");
+  const transcriptFilePath = join(workspace, transcriptRelativePath);
+  const discoveryEvents: DiscoveryEvent[] = [];
+  const observedSessions: string[] = [];
+  const observedEvents: string[] = [];
+  const cursorStore = createInMemoryCursorStore();
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: createCodexIngestRegistries(),
+    cursorStore,
+    watchIntervalMs: 25,
+    onObservedSession(record) {
+      observedSessions.push(`${record.source.discoveryPhase}:${record.reason}:${record.source.filePath}`);
+    },
+    onObservedEvent(record) {
+      observedEvents.push(`${record.source.discoveryPhase}:${record.event.type}:${record.source.filePath}`);
+    },
+    onDiscoveryEvent(event) {
+      discoveryEvents.push(event);
+    },
+  });
+
+  await service.start();
+
+  await waitForCondition(() => {
+    return discoveryEvents.some((event) => event.type === "watch.started")
+      && observedSessions.length >= 2
+      && observedEvents.length >= 4;
+  });
+
+  observedSessions.length = 0;
+  observedEvents.length = 0;
+
+  const bootstrapStats = await stat(bootstrapFilePath);
+  await utimes(
+    bootstrapFilePath,
+    bootstrapStats.atime,
+    new Date(bootstrapStats.mtimeMs + 10_000),
+  );
+  const transcriptStats = await stat(transcriptFilePath);
+  await utimes(
+    transcriptFilePath,
+    transcriptStats.atime,
+    new Date(transcriptStats.mtimeMs + 10_000),
+  );
+
+  await waitForCondition(() => {
+    const changedFiles = new Set(
+      discoveryEvents
+        .filter((event) => event.type === "file.changed" && event.discoveryPhase === "watch")
+        .map((event) => event.filePath),
+    );
+
+    return changedFiles.has(bootstrapFilePath) && changedFiles.has(transcriptFilePath);
+  });
+
+  expect(observedSessions).toEqual([]);
+  expect(observedEvents).toEqual([]);
+
+  await service.stop();
 });
 
 test("duplicate and overlapping roots are skipped without double-emitting files", async () => {

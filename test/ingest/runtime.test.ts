@@ -442,6 +442,129 @@ test("scanNow does not re-emit the canonical Codex transcript session for event-
   ]);
 });
 
+test("reconcileNow does not re-emit unchanged Codex bootstrap and transcript files when only mtimes change", async () => {
+  const sessionId = "019cbbf0-9d22-72c2-982c-8ac623e7998f";
+  const transcriptRelativePath = join(
+    ".codex",
+    "sessions",
+    "2026",
+    "03",
+    "15",
+    `rollout-2026-03-15T09-29-00-${sessionId}.jsonl`,
+  );
+  const workspace = await createFixtureWorkspace({
+    ".codex/session_index.jsonl": `${JSON.stringify({
+      id: sessionId,
+      thread_name: "BEL-392 reconcile coverage",
+      updated_at: "2026-03-15T14:29:00.000Z",
+    })}\n`,
+    [transcriptRelativePath]: [
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:00.000Z",
+        type: "session_meta",
+        payload: {
+          id: sessionId,
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:01.000Z",
+        type: "event_msg",
+        payload: {
+          type: "task_started",
+          turn_id: "turn-bel-392",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:02.000Z",
+        type: "event_msg",
+        payload: {
+          type: "user_message",
+          message: "Verify reconcile touch behavior",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:03.000Z",
+        type: "event_msg",
+        payload: {
+          type: "agent_message",
+          message: "Reconcile should stay quiet.",
+          phase: "final_answer",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:04.000Z",
+        type: "event_msg",
+        payload: {
+          type: "task_complete",
+          turn_id: "turn-bel-392",
+          last_agent_message: "Reconcile should stay quiet.",
+        },
+      }),
+      "",
+    ].join("\n"),
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "codex" as const,
+    path: join(workspace, ".codex"),
+    recursive: true,
+  };
+  const bootstrapFilePath = join(workspace, ".codex", "session_index.jsonl");
+  const transcriptFilePath = join(workspace, transcriptRelativePath);
+  const discoveryEvents: DiscoveryEvent[] = [];
+  const observedSessions: string[] = [];
+  const observedEvents: string[] = [];
+  const cursorStore = createInMemoryCursorStore();
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: createCodexIngestRegistries(),
+    cursorStore,
+    onObservedSession(record) {
+      observedSessions.push(`${record.reason}:${record.source.filePath}`);
+    },
+    onObservedEvent(record) {
+      observedEvents.push(`${record.event.type}:${record.source.filePath}`);
+    },
+    onDiscoveryEvent(event) {
+      discoveryEvents.push(event);
+    },
+  });
+
+  await service.scanNow();
+
+  observedSessions.length = 0;
+  observedEvents.length = 0;
+  discoveryEvents.length = 0;
+
+  const bootstrapStats = await stat(bootstrapFilePath);
+  await utimes(
+    bootstrapFilePath,
+    bootstrapStats.atime,
+    new Date(bootstrapStats.mtimeMs + 10_000),
+  );
+  const transcriptStats = await stat(transcriptFilePath);
+  await utimes(
+    transcriptFilePath,
+    transcriptStats.atime,
+    new Date(transcriptStats.mtimeMs + 10_000),
+  );
+
+  await service.reconcileNow();
+
+  expect(
+    discoveryEvents.map((event) => `${event.type}:${event.filePath ?? event.rootPath}`),
+  ).toEqual([
+    `reconcile.started:${root.path}`,
+    `file.changed:${bootstrapFilePath}`,
+    `file.changed:${transcriptFilePath}`,
+    `reconcile.completed:${root.path}`,
+  ]);
+  expect(observedSessions).toEqual([]);
+  expect(observedEvents).toEqual([]);
+});
+
 test("scanNow orders discovered files with locale-independent name comparison", async () => {
   const workspace = await createFixtureWorkspace({
     "claude/ä-after-z.jsonl": "{\"ok\":true}\n",
