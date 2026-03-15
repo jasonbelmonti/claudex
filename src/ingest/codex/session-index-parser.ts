@@ -48,6 +48,8 @@ export async function* parseCodexSessionIndexFile(
   let line = (context.cursor?.line ?? 0) + 1;
   let byteOffset = cursorStart;
   let lineStart = 0;
+  let latestDeliveredByteOffset = cursorStart;
+  let latestDeliveredSession: ObservedSessionRecord | null = null;
 
   for (let index = 0; index <= bytes.length; index += 1) {
     const atEnd = index === bytes.length;
@@ -64,17 +66,35 @@ export async function* parseCodexSessionIndexFile(
     const nextByteOffset = byteOffset + bytesConsumed;
 
     if (lineText.length > 0) {
-      yield parseSessionIndexLine({
+      const parsedRecord = parseSessionIndexLine({
         context,
         lineText,
         line,
         byteOffset: nextByteOffset,
       });
+
+      yield parsedRecord;
+      latestDeliveredByteOffset = nextByteOffset;
+      latestDeliveredSession = parsedRecord;
     }
 
     line += 1;
     byteOffset = nextByteOffset;
     lineStart = index + 1;
+  }
+
+  if (byteOffset > latestDeliveredByteOffset && latestDeliveredSession) {
+    yield createCodexObservedSessionRecord({
+      context,
+      line: line - 1,
+      byteOffset,
+      reason: latestDeliveredSession.reason,
+      sessionId: latestDeliveredSession.observedSession.sessionId,
+      sessionMetadata: latestDeliveredSession.observedSession.metadata,
+      completeness: latestDeliveredSession.completeness,
+      state: latestDeliveredSession.observedSession.state,
+      warnings: [],
+    });
   }
 }
 

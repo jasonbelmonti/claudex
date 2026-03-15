@@ -1,8 +1,15 @@
 import { afterEach, expect, test } from "bun:test";
 import { join } from "node:path";
 
-import type { IngestWarning, ObservedSessionRecord } from "claudex/ingest";
-import { createSessionIngestService } from "claudex/ingest";
+import type {
+  IngestCursor,
+  IngestWarning,
+  ObservedSessionRecord,
+} from "claudex/ingest";
+import {
+  createInMemoryCursorStore,
+  createSessionIngestService,
+} from "claudex/ingest";
 import { createCodexSessionIndexIngestRegistry } from "../../src/ingest/codex";
 import {
   createFixtureWorkspace,
@@ -186,4 +193,65 @@ test("session-index registry matches both hyphenated and underscored filenames a
   expect(
     registry.matchFile("C:\\repo\\codex\\session_index.jsonl", root),
   ).toEqual({ kind: "session-index" });
+});
+
+test("session-index parser persists an EOF cursor for trailing blank lines", async () => {
+  const transcript = [
+    JSON.stringify({
+      id: "thread-bootstrap-1",
+      thread_name: "Bootstrap parser coverage",
+      updated_at: "2026-03-13T18:22:00.000000Z",
+    }),
+    "",
+    "",
+  ].join("\n");
+  const workspace = await createFixtureWorkspace({
+    "codex/session-index.jsonl": transcript,
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "codex" as const,
+    path: join(workspace, "codex"),
+  };
+  const filePath = join(workspace, "codex", "session-index.jsonl");
+  const cursorKey = {
+    provider: "codex" as const,
+    rootPath: root.path,
+    filePath,
+  };
+  const parseCursors: (IngestCursor | null)[] = [];
+  const baseRegistry = createCodexSessionIndexIngestRegistry();
+  const cursorStore = createInMemoryCursorStore();
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      {
+        ...baseRegistry,
+        async *parseFile(context) {
+          parseCursors.push(context.cursor);
+          const records = await baseRegistry.parseFile(context);
+          yield* records;
+        },
+      },
+    ],
+    cursorStore,
+  });
+
+  await service.scanNow();
+
+  const persistedCursor = await cursorStore.get(cursorKey);
+
+  expect(persistedCursor).toMatchObject({
+    provider: "codex",
+    rootPath: root.path,
+    filePath,
+    byteOffset: transcript.length,
+    line: 3,
+  });
+
+  await service.reconcileNow();
+
+  expect(parseCursors).toEqual([null]);
 });
