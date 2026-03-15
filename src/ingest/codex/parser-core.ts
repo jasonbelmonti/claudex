@@ -61,6 +61,7 @@ export function createCodexObservedSessionRecord(params: {
   line: number;
   byteOffset: number;
   metadata?: Record<string, unknown>;
+  sessionMetadata?: Record<string, unknown>;
   reason: ObservedSessionReason;
   sessionId: string;
   completeness: ObservedEventCompleteness;
@@ -73,6 +74,7 @@ export function createCodexObservedSessionRecord(params: {
       provider: "codex",
       sessionId: params.sessionId,
       state: params.state ?? "provisional",
+      metadata: params.sessionMetadata,
     },
     source: createCodexIngestSource(params.context, {
       line: params.line,
@@ -86,7 +88,7 @@ export function createCodexObservedSessionRecord(params: {
       line: params.line,
       metadata: params.metadata,
     }),
-    warnings: params.warnings,
+    warnings: params.warnings.length > 0 ? params.warnings : undefined,
   };
 }
 
