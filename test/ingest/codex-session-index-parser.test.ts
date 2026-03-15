@@ -220,6 +220,7 @@ test("session-index parser persists an EOF cursor for trailing blank lines", asy
     rootPath: root.path,
     filePath,
   };
+  const observedSessions: string[] = [];
   const parseCursors: (IngestCursor | null)[] = [];
   const baseRegistry = createCodexSessionIndexIngestRegistry();
   const cursorStore = createInMemoryCursorStore();
@@ -237,6 +238,9 @@ test("session-index parser persists an EOF cursor for trailing blank lines", asy
       },
     ],
     cursorStore,
+    onObservedSession(record) {
+      observedSessions.push(record.observedSession.sessionId);
+    },
   });
 
   await service.scanNow();
@@ -250,6 +254,7 @@ test("session-index parser persists an EOF cursor for trailing blank lines", asy
     byteOffset: transcript.length,
     line: 3,
   });
+  expect(observedSessions).toEqual(["thread-bootstrap-1"]);
 
   await service.reconcileNow();
 

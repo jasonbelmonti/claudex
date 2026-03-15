@@ -48,8 +48,7 @@ export async function* parseCodexSessionIndexFile(
   let line = (context.cursor?.line ?? 0) + 1;
   let byteOffset = cursorStart;
   let lineStart = 0;
-  let latestDeliveredByteOffset = cursorStart;
-  let latestDeliveredSession: ObservedSessionRecord | null = null;
+  let pendingRecord: ObservedSessionRecord | null = null;
 
   for (let index = 0; index <= bytes.length; index += 1) {
     const atEnd = index === bytes.length;
@@ -66,16 +65,23 @@ export async function* parseCodexSessionIndexFile(
     const nextByteOffset = byteOffset + bytesConsumed;
 
     if (lineText.length > 0) {
-      const parsedRecord = parseSessionIndexLine({
+      if (pendingRecord) {
+        yield pendingRecord;
+      }
+
+      pendingRecord = parseSessionIndexLine({
         context,
         lineText,
         line,
         byteOffset: nextByteOffset,
       });
-
-      yield parsedRecord;
-      latestDeliveredByteOffset = nextByteOffset;
-      latestDeliveredSession = parsedRecord;
+    } else if (pendingRecord) {
+      pendingRecord = updateSessionRecordProgress({
+        context,
+        record: pendingRecord,
+        line,
+        byteOffset: nextByteOffset,
+      });
     }
 
     line += 1;
@@ -83,18 +89,8 @@ export async function* parseCodexSessionIndexFile(
     lineStart = index + 1;
   }
 
-  if (byteOffset > latestDeliveredByteOffset && latestDeliveredSession) {
-    yield createCodexObservedSessionRecord({
-      context,
-      line: line - 1,
-      byteOffset,
-      reason: latestDeliveredSession.reason,
-      sessionId: latestDeliveredSession.observedSession.sessionId,
-      sessionMetadata: latestDeliveredSession.observedSession.metadata,
-      completeness: latestDeliveredSession.completeness,
-      state: latestDeliveredSession.observedSession.state,
-      warnings: [],
-    });
+  if (pendingRecord) {
+    yield pendingRecord;
   }
 }
 
@@ -217,6 +213,26 @@ function createFallbackSessionRecord(params: {
     sessionId: params.sessionId,
     completeness: "partial",
     warnings: params.warnings,
+  });
+}
+
+function updateSessionRecordProgress(params: {
+  context: IngestParseContext;
+  record: ObservedSessionRecord;
+  line: number;
+  byteOffset: number;
+}): ObservedSessionRecord {
+  return createCodexObservedSessionRecord({
+    context: params.context,
+    line: params.line,
+    byteOffset: params.byteOffset,
+    metadata: params.record.cursor?.metadata,
+    reason: params.record.reason,
+    sessionId: params.record.observedSession.sessionId,
+    sessionMetadata: params.record.observedSession.metadata,
+    completeness: params.record.completeness,
+    state: params.record.observedSession.state,
+    warnings: params.record.warnings ?? [],
   });
 }
 
