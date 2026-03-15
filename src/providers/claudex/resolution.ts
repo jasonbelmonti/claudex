@@ -1,11 +1,17 @@
 import type { AgentProviderAdapter, ProviderId } from "../../core/provider";
 import type { ProviderReadiness } from "../../core/readiness";
 
+export type ClaudexResolutionStrategy =
+  | "ready"
+  | "degraded"
+  | "fallback"
+  | "pinned";
+
 export type ClaudexResolution = {
   selected: ProviderReadiness;
   selectedAdapter: AgentProviderAdapter;
   probes: ProviderReadiness[];
-  resolution: "ready" | "degraded" | "fallback";
+  resolution: Exclude<ClaudexResolutionStrategy, "pinned">;
 };
 
 export async function probeProvidersInOrder(params: {
@@ -51,7 +57,7 @@ export function extendReadinessWithResolution(params: {
   readiness: ProviderReadiness;
   preferredProviders: readonly ProviderId[];
   probes: readonly ProviderReadiness[];
-  resolution: ClaudexResolution["resolution"];
+  resolution: ClaudexResolutionStrategy;
 }): ProviderReadiness {
   return {
     ...params.readiness,

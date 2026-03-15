@@ -149,6 +149,13 @@ test("checkReadiness selects the first ready provider and pins it", async () => 
   expect(codex.readinessCallCount).toBe(2);
   expect(claude.readinessCallCount).toBe(0);
   expect(secondReadiness.provider).toBe("codex");
+  expect(secondReadiness.extensions?.resolution).toMatchObject({
+    selectedProvider: "codex",
+    selectedStatus: "ready",
+    strategy: "ready",
+    preferredProviders: ["codex", "claude"],
+    probes: [{ provider: "codex", status: "ready" }],
+  });
 });
 
 test("checkReadiness falls back to the first degraded provider when no provider is ready", async () => {
@@ -246,6 +253,30 @@ test("resumeSession pins from the reference provider when unresolved", async () 
   expect(adapter.provider).toBe("claude");
   expect(codex.resumeSessionCallCount).toBe(0);
   expect(claude.resumeSessionCallCount).toBe(1);
+});
+
+test("checkReadiness preserves resolver metadata after resume pins a provider", async () => {
+  const codex = new FakeAdapter("codex", [createReadiness("codex", "ready")]);
+  const claude = new FakeAdapter("claude", [createReadiness("claude", "ready")]);
+  const adapter = new ClaudexAdapter({
+    providers: { codex, claude },
+  });
+
+  await adapter.resumeSession({
+    provider: "claude",
+    sessionId: "claude-123",
+  });
+
+  const readiness = await adapter.checkReadiness();
+
+  expect(readiness.provider).toBe("claude");
+  expect(readiness.extensions?.resolution).toMatchObject({
+    selectedProvider: "claude",
+    selectedStatus: "ready",
+    strategy: "pinned",
+    preferredProviders: ["codex", "claude"],
+    probes: [{ provider: "claude", status: "ready" }],
+  });
 });
 
 test("resumeSession rejects unknown providers with a typed AgentError before pinning", async () => {

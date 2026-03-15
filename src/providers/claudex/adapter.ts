@@ -14,6 +14,7 @@ import type {
 import { createNoRunnableProviderError } from "./errors";
 import { createProviderAdapters } from "./factory";
 import {
+  type ClaudexResolutionStrategy,
   extendReadinessWithResolution,
   probeProvidersInOrder,
 } from "./resolution";
@@ -75,11 +76,17 @@ function validateResumeProvider(params: {
   });
 }
 
+type PinnedResolutionMetadata = {
+  probes: readonly ProviderReadiness[];
+  strategy: ClaudexResolutionStrategy;
+};
+
 export class ClaudexAdapter {
   readonly preferredProviders: readonly ProviderId[];
 
   private readonly adapters: Record<ProviderId, AgentProviderAdapter>;
   private resolvedAdapter: AgentProviderAdapter | null = null;
+  private pinnedResolution: PinnedResolutionMetadata | null = null;
 
   constructor(readonly options: ClaudexAdapterOptions = {}) {
     this.preferredProviders = normalizePreferredProviders(
@@ -98,7 +105,8 @@ export class ClaudexAdapter {
 
   async checkReadiness(): Promise<ProviderReadiness> {
     if (this.resolvedAdapter) {
-      return this.resolvedAdapter.checkReadiness();
+      const readiness = await this.resolvedAdapter.checkReadiness();
+      return this.extendPinnedReadiness(readiness);
     }
 
     const resolution = await probeProvidersInOrder({
@@ -110,7 +118,10 @@ export class ClaudexAdapter {
       resolution.selected.status === "ready" ||
       resolution.selected.status === "degraded"
     ) {
-      this.pinAdapter(resolution.selectedAdapter);
+      this.pinAdapter(resolution.selectedAdapter, {
+        probes: [...resolution.probes],
+        strategy: resolution.resolution,
+      });
     }
 
     return extendReadinessWithResolution({
@@ -156,7 +167,10 @@ export class ClaudexAdapter {
     }
 
     const adapter = this.adapters[normalizedReference.provider];
-    this.pinAdapter(adapter);
+    this.pinAdapter(adapter, {
+      probes: [],
+      strategy: "pinned",
+    });
 
     return adapter.resumeSession(normalizedReference, options);
   }
@@ -182,11 +196,35 @@ export class ClaudexAdapter {
       });
     }
 
-    this.pinAdapter(resolution.selectedAdapter);
+    this.pinAdapter(resolution.selectedAdapter, {
+      probes: [...resolution.probes],
+      strategy: resolution.resolution,
+    });
     return resolution.selectedAdapter;
   }
 
-  private pinAdapter(adapter: AgentProviderAdapter): void {
+  private extendPinnedReadiness(readiness: ProviderReadiness): ProviderReadiness {
+    const cachedProbes = this.pinnedResolution?.probes ?? [];
+    const probes =
+      cachedProbes.length > 0
+        ? cachedProbes.map((probe) =>
+            probe.provider === readiness.provider ? readiness : probe,
+          )
+        : [readiness];
+
+    return extendReadinessWithResolution({
+      readiness,
+      preferredProviders: this.preferredProviders,
+      probes,
+      resolution: this.pinnedResolution?.strategy ?? "pinned",
+    });
+  }
+
+  private pinAdapter(
+    adapter: AgentProviderAdapter,
+    resolution: PinnedResolutionMetadata,
+  ): void {
     this.resolvedAdapter = adapter;
+    this.pinnedResolution = resolution;
   }
 }
