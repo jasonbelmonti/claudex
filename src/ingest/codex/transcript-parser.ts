@@ -37,6 +37,7 @@ export async function* parseCodexTranscriptFile(
   let byteOffset = cursorStart;
   let lineStart = 0;
   let latestDeliveredByteOffset = cursorStart;
+  let sessionIdBecameAvailable = false;
 
   for (let index = 0; index <= bytes.length; index += 1) {
     const atEnd = index === bytes.length;
@@ -53,6 +54,7 @@ export async function* parseCodexTranscriptFile(
     const nextByteOffset = byteOffset + bytesConsumed;
 
     if (lineText.length > 0) {
+      const sessionIdBeforeLine = normalizationContext.sessionId;
       const parsedRecords = parseTranscriptLine({
         lineText,
         baseSource,
@@ -66,6 +68,10 @@ export async function* parseCodexTranscriptFile(
         yield parsedRecord;
       }
 
+      if (sessionIdBeforeLine === null && normalizationContext.sessionId !== null) {
+        sessionIdBecameAvailable = true;
+      }
+
       if (parsedRecords.length > 0) {
         latestDeliveredByteOffset = nextByteOffset;
       }
@@ -76,27 +82,29 @@ export async function* parseCodexTranscriptFile(
     lineStart = index + 1;
   }
 
-  if (byteOffset > latestDeliveredByteOffset) {
-    const metadata = createCodexTranscriptNormalizationMetadata(
-      normalizationContext,
-    );
+  const metadata = createCodexTranscriptNormalizationMetadata(
+    normalizationContext,
+  );
 
-    if (!shouldEmitProgressSession(normalizationContext)) {
-      return;
-    }
-
-    yield createCodexObservedSessionRecord({
-      context,
-      line: line - 1,
-      byteOffset,
-      metadata,
-      reason: "transcript",
-      sessionId: deriveSessionId(normalizationContext, context.filePath),
-      completeness: "complete",
-      state: normalizationContext.sessionId ? "canonical" : "provisional",
-      warnings: [],
-    });
+  if (!shouldEmitProgressSession(normalizationContext)) {
+    return;
   }
+
+  if (!sessionIdBecameAvailable && byteOffset <= latestDeliveredByteOffset) {
+    return;
+  }
+
+  yield createCodexObservedSessionRecord({
+    context,
+    line: line - 1,
+    byteOffset,
+    metadata,
+    reason: "transcript",
+    sessionId: deriveSessionId(normalizationContext, context.filePath),
+    completeness: "complete",
+    state: normalizationContext.sessionId ? "canonical" : "provisional",
+    warnings: [],
+  });
 }
 
 function parseTranscriptLine(params: {

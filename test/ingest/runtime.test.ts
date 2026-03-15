@@ -9,7 +9,11 @@ import type {
   ObservedAgentEvent,
   ObservedSessionRecord,
 } from "claudex/ingest";
-import { createSessionIngestService } from "claudex/ingest";
+import {
+  createInMemoryCursorStore,
+  createCodexIngestRegistries,
+  createSessionIngestService,
+} from "claudex/ingest";
 
 import {
   createFixtureWorkspace,
@@ -131,6 +135,310 @@ test("scanNow dispatches matched files in deterministic order and fans out recor
     `scan.started:${codexRoot.path}`,
     `file.discovered:${join(workspace, "codex", "session-index.idx")}`,
     `scan.completed:${codexRoot.path}`,
+  ]);
+});
+
+test("scanNow integrates Codex bootstrap and transcript registries with canonical session refinement", async () => {
+  const sessionId = "019cbbf0-9d22-72c2-982c-8ac623e7998f";
+  const transcriptFileName = `rollout-2026-03-15T09-29-00-${sessionId}.jsonl`;
+  const workspace = await createFixtureWorkspace({
+    ".codex/session_index.jsonl": `${JSON.stringify({
+      id: sessionId,
+      thread_name: "BEL-391 runtime coverage",
+      updated_at: "2026-03-15T14:29:00.000Z",
+    })}\n`,
+    [join(".codex", "sessions", "2026", "03", "15", transcriptFileName)]: [
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:00.000Z",
+        type: "session_meta",
+        payload: {
+          id: sessionId,
+          cwd: "/Users/jasonbelmonti/Documents/Development/claudex",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:01.000Z",
+        type: "event_msg",
+        payload: {
+          type: "task_started",
+          turn_id: "turn-bel-391",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:02.000Z",
+        type: "event_msg",
+        payload: {
+          type: "user_message",
+          message: "Integrate Codex registries",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:03.000Z",
+        type: "event_msg",
+        payload: {
+          type: "agent_message",
+          message: "Bootstrap session upgraded.",
+          phase: "final_answer",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:04.000Z",
+        type: "event_msg",
+        payload: {
+          type: "task_complete",
+          turn_id: "turn-bel-391",
+          last_agent_message: "Bootstrap session upgraded.",
+        },
+      }),
+      "",
+    ].join("\n"),
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "codex" as const,
+    path: join(workspace, ".codex"),
+    recursive: true,
+  };
+  const bootstrapFilePath = join(workspace, ".codex", "session_index.jsonl");
+  const transcriptFilePath = join(
+    workspace,
+    ".codex",
+    "sessions",
+    "2026",
+    "03",
+    "15",
+    transcriptFileName,
+  );
+
+  const discoveryEvents: DiscoveryEvent[] = [];
+  const records: string[] = [];
+  const observedEvents: ObservedAgentEvent[] = [];
+  const observedSessions: ObservedSessionRecord[] = [];
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: createCodexIngestRegistries(),
+    onRecord(record) {
+      const state = record.observedSession?.state ?? "none";
+      const session = record.observedSession?.sessionId ?? "none";
+      records.push(
+        `${record.kind}:${record.source.kind}:${record.source.filePath}:${session}:${state}`,
+      );
+    },
+    onObservedEvent(record) {
+      observedEvents.push(record);
+    },
+    onObservedSession(record) {
+      observedSessions.push(record);
+    },
+    onDiscoveryEvent(event) {
+      discoveryEvents.push(event);
+    },
+  });
+
+  await service.scanNow();
+
+  expect(
+    discoveryEvents
+      .filter((event) => event.type === "file.discovered")
+      .map((event) => event.filePath),
+  ).toEqual([bootstrapFilePath, transcriptFilePath]);
+  expect(observedSessions.map((record) => ({
+    sessionId: record.observedSession.sessionId,
+    state: record.observedSession.state,
+    reason: record.reason,
+    kind: record.source.kind,
+    filePath: record.source.filePath,
+  }))).toEqual([
+    {
+      sessionId,
+      state: "provisional",
+      reason: "index",
+      kind: "session-index",
+      filePath: bootstrapFilePath,
+    },
+    {
+      sessionId,
+      state: "canonical",
+      reason: "transcript",
+      kind: "transcript",
+      filePath: transcriptFilePath,
+    },
+  ]);
+  expect(observedEvents.map((record) => ({
+    type: record.event.type,
+    sessionId: record.observedSession?.sessionId,
+    state: record.observedSession?.state,
+    filePath: record.source.filePath,
+  }))).toEqual([
+    {
+      type: "session.started",
+      sessionId,
+      state: "canonical",
+      filePath: transcriptFilePath,
+    },
+    {
+      type: "turn.started",
+      sessionId,
+      state: "canonical",
+      filePath: transcriptFilePath,
+    },
+    {
+      type: "message.completed",
+      sessionId,
+      state: "canonical",
+      filePath: transcriptFilePath,
+    },
+    {
+      type: "turn.completed",
+      sessionId,
+      state: "canonical",
+      filePath: transcriptFilePath,
+    },
+  ]);
+  expect(records).toEqual([
+    `session:session-index:${bootstrapFilePath}:${sessionId}:provisional`,
+    `event:transcript:${transcriptFilePath}:${sessionId}:canonical`,
+    `event:transcript:${transcriptFilePath}:${sessionId}:canonical`,
+    `event:transcript:${transcriptFilePath}:${sessionId}:canonical`,
+    `event:transcript:${transcriptFilePath}:${sessionId}:canonical`,
+    `session:transcript:${transcriptFilePath}:${sessionId}:canonical`,
+  ]);
+});
+
+test("scanNow does not re-emit the canonical Codex transcript session for event-only appends", async () => {
+  const sessionId = "019cbbf0-9d22-72c2-982c-8ac623e7998f";
+  const transcriptRelativePath = join(
+    ".codex",
+    "sessions",
+    "2026",
+    "03",
+    "15",
+    `rollout-2026-03-15T09-29-00-${sessionId}.jsonl`,
+  );
+  const workspace = await createFixtureWorkspace({
+    ".codex/session_index.jsonl": `${JSON.stringify({
+      id: sessionId,
+      thread_name: "BEL-391 append regression",
+      updated_at: "2026-03-15T14:29:00.000Z",
+    })}\n`,
+    [transcriptRelativePath]: [
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:00.000Z",
+        type: "session_meta",
+        payload: {
+          id: sessionId,
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:01.000Z",
+        type: "event_msg",
+        payload: {
+          type: "task_started",
+          turn_id: "turn-bel-391",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:02.000Z",
+        type: "event_msg",
+        payload: {
+          type: "user_message",
+          message: "Integrate Codex registries",
+        },
+      }),
+      "",
+    ].join("\n"),
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "codex" as const,
+    path: join(workspace, ".codex"),
+    recursive: true,
+  };
+  const transcriptFilePath = join(workspace, transcriptRelativePath);
+  const observedSessions: ObservedSessionRecord[] = [];
+  const observedEvents: ObservedAgentEvent[] = [];
+  const cursorStore = createInMemoryCursorStore();
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: createCodexIngestRegistries(),
+    cursorStore,
+    onObservedSession(record) {
+      observedSessions.push(record);
+    },
+    onObservedEvent(record) {
+      observedEvents.push(record);
+    },
+  });
+
+  await service.scanNow();
+
+  await Bun.write(
+    transcriptFilePath,
+    [
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:00.000Z",
+        type: "session_meta",
+        payload: {
+          id: sessionId,
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:01.000Z",
+        type: "event_msg",
+        payload: {
+          type: "task_started",
+          turn_id: "turn-bel-391",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:02.000Z",
+        type: "event_msg",
+        payload: {
+          type: "user_message",
+          message: "Integrate Codex registries",
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-03-15T14:29:03.000Z",
+        type: "event_msg",
+        payload: {
+          type: "agent_message",
+          message: "Bootstrap session upgraded.",
+          phase: "final_answer",
+        },
+      }),
+      "",
+    ].join("\n"),
+  );
+
+  await service.scanNow();
+
+  expect(observedSessions.map((record) => ({
+    sessionId: record.observedSession.sessionId,
+    state: record.observedSession.state,
+    reason: record.reason,
+  }))).toEqual([
+    {
+      sessionId,
+      state: "provisional",
+      reason: "index",
+    },
+    {
+      sessionId,
+      state: "canonical",
+      reason: "transcript",
+    },
+  ]);
+  expect(
+    observedEvents.filter((record) => record.source.filePath === transcriptFilePath).map((record) => record.event.type),
+  ).toEqual([
+    "session.started",
+    "turn.started",
+    "message.completed",
   ]);
 });
 
