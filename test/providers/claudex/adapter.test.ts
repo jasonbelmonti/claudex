@@ -279,6 +279,42 @@ test("checkReadiness preserves resolver metadata after resume pins a provider", 
   });
 });
 
+test("checkReadiness preserves pinned resolver metadata when a resumed provider later fails", async () => {
+  const codex = new FakeAdapter("codex", [createReadiness("codex", "ready")]);
+  const claude = new FakeAdapter("claude", [
+    createReadiness("claude", "ready"),
+    createReadiness("claude", "missing_cli"),
+  ]);
+  const adapter = new ClaudexAdapter({
+    providers: { codex, claude },
+  });
+
+  await adapter.resumeSession({
+    provider: "claude",
+    sessionId: "claude-123",
+  });
+
+  const initialReadiness = await adapter.checkReadiness();
+  const failedReadiness = await adapter.checkReadiness();
+
+  expect(initialReadiness.extensions?.resolution).toMatchObject({
+    selectedProvider: "claude",
+    selectedStatus: "ready",
+    strategy: "pinned",
+    preferredProviders: ["codex", "claude"],
+    probes: [{ provider: "claude", status: "ready" }],
+  });
+  expect(failedReadiness.provider).toBe("claude");
+  expect(failedReadiness.status).toBe("missing_cli");
+  expect(failedReadiness.extensions?.resolution).toMatchObject({
+    selectedProvider: "claude",
+    selectedStatus: "missing_cli",
+    strategy: "pinned",
+    preferredProviders: ["codex", "claude"],
+    probes: [{ provider: "claude", status: "missing_cli" }],
+  });
+});
+
 test("resumeSession rejects unknown providers with a typed AgentError before pinning", async () => {
   const codex = new FakeAdapter("codex", [createReadiness("codex", "ready")]);
   const claude = new FakeAdapter("claude", [createReadiness("claude", "ready")]);
