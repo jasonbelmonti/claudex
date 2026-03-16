@@ -1,27 +1,50 @@
-# Claude/Codex Normalized SDK Plan
+# Claude/Codex Normalized SDK Implementation Record
 
-## Summary
+This document is a sealed implementation checkpoint for the normalized `claudex`
+SDK layer. It no longer serves as an active execution plan.
 
-Build a Bun-hosted TypeScript library that presents one provider-agnostic API over the CLI-authenticated Claude and Codex SDKs. The normalized surface should cover sessions, turns, streaming events, structured output, attachments, usage, and explicit resume/fork semantics while preserving provider-specific escape hatches.
+As of March 15, 2026, the provider-agnostic core, concrete Claude and Codex
+adapters, passive ingest module, and `ClaudexAdapter` default resolver have all
+landed on `main`.
 
-## Scope
+## Status Snapshot
 
-### In scope
+- Core normalized SDK: shipped
+- `ClaudeAdapter`: shipped
+- `CodexAdapter`: shipped
+- Shared contract harness and CLI smoke coverage: shipped
+- Passive `claudex/ingest` module: shipped
+- `ClaudexAdapter` default resolver: shipped
+- Active `claudex` backlog for this layer: none
+
+The remaining downstream work related to this surface lives outside this repo in
+consumer and integration projects. The abandoned Phase 6 review-orchestration
+milestone was canceled and should not be treated as pending scope for this
+checkpoint.
+
+## Delivered Scope
+
+### Included in the shipped layer
 
 - CLI-authenticated local execution only
 - Stable Codex TypeScript SDK thread API
 - Stable Claude Agent SDK `query()` API
 - A capability-first abstraction for orchestration and console use cases
+- A provider-agnostic default bootstrap path via `ClaudexAdapter`
+- A separate passive `claudex/ingest` surface for replaying local provider
+  artifacts
 
-### Out of scope for v1
+### Intentionally out of scope for v1
 
 - API key or env-based auth normalization
-- Full normalization of hooks, plugins, dynamic MCP server management, custom subagents, or file checkpoint rewind
+- Full normalization of hooks, plugins, dynamic MCP server management, custom
+  subagents, or file checkpoint rewind
 - Reliance on Claude `unstable_v2_*` APIs
+- Pretending provider-specific features are safely portable when they are not
 
-## Public Contract
+## Delivered Public Contract
 
-The library should export a small, stable core:
+The shipped library exports a small stable core:
 
 - `ProviderId = "claude" | "codex"`
 - `ProviderCapabilities`
@@ -35,15 +58,29 @@ The library should export a small, stable core:
 - `TurnResult`
 - `AgentError`
 
-Behavioral expectations:
+The delivered provider-agnostic entry points are:
 
-- `checkReadiness()` verifies CLI presence, CLI-auth readiness, and adapter capability metadata.
-- `createSession()` and `resumeSession()` return an `AgentSession`. New sessions may not have a provider session ID until the first provider turn starts or completes.
+- `ClaudeAdapter`
+- `CodexAdapter`
+- `ClaudexAdapter`
+
+Behavioral guarantees for the common path:
+
+- `checkReadiness()` verifies CLI presence, CLI-auth readiness, and capability
+  metadata.
+- `createSession()` and `resumeSession()` return an `AgentSession`.
 - `run()` returns a terminal `TurnResult`.
-- `runStreamed()` yields canonical `AgentEvent` objects and finishes with `turn.completed` or `turn.failed`.
-- Every normalized event/result includes the original provider payload in `raw` plus an `extensions` bag for provider-only data.
+- `runStreamed()` yields canonical `AgentEvent` values and normally finishes
+  with a terminal event. That is the common contract shape, not a hard
+  duplicate-suppression guarantee against misbehaving provider streams.
+- Every normalized event, result, and error preserves the originating provider
+  payload in `raw`. Some event shapes also carry provider-specific data in
+  `extensions`, but `extensions` is not a universal result/error guarantee.
+- `ClaudexAdapter` resolves a default provider in configured order, pins to the
+  resolved provider for its lifetime, and keeps actual provider identity as
+  `claude` or `codex`.
 
-Canonical event categories:
+Canonical event categories in the shipped surface:
 
 - `session.started`
 - `turn.started`
@@ -62,88 +99,111 @@ Canonical event categories:
 - `turn.completed`
 - `turn.failed`
 
-## Normalization Gaps and Design Constraints
+## Known Boundaries and Non-Parity
+
+The core is intentionally capability-gated rather than parity-forcing.
 
 ### Session lifecycle mismatch
 
-Codex exposes explicit threads. Claude stable exposes per-turn `query()` calls with resumable sessions. The Claude adapter will need to synthesize an `AgentSession` abstraction and manage session IDs internally after the first streamed response.
+Codex exposes explicit threads. Claude stable exposes per-turn `query()` calls
+with resumable sessions. The shipped Claude adapter synthesizes an
+`AgentSession` abstraction and manages continuity internally.
 
 ### Approval and sandbox mismatch
 
-Codex exposes approval policy and coarse sandbox modes. Claude exposes permission modes, permission callbacks, and separate sandbox configuration. V1 should normalize only high-level intent such as:
+Codex exposes approval policy and coarse sandbox modes. Claude exposes
+permission modes, permission callbacks, and separate sandbox configuration. The
+shipped common path normalizes only high-level intent such as:
 
 - `executionMode: "plan" | "act"`
 - interactive vs deny-by-default escalation
 - coarse sandbox profiles such as read-only, workspace-write, and full-access
 
-Exact provider approval knobs must remain in adapter extensions.
+Exact provider approval knobs remain in provider extensions.
 
 ### Tooling and MCP mismatch
 
-Claude can define MCP servers, hooks, agents, plugins, and file checkpointing directly. Codex TypeScript surfaces tool and MCP activity primarily as events plus config passthrough. These features should stay outside the normalized core and be exposed via capability flags and provider extensions.
+Claude can define MCP servers, hooks, agents, plugins, and file checkpointing
+directly. Codex primarily exposes tool and MCP activity as events plus config
+passthrough. These stay outside the normalized core and are exposed through
+capability flags and provider extensions.
 
 ### Streaming mismatch
 
-Claude emits partial assistant events, auth status, hook events, task progress, prompt suggestions, and rate-limit events. Codex emits a smaller item lifecycle stream. The core must treat `message.delta` and rich status events as optional capabilities, not guarantees.
+Claude emits richer partial assistant and status activity than Codex. The common
+path treats `message.delta` and richer status events as optional capabilities,
+not guarantees.
 
 ### Usage and telemetry mismatch
 
-Claude returns cost, model usage, and permission denials. Codex returns token usage only. The normalized usage shape must keep token counts required and richer telemetry optional.
+Claude returns cost, model usage, and permission denials. Codex returns token
+usage only. The normalized usage shape keeps required token counts and leaves
+richer telemetry optional.
 
-### Attachment parity risk
+### Attachment parity
 
-Codex has explicit local image input support. Claude stable can accept richer message payloads, but attachment handling is less explicit at the top-level API. Attachment support must be capability-gated and verified in smoke tests before it is advertised as normalized behavior.
+Codex has explicit local image input support. Claude stable can accept richer
+message payloads, but attachment handling is less explicit at the top-level API.
+Attachment support remains capability-gated rather than universally normalized.
 
-### Runtime risk
+### Runtime compatibility
 
-Codex documents Node 18+ while this repo is Bun-first. The public API should remain Bun-hosted, but the implementation should preserve the option of an internal Node sidecar for the Codex adapter if Bun compatibility proves unreliable.
+Codex documents Node 18+, while this repo is Bun-first. The shipped Bun-hosted
+implementation has not required an internal Node sidecar.
 
-## Materially Verifiable Success Criteria
+## Closure Against Original Success Criteria
 
-1. A consumer can swap `provider: "claude"` and `provider: "codex"` without changing the call site for `checkReadiness()`, `createSession()`, `resumeSession()`, `run()`, or `runStreamed()`.
-2. Shared contract tests pass for both adapters against the same normalized fixtures for a simple turn, a structured-output turn, a resumed turn, and an error turn.
-3. Given the same JSON schema fixture, both adapters return a parsed `structuredOutput` object or a typed normalization error rather than an untyped string failure.
-4. CLI readiness checks report `ready`, `missing_cli`, and `needs_auth` states without crashing the host process.
-5. Opt-in smoke tests pass against authenticated local CLIs for one new session, one resumed session, and one structured-output turn on both providers.
-6. The repo contains a capability matrix that marks every provider feature as normalized, capability-gated, or provider-specific.
-7. Bun-hosted execution works for both adapters, or the Codex adapter ships with a documented and tested internal Node fallback without changing the public contract.
+1. A consumer can swap providers on the shared path without changing the call
+   site for readiness, session lifecycle, buffered turns, or streamed turns.
+   Status: complete.
+2. Shared contract tests pass for both adapters against the normalized contract.
+   Status: complete.
+3. Structured output accepts one JSON Schema shape across both providers and
+   returns parsed output or a typed normalization error. Status: complete.
+4. CLI readiness reports `ready`, `missing_cli`, and `needs_auth` without
+   crashing the host. Status: complete.
+5. Opt-in smoke coverage exists for authenticated local CLIs on both providers.
+   Status: complete.
+6. The repo contains a capability matrix marking normalized, capability-gated,
+   and provider-specific features. Status: complete.
+7. Bun-hosted execution works for both adapters without introducing a public API
+   change. Status: complete.
 
-## Workstreams, Dependencies, and Sequencing
+## Completed Workstreams
 
-### 1. Core contract and readiness foundation
+### Phase 1. Core contract and readiness foundation
 
-Deliver the provider-agnostic type system, session contract, canonical event schema, readiness checks, and capability model.
+Completed and shipped.
 
-Depends on: nothing
+### Phase 2. Codex adapter
 
-### 2. Codex adapter
+Completed and shipped.
 
-Wrap the stable Codex thread API, map thread events into the canonical event schema, and normalize structured output, attachments, usage, and resume behavior.
+### Phase 2B. Claude adapter
 
-Depends on: core contract and readiness foundation
+Completed and shipped.
 
-### 3. Claude adapter
+### Phase 3. Unified contract tests and live smoke harness
 
-Wrap stable Claude `query()` calls, synthesize session continuity, and normalize streaming messages, permissions, structured output, and resume/fork behavior.
+Completed and shipped.
 
-Depends on: core contract and readiness foundation
+### Phase 4. Capability matrix and consumer documentation
 
-### 4. Unified contract tests and live smoke harness
+Completed and shipped.
 
-Add deterministic contract tests plus opt-in CLI smoke tests for both providers under a Bun-hosted runner.
+### Phase 5. Passive ingest module
 
-Depends on: Codex adapter and Claude adapter
+Completed and shipped as a separate public `claudex/ingest` surface.
 
-### 5. Capability matrix and consumer documentation
+### ClaudexAdapter default resolver
 
-Publish the supported surface area, provider-specific escape hatches, known gaps, and minimal usage examples.
+Completed and shipped after the original phase plan so consumers no longer need
+to know the concrete provider at instantiation time.
 
-Depends on: unified contract tests and live smoke harness
+## What Remains
 
-## Initial Backlog Slices
+There is no active backlog in the `claudex` project for this normalized SDK
+layer or for `ClaudexAdapter`.
 
-- Define the normalized core contracts, capability matrix shape, and readiness model.
-- Implement the Codex adapter on the stable thread API.
-- Implement the Claude adapter on stable `query()` with explicit resume/fork handling.
-- Add contract tests and opt-in smoke tests for both providers.
-- Document normalized behavior, unsupported features, and provider escape hatches.
+If future work reopens this layer, it should be framed as a new execution slice
+with fresh tickets rather than as unfinished work from this document.

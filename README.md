@@ -15,7 +15,7 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 
 ## Docs
 
-- Plan: [docs/normalized-sdk-plan.md](./docs/normalized-sdk-plan.md)
+- Implementation record: [docs/normalized-sdk-plan.md](./docs/normalized-sdk-plan.md)
 - Verified capability matrix: [docs/capability-matrix.md](./docs/capability-matrix.md)
 - Consumer guide: [docs/consumer-guide.md](./docs/consumer-guide.md)
 
@@ -66,9 +66,9 @@ provider or want explicit provider-specific wiring.
 - `checkReadiness()` returns a normalized readiness object with provider status, checks, capabilities, and raw provider diagnostics.
 - `createSession()` and `resumeSession()` return an `AgentSession` with the same `run()` and `runStreamed()` surface for both providers.
 - `run()` returns a normalized `TurnResult`.
-- `runStreamed()` yields normalized `AgentEvent` values and finishes with exactly one terminal event.
+- `runStreamed()` yields normalized `AgentEvent` values and normally finishes with a terminal event; consumers should treat that as the common contract shape, not as a hard duplicate-suppression guarantee.
 - Structured output accepts one JSON Schema shape for both providers and returns parsed `structuredOutput` or a typed `AgentError`.
-- Every event, result, and error preserves the originating provider and keeps raw provider payloads in `raw`.
+- Every event, result, and error preserves the originating provider and keeps raw provider payloads in `raw`. `extensions` may appear on some event shapes, but they are not a universal result/error guarantee.
 
 ## What Callers Still Need To Gate
 
