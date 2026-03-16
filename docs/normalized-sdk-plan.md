@@ -70,10 +70,12 @@ Behavioral guarantees for the common path:
   metadata.
 - `createSession()` and `resumeSession()` return an `AgentSession`.
 - `run()` returns a terminal `TurnResult`.
-- `runStreamed()` yields canonical `AgentEvent` values and finishes with exactly
-  one terminal event.
+- `runStreamed()` yields canonical `AgentEvent` values and normally finishes
+  with a terminal event. That is the common contract shape, not a hard
+  duplicate-suppression guarantee against misbehaving provider streams.
 - Every normalized event, result, and error preserves the originating provider
-  payload in `raw` plus provider-specific data in `extensions`.
+  payload in `raw`. Some event shapes also carry provider-specific data in
+  `extensions`, but `extensions` is not a universal result/error guarantee.
 - `ClaudexAdapter` resolves a default provider in configured order, pins to the
   resolved provider for its lifetime, and keeps actual provider identity as
   `claude` or `codex`.
