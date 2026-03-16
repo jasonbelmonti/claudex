@@ -15,7 +15,7 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 
 ## Docs
 
-- Plan: [docs/normalized-sdk-plan.md](./docs/normalized-sdk-plan.md)
+- Implementation record: [docs/normalized-sdk-plan.md](./docs/normalized-sdk-plan.md)
 - Verified capability matrix: [docs/capability-matrix.md](./docs/capability-matrix.md)
 - Consumer guide: [docs/consumer-guide.md](./docs/consumer-guide.md)
 
