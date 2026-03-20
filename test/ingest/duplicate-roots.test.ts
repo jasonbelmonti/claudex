@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import type { DiscoveryRootConfig } from "claudex/ingest";
+import type { DiscoveryRootConfig } from "@jasonbelmonti/claudex/ingest";
 
 import { resolveActiveDiscoveryRoots } from "../../src/ingest/duplicate-roots";
 

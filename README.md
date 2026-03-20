@@ -22,13 +22,16 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 ## Install
 
 ```bash
-bun install
+bun add @jasonbelmonti/claudex
 ```
+
+`@jasonbelmonti/claudex` 1.0 is Bun-first and source-published. Bun is the
+supported consumer runtime for this release.
 
 ## Quick Start
 
 ```ts
-import { ClaudexAdapter, supportsCapability } from "claudex";
+import { ClaudexAdapter, supportsCapability } from "@jasonbelmonti/claudex";
 
 const adapter = new ClaudexAdapter();
 const readiness = await adapter.checkReadiness();
@@ -103,6 +106,14 @@ Outside the current ingest contract:
 Use the live adapter surface when you need to start or resume sessions, or when terminal turn state must be authoritative. Use `claudex/ingest` when you need best-effort history backfill, watch/reconcile over local artifacts, or a read-only observability view. See [docs/consumer-guide.md](./docs/consumer-guide.md) for examples and boundary guidance.
 
 ## Development
+
+If you're working on the repository itself:
+
+```bash
+bun install
+```
+
+Then run the usual checks:
 
 ```bash
 bun run typecheck

@@ -5,11 +5,11 @@ import type {
   IngestCursor,
   IngestWarning,
   ObservedSessionRecord,
-} from "claudex/ingest";
+} from "@jasonbelmonti/claudex/ingest";
 import {
   createInMemoryCursorStore,
   createSessionIngestService,
-} from "claudex/ingest";
+} from "@jasonbelmonti/claudex/ingest";
 import { createCodexSessionIndexIngestRegistry } from "../../src/ingest/codex";
 import {
   createFixtureWorkspace,

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import * as claudex from "claudex";
+import * as claudex from "@jasonbelmonti/claudex";
 
 test("public api exports the core contract surface", () => {
   expect(claudex.PROVIDER_IDS).toEqual(["claude", "codex"]);

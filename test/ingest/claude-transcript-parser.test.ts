@@ -5,11 +5,11 @@ import type {
   IngestWarning,
   ObservedAgentEvent,
   ObservedSessionRecord,
-} from "claudex/ingest";
+} from "@jasonbelmonti/claudex/ingest";
 import {
   createInMemoryCursorStore,
   createSessionIngestService,
-} from "claudex/ingest";
+} from "@jasonbelmonti/claudex/ingest";
 import { createClaudeTranscriptIngestRegistry } from "../../src/ingest/claude";
 import {
   createFixtureWorkspace,

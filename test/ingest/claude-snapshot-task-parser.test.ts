@@ -6,11 +6,11 @@ import type {
   IngestWarning,
   ObservedAgentEvent,
   ObservedSessionRecord,
-} from "claudex/ingest";
+} from "@jasonbelmonti/claudex/ingest";
 import {
   createInMemoryCursorStore,
   createSessionIngestService,
-} from "claudex/ingest";
+} from "@jasonbelmonti/claudex/ingest";
 import { createClaudeSnapshotTaskIngestRegistry } from "../../src/ingest/claude";
 import {
   createFixtureWorkspace,

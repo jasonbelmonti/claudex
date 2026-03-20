@@ -8,13 +8,13 @@ import type {
   IngestWarning,
   ObservedAgentEvent,
   ObservedSessionRecord,
-} from "claudex/ingest";
+} from "@jasonbelmonti/claudex/ingest";
 import {
   createClaudeIngestRegistries,
   createCodexIngestRegistries,
   createInMemoryCursorStore,
   createSessionIngestService,
-} from "claudex/ingest";
+} from "@jasonbelmonti/claudex/ingest";
 
 import {
   createFixtureWorkspace,
