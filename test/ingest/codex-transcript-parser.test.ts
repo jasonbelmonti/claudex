@@ -1,11 +1,14 @@
 import { afterEach, expect, test } from "bun:test";
 import { join } from "node:path";
 
-import type { IngestCursor, IngestWarning } from "claudex/ingest";
+import type {
+  IngestCursor,
+  IngestWarning,
+} from "@jasonbelmonti/claudex/ingest";
 import {
   createInMemoryCursorStore,
   createSessionIngestService,
-} from "claudex/ingest";
+} from "@jasonbelmonti/claudex/ingest";
 import { createCodexTranscriptIngestRegistry } from "../../src/ingest/codex";
 import {
   createFixtureWorkspace,

@@ -6,12 +6,12 @@ import type {
   DiscoveryEvent,
   IngestCursorKey,
   IngestWarning,
-} from "claudex/ingest";
+} from "@jasonbelmonti/claudex/ingest";
 import {
   createCodexIngestRegistries,
   createInMemoryCursorStore,
   createSessionIngestService,
-} from "claudex/ingest";
+} from "@jasonbelmonti/claudex/ingest";
 
 import {
   createFixtureWorkspace,

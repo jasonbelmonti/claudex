@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import * as ingest from "claudex/ingest";
+import * as ingest from "@jasonbelmonti/claudex/ingest";
 
 import type {
   CursorStore,
@@ -27,7 +27,7 @@ import type {
   ObservedSessionReason,
   SessionIngestService,
   SessionIngestServiceOptions,
-} from "claudex/ingest";
+} from "@jasonbelmonti/claudex/ingest";
 
 const EXPECTED_INGEST_RUNTIME_EXPORTS = [
   "CLAUDE_INGEST_COMPLETENESS",

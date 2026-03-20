@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import type {
   AgentEvent,
   ProviderId,
-} from "claudex";
+} from "@jasonbelmonti/claudex";
 import type {
   DiscoveryPhase,
   DiscoveryRootConfig,
@@ -17,7 +17,7 @@ import type {
   ObservedIngestRecord,
   ObservedSessionIdentity,
   ObservedSessionRecord,
-} from "claudex/ingest";
+} from "@jasonbelmonti/claudex/ingest";
 
 export async function createFixtureWorkspace(
   files: Record<string, string>,

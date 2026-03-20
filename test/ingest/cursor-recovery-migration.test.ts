@@ -2,8 +2,8 @@ import { rm, stat, utimes } from "node:fs/promises";
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 
-import type { IngestCursor, IngestWarning } from "claudex/ingest";
-import { createSessionIngestService } from "claudex/ingest";
+import type { IngestCursor, IngestWarning } from "@jasonbelmonti/claudex/ingest";
+import { createSessionIngestService } from "@jasonbelmonti/claudex/ingest";
 
 import {
   createFixtureWorkspace,
