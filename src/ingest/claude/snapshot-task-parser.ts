@@ -34,6 +34,7 @@ type ArtifactRecordContainer = {
 };
 
 const CLAUDE_ARTIFACT_TYPES = new Set([
+  "user",
   "assistant",
   "stream_event",
   "result",
