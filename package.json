@@ -1,6 +1,6 @@
 {
   "name": "@jasonbelmonti/claudex",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Provider-agnostic normalized TypeScript interface over CLI-authenticated Claude and Codex SDKs.",
   "module": "./src/index.ts",
   "packageManager": "bun@1.3.0",
