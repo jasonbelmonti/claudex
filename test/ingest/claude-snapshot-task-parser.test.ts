@@ -127,6 +127,54 @@ test("snapshot/task parser ignores unrelated JSON files without warning", async 
   expect(warningCodes).toEqual([]);
 });
 
+test("snapshot/task parser accepts raw user payloads in object and array forms", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/raw-user-object.json": JSON.stringify({
+      type: "user",
+      message: {
+        role: "user",
+        content: "Inspect the repo",
+      },
+    }),
+    "claude/raw-user-array.json": JSON.stringify([
+      {
+        type: "user",
+        message: {
+          role: "user",
+          content: "Inspect the repo",
+        },
+      },
+    ]),
+  });
+  workspaces.push(workspace);
+
+  const eventTypes: string[] = [];
+  const warningCodes: string[] = [];
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [createClaudeSnapshotTaskIngestRegistry()],
+    onObservedEvent(record: ObservedAgentEvent) {
+      eventTypes.push(record.event.type);
+    },
+    onWarning(warning: IngestWarning) {
+      warningCodes.push(warning.code);
+    },
+  });
+
+  await service.scanNow();
+
+  expect(eventTypes).toEqual([
+    "turn.started",
+    "turn.started",
+  ]);
+  expect(warningCodes).toEqual([]);
+});
+
 test("snapshot/task parser resumes remaining records after a consumer failure", async () => {
   const workspace = await createFixtureWorkspace({
     "claude/snapshot-task.json": JSON.stringify({

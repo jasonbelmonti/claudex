@@ -11,7 +11,8 @@ type ParsedArtifact = {
 };
 type ClaudeIngestSession = ReturnType<typeof createClaudeSessionReference> | null;
 type ClaudeArtifactNormalizationSessionState = {
-  latestAssistantText: string;
+  latestAssistantText?: string;
+  workingDirectory?: string;
 };
 
 export type ClaudeArtifactNormalizationContext = {
@@ -28,14 +29,15 @@ export function createClaudeArtifactNormalizationContext(
   const sessions = new Map<string, ClaudeArtifactNormalizationSessionState>();
 
   if (isRecord(persistedSessions)) {
-    for (const [sessionKey, latestAssistantText] of Object.entries(persistedSessions)) {
-      if (!isString(latestAssistantText)) {
+    for (const [sessionKey, persistedSessionState] of Object.entries(
+      persistedSessions,
+    )) {
+      const sessionState = parsePersistedSessionState(persistedSessionState);
+      if (!sessionState) {
         continue;
       }
 
-      sessions.set(sessionKey, {
-        latestAssistantText,
-      });
+      sessions.set(sessionKey, sessionState);
     }
   }
 
@@ -51,13 +53,21 @@ export function createClaudeArtifactNormalizationMetadata(
     return;
   }
 
+  const persistedSessions = Object.fromEntries(
+    [...context.sessions.entries()].flatMap(([sessionKey, sessionState]) => {
+      const persistedSessionState = serializeSessionState(sessionState);
+      return persistedSessionState === undefined
+        ? []
+        : [[sessionKey, persistedSessionState]];
+    }),
+  );
+
+  if (Object.keys(persistedSessions).length === 0) {
+    return;
+  }
+
   return {
-    [CLAUDE_ARTIFACT_NORMALIZATION_METADATA_KEY]: Object.fromEntries(
-      [...context.sessions.entries()].map(([sessionKey, sessionState]) => [
-        sessionKey,
-        sessionState.latestAssistantText,
-      ]),
-    ),
+    [CLAUDE_ARTIFACT_NORMALIZATION_METADATA_KEY]: persistedSessions,
   };
 }
 
@@ -80,8 +90,38 @@ export function normalizeClaudeArtifactRecord(
     const sessionId = extractSessionId(record);
     const session = sessionId ? createClaudeSessionReference(sessionId) : null;
     const sessionKey = getContextSessionKey(sessionId);
+    const recordWorkingDirectory = asString(record.cwd);
+
+    if (recordWorkingDirectory) {
+      setWorkingDirectory(context, sessionKey, recordWorkingDirectory);
+    }
 
     switch (record.type) {
+      case "user": {
+        const prompt = extractMessageText(record.message);
+
+        return {
+          sessionId,
+          events: [
+            {
+              type: "turn.started",
+              provider: "claude",
+              session,
+              input: {
+                prompt,
+              },
+              timestamp: asString(record.timestamp),
+              raw: record,
+              extensions: compactUnknownRecord({
+                cwd:
+                  recordWorkingDirectory
+                  ?? getClaudeArtifactWorkingDirectory(context, sessionId),
+              }),
+            },
+          ],
+          warnings: [],
+        };
+      }
       case "assistant": {
         const text = extractMessageText(record.message);
 
@@ -321,6 +361,17 @@ export function normalizeClaudeArtifactRecord(
       ],
     };
   }
+}
+
+export function getClaudeArtifactWorkingDirectory(
+  context: ClaudeArtifactNormalizationContext | undefined,
+  sessionId: string | undefined,
+): string | undefined {
+  if (!context) {
+    return;
+  }
+
+  return context.sessions.get(getContextSessionKey(sessionId))?.workingDirectory;
 }
 
 function normalizeAuthStatus(record: Record<string, unknown>): "authenticating" | "ready" | "failed" | "needs-auth" | undefined {
@@ -681,7 +732,15 @@ function readUsageNumbers(record: unknown): Record<string, unknown> | null {
 }
 
 function extractMessageText(message: unknown): string {
-  if (!isRecord(message) || !Array.isArray(message.content)) {
+  if (!isRecord(message)) {
+    return "";
+  }
+
+  if (isString(message.content)) {
+    return message.content;
+  }
+
+  if (!Array.isArray(message.content)) {
     return "";
   }
 
@@ -713,11 +772,7 @@ function setLatestAssistantText(
   sessionKey: string,
   text: string,
 ): void {
-  if (!context) {
-    return;
-  }
-
-  context.sessions.set(sessionKey, {
+  updateSessionState(context, sessionKey, {
     latestAssistantText: text,
   });
 }
@@ -726,20 +781,91 @@ function consumeLatestAssistantText(
   context: ClaudeArtifactNormalizationContext | undefined,
   sessionKey: string,
 ): string | undefined {
-  if (!context) {
-    return;
-  }
-
-  const sessionState = context.sessions.get(sessionKey);
-  context.sessions.delete(sessionKey);
-  return sessionState?.latestAssistantText;
+  const latestAssistantText = getSessionState(context, sessionKey)?.latestAssistantText;
+  clearLatestAssistantText(context, sessionKey);
+  return latestAssistantText;
 }
 
 function clearLatestAssistantText(
   context: ClaudeArtifactNormalizationContext | undefined,
   sessionKey: string,
 ): void {
-  context?.sessions.delete(sessionKey);
+  updateSessionState(context, sessionKey, {
+    latestAssistantText: undefined,
+  });
+}
+
+function setWorkingDirectory(
+  context: ClaudeArtifactNormalizationContext | undefined,
+  sessionKey: string,
+  workingDirectory: string,
+): void {
+  updateSessionState(context, sessionKey, {
+    workingDirectory,
+  });
+}
+
+function updateSessionState(
+  context: ClaudeArtifactNormalizationContext | undefined,
+  sessionKey: string,
+  patch: ClaudeArtifactNormalizationSessionState,
+): void {
+  if (!context) {
+    return;
+  }
+
+  const state = {
+    ...getSessionState(context, sessionKey),
+    ...patch,
+  };
+
+  if (!state.latestAssistantText && !state.workingDirectory) {
+    context.sessions.delete(sessionKey);
+    return;
+  }
+
+  context.sessions.set(sessionKey, state);
+}
+
+function parsePersistedSessionState(
+  value: unknown,
+): ClaudeArtifactNormalizationSessionState | undefined {
+  if (isString(value)) {
+    return {
+      latestAssistantText: value,
+    };
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  const state = compactUnknownRecord({
+    latestAssistantText: asString(value.latestAssistantText),
+    workingDirectory: asString(value.workingDirectory),
+  });
+
+  return state;
+}
+
+function serializeSessionState(
+  state: ClaudeArtifactNormalizationSessionState,
+): string | Record<string, unknown> | undefined {
+  if (state.latestAssistantText && !state.workingDirectory) {
+    return state.latestAssistantText;
+  }
+
+  return compactUnknownRecord({
+    latestAssistantText: state.latestAssistantText,
+    workingDirectory: state.workingDirectory,
+  });
+}
+
+function getSessionState(
+  context: ClaudeArtifactNormalizationContext | undefined,
+  sessionKey: string,
+): ClaudeArtifactNormalizationSessionState | undefined {
+  return context?.sessions.get(sessionKey);
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

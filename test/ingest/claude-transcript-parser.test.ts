@@ -65,6 +65,83 @@ test("transcript parser emits normalized events and warnings for malformed lines
   expect(warningCodes).toEqual(["parse-failed"]);
 });
 
+test("transcript parser preserves Claude user working directories across incremental passes", async () => {
+  const initialContents = `${JSON.stringify({
+    type: "user",
+    sessionId: "session-1",
+    cwd: "/tmp/claudex",
+    timestamp: "2026-04-03T12:00:00.000Z",
+    message: {
+      role: "user",
+      content: "Inspect the repo",
+    },
+  })}\n`;
+  const appendedAssistant = `${JSON.stringify({
+    type: "assistant",
+    session_id: "session-1",
+    message: {
+      content: [
+        {
+          type: "text",
+          text: "Done",
+        },
+      ],
+    },
+  })}\n`;
+  const workspace = await createFixtureWorkspace({
+    "claude/transcript.jsonl": initialContents,
+  });
+  workspaces.push(workspace);
+
+  const filePath = join(workspace, "claude", "transcript.jsonl");
+  const observedEvents: ObservedAgentEvent[] = [];
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [createClaudeTranscriptIngestRegistry()],
+    cursorStore: createInMemoryCursorStore(),
+    onObservedEvent(record: ObservedAgentEvent) {
+      observedEvents.push(record);
+    },
+  });
+
+  await service.scanNow();
+
+  expect(observedEvents).toHaveLength(1);
+  expect(observedEvents[0]?.event).toMatchObject({
+    type: "turn.started",
+    input: {
+      prompt: "Inspect the repo",
+    },
+    extensions: {
+      cwd: "/tmp/claudex",
+    },
+  });
+  expect(observedEvents[0]?.observedSession).toMatchObject({
+    provider: "claude",
+    sessionId: "session-1",
+    state: "canonical",
+    workingDirectory: "/tmp/claudex",
+  });
+
+  await Bun.write(filePath, initialContents + appendedAssistant);
+  await service.reconcileNow();
+
+  expect(observedEvents.map((record) => record.event.type)).toEqual([
+    "turn.started",
+    "message.completed",
+  ]);
+  expect(observedEvents[1]?.observedSession).toMatchObject({
+    provider: "claude",
+    sessionId: "session-1",
+    state: "canonical",
+    workingDirectory: "/tmp/claudex",
+  });
+});
+
 test("transcript parser enriches unsupported-record warnings with file attribution", async () => {
   const workspace = await createFixtureWorkspace({
     "claude/transcript.jsonl": "{\"hello\":\"world\"}\n",
