@@ -21,6 +21,7 @@ import {
 import {
   createClaudeArtifactNormalizationMetadata,
   createClaudeArtifactNormalizationContext,
+  getClaudeArtifactWorkingDirectory,
   type ClaudeArtifactNormalizationContext,
   normalizeClaudeArtifactRecord,
 } from "./normalize";
@@ -149,6 +150,11 @@ function parseTranscriptLine(
 
   return events.map((event: AgentEvent, index) => {
     const sessionIdFromEvent = event.session?.sessionId ?? sessionId;
+    const workingDirectory = getClaudeArtifactWorkingDirectory(
+      normalizationContext,
+      sessionIdFromEvent,
+    );
+
     return {
       kind: "event",
       event,
@@ -164,6 +170,7 @@ function parseTranscriptLine(
             provider: "claude",
             state: "canonical",
             sessionId: sessionIdFromEvent,
+            workingDirectory,
           })
         : null,
       completeness: selectCompleteness(completeWarnings),

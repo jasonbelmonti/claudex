@@ -196,6 +196,68 @@ test("normalizes supported Claude lifecycle replay records", () => {
   expect(initRecord.warnings).toEqual([]);
 });
 
+test("normalizes Claude user records into turn.started events", () => {
+  const cases = [
+    {
+      content: "Inspect the repo",
+      expectedPrompt: "Inspect the repo",
+    },
+    {
+      content: [
+        {
+          type: "text",
+          text: "Inspect the repo",
+        },
+      ],
+      expectedPrompt: "Inspect the repo",
+    },
+    {
+      content: [
+        {
+          type: "tool_result",
+          tool_use_id: "tool-1",
+          content: "ignored",
+        },
+      ],
+      expectedPrompt: "",
+    },
+  ] as const;
+
+  for (const { content, expectedPrompt } of cases) {
+    const record = {
+      type: "user",
+      sessionId: "session-1",
+      uuid: "user-1",
+      timestamp: "2026-04-03T12:00:00.000Z",
+      cwd: "/tmp/claudex",
+      message: {
+        role: "user",
+        content,
+      },
+    };
+    const normalized = normalizeClaudeArtifactRecord(record);
+
+    expect(normalized.warnings).toEqual([]);
+    expect(normalized.events).toHaveLength(1);
+    expect(normalized.events[0]).toMatchObject({
+      type: "turn.started",
+      provider: "claude",
+      session: {
+        provider: "claude",
+        sessionId: "session-1",
+      },
+      input: {
+        prompt: expectedPrompt,
+      },
+      timestamp: "2026-04-03T12:00:00.000Z",
+      raw: record,
+      extensions: {
+        cwd: "/tmp/claudex",
+      },
+    });
+  }
+});
+
 test("preserves Claude result cost and model usage metadata during replay", () => {
   const normalized = normalizeClaudeArtifactRecord({
     type: "result",

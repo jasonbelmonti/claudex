@@ -20,6 +20,7 @@ import type { ObservedEventSource } from "../source";
 import type { IngestWarning } from "../warnings";
 import {
   createClaudeArtifactNormalizationContext,
+  getClaudeArtifactWorkingDirectory,
   normalizeClaudeArtifactRecord,
 } from "./normalize";
 
@@ -151,7 +152,14 @@ export async function* parseSnapshotTaskFile(
         line,
         byteOffset: cursor.byteOffset,
         event,
-        observedSession: createObservedSessionIdentityFromEvent(event, sessionId),
+        observedSession: createObservedSessionIdentityFromEvent(
+          event,
+          sessionId,
+          getClaudeArtifactWorkingDirectory(
+            normalizationContext,
+            event.session?.sessionId ?? sessionId,
+          ),
+        ),
         completeness: selectCompleteness(completeWarnings),
         warnings: index === 0 && completeWarnings.length > 0 ? completeWarnings : undefined,
       }));
@@ -182,7 +190,13 @@ export async function* parseSnapshotTaskFile(
 function createObservedSessionIdentityFromEvent(
   event: AgentEvent,
   fallbackSessionId: string | undefined,
-): { provider: "claude"; sessionId: string; state: "canonical" | "provisional" } | null {
+  workingDirectory?: string,
+): {
+  provider: "claude";
+  sessionId: string;
+  state: "canonical" | "provisional";
+  workingDirectory?: string;
+} | null {
   const sessionId = event.session?.sessionId ?? fallbackSessionId;
 
   if (!sessionId) {
@@ -193,6 +207,7 @@ function createObservedSessionIdentityFromEvent(
     provider: "claude",
     sessionId,
     state: "canonical",
+    workingDirectory,
   };
 }
 
