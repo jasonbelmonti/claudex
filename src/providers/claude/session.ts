@@ -69,7 +69,7 @@ export class ClaudeSession implements AgentSession {
     options: TurnOptions = {},
   ): AsyncGenerator<AgentEvent> {
     const turnState = createClaudeTurnState(input, options.outputSchema);
-    let sawAssistantDelta = false;
+    let sawSdkAssistantDelta = false;
     let sawAssistantCompleted = false;
     let sawTerminalEvent = false;
     let query: ClaudeQueryLike | undefined;
@@ -82,12 +82,6 @@ export class ClaudeSession implements AgentSession {
         resumeSessionId: this.state.nextResumeSessionId,
         forkSession: this.state.forkOnNextRun,
       });
-
-      query = this.queryFactory({
-        prompt,
-        options: queryOptions,
-      });
-      const queryIterator = query[Symbol.asyncIterator]();
       const transcriptFallback = await createClaudeTranscriptStreamingFallback({
         sessionId:
           queryOptions.resume &&
@@ -98,6 +92,12 @@ export class ClaudeSession implements AgentSession {
         loadMessages: this.state.sessionMessagesLoader,
         pollIntervalMs: this.state.transcriptPollIntervalMs,
       });
+
+      query = this.queryFactory({
+        prompt,
+        options: queryOptions,
+      });
+      const queryIterator = query[Symbol.asyncIterator]();
       let pendingMessageResult = queryIterator.next();
 
       while (true) {
@@ -112,15 +112,11 @@ export class ClaudeSession implements AgentSession {
             };
 
         if (nextResult.kind === "poll") {
-          if (!transcriptFallback) {
+          if (!transcriptFallback || !turnState.sawTurnStarted) {
             continue;
           }
 
           for (const event of await transcriptFallback.poll(this.reference, turnState)) {
-            if (event.type === "message.delta") {
-              sawAssistantDelta = true;
-            }
-
             if (event.type === "message.completed") {
               sawAssistantCompleted = true;
             }
@@ -178,7 +174,8 @@ export class ClaudeSession implements AgentSession {
         if (
           message.type === "assistant" &&
           transcriptFallback &&
-          !sawAssistantDelta
+          !sawAssistantCompleted &&
+          !sawSdkAssistantDelta
         ) {
           for (const event of await transcriptFallback.flush({
             session: this.reference,
@@ -187,10 +184,6 @@ export class ClaudeSession implements AgentSession {
             authoritativeText: turnState.latestAssistantText,
             includeCompleted: false,
           })) {
-            if (event.type === "message.delta") {
-              sawAssistantDelta = true;
-            }
-
             if (event.type === "message.completed") {
               sawAssistantCompleted = true;
             }
@@ -205,6 +198,7 @@ export class ClaudeSession implements AgentSession {
           );
 
           if (hasMappedDelta) {
+            sawSdkAssistantDelta = true;
             transcriptFallback?.disablePolling();
 
             if (transcriptFallback?.hasSyntheticDelta) {
@@ -232,12 +226,9 @@ export class ClaudeSession implements AgentSession {
             session: this.reference,
             state: turnState,
             authoritativeText,
+            includeDelta: !sawSdkAssistantDelta,
             includeCompleted: true,
           })) {
-            if (event.type === "message.delta") {
-              sawAssistantDelta = true;
-            }
-
             if (event.type === "message.completed") {
               sawAssistantCompleted = true;
             }
@@ -247,10 +238,6 @@ export class ClaudeSession implements AgentSession {
         }
 
         for (const mappedEvent of mappedEvents) {
-          if (mappedEvent.type === "message.delta") {
-            sawAssistantDelta = true;
-          }
-
           if (mappedEvent.type === "message.completed") {
             sawAssistantCompleted = true;
           }

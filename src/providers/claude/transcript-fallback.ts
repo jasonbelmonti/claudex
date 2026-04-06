@@ -17,6 +17,7 @@ type ClaudeTranscriptStreamingFallback = {
     state: ClaudeTurnState;
     authoritativeMessageId?: string;
     authoritativeText?: string;
+    includeDelta?: boolean;
     includeCompleted: boolean;
   }): Promise<AgentEvent[]>;
 };
@@ -100,6 +101,7 @@ class ClaudeSessionTranscriptStreamingFallback
         state,
         messageId: snapshot.messageId,
         text: snapshot.text,
+        includeDelta: true,
         includeCompleted: false,
       });
     } catch {
@@ -113,6 +115,7 @@ class ClaudeSessionTranscriptStreamingFallback
     state: ClaudeTurnState;
     authoritativeMessageId?: string;
     authoritativeText?: string;
+    includeDelta?: boolean;
     includeCompleted: boolean;
   }): Promise<AgentEvent[]> {
     this.disablePolling();
@@ -141,8 +144,9 @@ class ClaudeSessionTranscriptStreamingFallback
       session: params.session,
       state: params.state,
       messageId:
-        params.authoritativeMessageId ?? snapshot?.messageId ?? this.activeMessageId,
+        snapshot?.messageId ?? this.activeMessageId ?? params.authoritativeMessageId,
       text,
+      includeDelta: params.includeDelta ?? true,
       includeCompleted: params.includeCompleted,
     });
   }
@@ -173,6 +177,7 @@ class ClaudeSessionTranscriptStreamingFallback
     state: ClaudeTurnState;
     messageId?: string;
     text: string;
+    includeDelta: boolean;
     includeCompleted: boolean;
   }): AgentEvent[] {
     if (params.messageId && params.messageId !== this.activeMessageId) {
@@ -187,7 +192,7 @@ class ClaudeSessionTranscriptStreamingFallback
 
     const events: AgentEvent[] = [];
 
-    if (delta) {
+    if (params.includeDelta && delta) {
       events.push({
         type: "message.delta",
         provider: "claude",
