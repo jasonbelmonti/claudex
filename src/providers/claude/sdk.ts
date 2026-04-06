@@ -1,9 +1,13 @@
 import {
+  getSessionMessages,
   query,
   type Options as ClaudeSdkOptions,
 } from "@anthropic-ai/claude-agent-sdk";
 
-import type { ClaudeQueryFactory } from "./types";
+import type {
+  ClaudeQueryFactory,
+  ClaudeSessionMessagesLoader,
+} from "./types";
 
 export const createClaudeQuery: ClaudeQueryFactory = (params: {
   prompt: string;
@@ -13,3 +17,7 @@ export const createClaudeQuery: ClaudeQueryFactory = (params: {
     prompt: params.prompt,
     options: params.options,
   });
+
+export const createClaudeSessionMessagesLoader: ClaudeSessionMessagesLoader = (
+  sessionId,
+) => getSessionMessages(sessionId);

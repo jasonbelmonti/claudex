@@ -1,3 +1,5 @@
+import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+
 import type { AgentEvent } from "../../core/events";
 import { AgentError } from "../../core/errors";
 import type { TurnInput, TurnOptions } from "../../core/input";
@@ -19,6 +21,7 @@ import type {
 import { mapClaudeMessageEvent } from "./events";
 import { normalizeClaudeError } from "./errors";
 import { mergeClaudeProviderOptions } from "./provider-option-merge";
+import { createClaudeTranscriptStreamingFallback } from "./transcript-fallback";
 import { validateClaudeSessionOptions } from "./validation";
 
 export class ClaudeSession implements AgentSession {
@@ -66,6 +69,8 @@ export class ClaudeSession implements AgentSession {
     options: TurnOptions = {},
   ): AsyncGenerator<AgentEvent> {
     const turnState = createClaudeTurnState(input, options.outputSchema);
+    let sawAssistantDelta = false;
+    let sawAssistantCompleted = false;
     let sawTerminalEvent = false;
     let query: ClaudeQueryLike | undefined;
 
@@ -82,8 +87,57 @@ export class ClaudeSession implements AgentSession {
         prompt,
         options: queryOptions,
       });
+      const queryIterator = query[Symbol.asyncIterator]();
+      const transcriptFallback = await createClaudeTranscriptStreamingFallback({
+        sessionId:
+          queryOptions.resume &&
+          !queryOptions.forkSession &&
+          this.state.currentReference?.sessionId === queryOptions.resume
+            ? queryOptions.resume
+            : null,
+        loadMessages: this.state.sessionMessagesLoader,
+        pollIntervalMs: this.state.transcriptPollIntervalMs,
+      });
+      let pendingMessageResult = queryIterator.next();
 
-      for await (const message of query) {
+      while (true) {
+        const nextResult = transcriptFallback
+          ? await raceClaudeQueryWithTranscriptPollTick({
+              pendingMessageResult,
+              pollIntervalMs: transcriptFallback.pollIntervalMs,
+            })
+          : {
+              kind: "message" as const,
+              result: await pendingMessageResult,
+            };
+
+        if (nextResult.kind === "poll") {
+          if (!transcriptFallback) {
+            continue;
+          }
+
+          for (const event of await transcriptFallback.poll(this.reference, turnState)) {
+            if (event.type === "message.delta") {
+              sawAssistantDelta = true;
+            }
+
+            if (event.type === "message.completed") {
+              sawAssistantCompleted = true;
+            }
+
+            yield event;
+          }
+
+          continue;
+        }
+
+        const { done, value: message } = nextResult.result;
+
+        if (done) {
+          break;
+        }
+
+        pendingMessageResult = queryIterator.next();
         const nextReference = createClaudeSessionReference(message.session_id);
 
         if (
@@ -115,11 +169,92 @@ export class ClaudeSession implements AgentSession {
           };
         }
 
-        for (const mappedEvent of mapClaudeMessageEvent({
+        let mappedEvents = mapClaudeMessageEvent({
           message,
           session: this.reference,
           state: turnState,
-        })) {
+        });
+
+        if (
+          message.type === "assistant" &&
+          transcriptFallback &&
+          !sawAssistantDelta
+        ) {
+          for (const event of await transcriptFallback.flush({
+            session: this.reference,
+            state: turnState,
+            authoritativeMessageId: message.uuid,
+            authoritativeText: turnState.latestAssistantText,
+            includeCompleted: false,
+          })) {
+            if (event.type === "message.delta") {
+              sawAssistantDelta = true;
+            }
+
+            if (event.type === "message.completed") {
+              sawAssistantCompleted = true;
+            }
+
+            yield event;
+          }
+        }
+
+        if (message.type === "stream_event") {
+          const hasMappedDelta = mappedEvents.some(
+            (event) => event.type === "message.delta",
+          );
+
+          if (hasMappedDelta) {
+            transcriptFallback?.disablePolling();
+
+            if (transcriptFallback?.hasSyntheticDelta) {
+              mappedEvents = mappedEvents.filter(
+                (event) => event.type !== "message.delta",
+              );
+            }
+          }
+        }
+
+        if (message.type === "assistant") {
+          transcriptFallback?.disablePolling();
+        }
+
+        if (
+          message.type === "result" &&
+          message.subtype === "success" &&
+          transcriptFallback &&
+          !sawAssistantCompleted
+        ) {
+          const authoritativeText =
+            message.result.trim().length > 0 ? message.result : turnState.latestAssistantText;
+
+          for (const event of await transcriptFallback.flush({
+            session: this.reference,
+            state: turnState,
+            authoritativeText,
+            includeCompleted: true,
+          })) {
+            if (event.type === "message.delta") {
+              sawAssistantDelta = true;
+            }
+
+            if (event.type === "message.completed") {
+              sawAssistantCompleted = true;
+            }
+
+            yield event;
+          }
+        }
+
+        for (const mappedEvent of mappedEvents) {
+          if (mappedEvent.type === "message.delta") {
+            sawAssistantDelta = true;
+          }
+
+          if (mappedEvent.type === "message.completed") {
+            sawAssistantCompleted = true;
+          }
+
           if (
             mappedEvent.type === "turn.completed" ||
             mappedEvent.type === "turn.failed"
@@ -192,6 +327,8 @@ export class ClaudeSession implements AgentSession {
           sessionOptions: baseSessionOptions,
           sdkOptions: this.state.adapterSdkOptions,
         }),
+        sessionMessagesLoader: this.state.sessionMessagesLoader,
+        transcriptPollIntervalMs: this.state.transcriptPollIntervalMs,
       },
       this.capabilities,
     );
@@ -206,4 +343,35 @@ export class ClaudeSession implements AgentSession {
       raw: error.raw,
     };
   }
+}
+
+async function raceClaudeQueryWithTranscriptPollTick(params: {
+  pendingMessageResult: Promise<IteratorResult<SDKMessage>>;
+  pollIntervalMs: number;
+}): Promise<
+  | {
+      kind: "message";
+      result: IteratorResult<SDKMessage>;
+    }
+  | {
+      kind: "poll";
+    }
+> {
+  const result = await Promise.race([
+    params.pendingMessageResult.then((messageResult) => ({
+      kind: "message" as const,
+      result: messageResult,
+    })),
+    sleep(params.pollIntervalMs).then(() => ({
+      kind: "poll" as const,
+    })),
+  ]);
+
+  return result;
+}
+
+function sleep(durationMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
 }

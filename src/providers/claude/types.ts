@@ -2,6 +2,7 @@ import type {
   AccountInfo,
   Options as ClaudeSdkOptions,
   SDKMessage,
+  SessionMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 
 import type { SessionReference, SessionOptions } from "../../core/session";
@@ -21,6 +22,10 @@ export type ClaudeQueryFactory = (params: {
   options: ClaudeSdkOptions;
 }) => ClaudeQueryLike;
 
+export type ClaudeSessionMessagesLoader = (
+  sessionId: string,
+) => Promise<SessionMessage[]>;
+
 export type ClaudeSessionProviderOptions = {
   options?: Partial<ClaudeSdkOptions>;
 };
@@ -31,7 +36,9 @@ export type ClaudeTurnProviderOptions = {
 
 export type ClaudeAdapterOptions = {
   queryFactory?: ClaudeQueryFactory;
+  sessionMessagesLoader?: ClaudeSessionMessagesLoader;
   sdkOptions?: Partial<ClaudeSdkOptions>;
+  transcriptPollIntervalMs?: number;
 };
 
 export type ClaudeSessionState = {
@@ -41,4 +48,6 @@ export type ClaudeSessionState = {
   baseSessionOptions: SessionOptions;
   adapterSdkOptions?: Partial<ClaudeSdkOptions>;
   baseQueryOptions: Partial<ClaudeSdkOptions>;
+  sessionMessagesLoader: ClaudeSessionMessagesLoader;
+  transcriptPollIntervalMs: number;
 };

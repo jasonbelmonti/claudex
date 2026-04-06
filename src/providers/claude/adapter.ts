@@ -10,9 +10,16 @@ import { buildClaudeBaseQueryOptions } from "./provider-options";
 import { checkClaudeReadiness } from "./readiness";
 import { createClaudeSessionReference } from "./references";
 import { ClaudeSession } from "./session";
-import { createClaudeQuery } from "./sdk";
-import type { ClaudeAdapterOptions } from "./types";
+import {
+  createClaudeQuery,
+  createClaudeSessionMessagesLoader,
+} from "./sdk";
+import type {
+  ClaudeAdapterOptions,
+  ClaudeSessionState,
+} from "./types";
 import { validateClaudeSessionOptions } from "./validation";
+import { DEFAULT_CLAUDE_TRANSCRIPT_POLL_INTERVAL_MS } from "./transcript-fallback";
 
 export class ClaudeAdapter implements AgentProviderAdapter {
   readonly provider = "claude" as const;
@@ -36,17 +43,12 @@ export class ClaudeAdapter implements AgentProviderAdapter {
 
     return new ClaudeSession(
       this.queryFactory,
-      {
+      this.createSessionState({
         currentReference: null,
         nextResumeSessionId: null,
         forkOnNextRun: false,
-        baseSessionOptions: options,
-        adapterSdkOptions: this.options.sdkOptions,
-        baseQueryOptions: buildClaudeBaseQueryOptions({
-          sessionOptions: options,
-          sdkOptions: this.options.sdkOptions,
-        }),
-      },
+        sessionOptions: options,
+      }),
       this.capabilities,
     );
   }
@@ -69,20 +71,39 @@ export class ClaudeAdapter implements AgentProviderAdapter {
 
     return new ClaudeSession(
       this.queryFactory,
-      {
+      this.createSessionState({
         currentReference: shouldFork
           ? null
           : createClaudeSessionReference(reference.sessionId),
         nextResumeSessionId: reference.sessionId,
         forkOnNextRun: shouldFork,
-        baseSessionOptions: options,
-        adapterSdkOptions: this.options.sdkOptions,
-        baseQueryOptions: buildClaudeBaseQueryOptions({
-          sessionOptions: options,
-          sdkOptions: this.options.sdkOptions,
-        }),
-      },
+        sessionOptions: options,
+      }),
       this.capabilities,
     );
+  }
+
+  private createSessionState(params: {
+    currentReference: ClaudeSessionState["currentReference"];
+    nextResumeSessionId: ClaudeSessionState["nextResumeSessionId"];
+    forkOnNextRun: ClaudeSessionState["forkOnNextRun"];
+    sessionOptions: SessionOptions;
+  }): ClaudeSessionState {
+    return {
+      currentReference: params.currentReference,
+      nextResumeSessionId: params.nextResumeSessionId,
+      forkOnNextRun: params.forkOnNextRun,
+      baseSessionOptions: params.sessionOptions,
+      adapterSdkOptions: this.options.sdkOptions,
+      baseQueryOptions: buildClaudeBaseQueryOptions({
+        sessionOptions: params.sessionOptions,
+        sdkOptions: this.options.sdkOptions,
+      }),
+      sessionMessagesLoader:
+        this.options.sessionMessagesLoader ?? createClaudeSessionMessagesLoader,
+      transcriptPollIntervalMs:
+        this.options.transcriptPollIntervalMs ??
+        DEFAULT_CLAUDE_TRANSCRIPT_POLL_INTERVAL_MS,
+    };
   }
 }

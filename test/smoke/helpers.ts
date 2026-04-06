@@ -4,6 +4,7 @@ import type { AgentSession, SessionOptions } from "../../src/core/session";
 import type { AgentEvent } from "../../src/core/events";
 import type { TurnInput } from "../../src/core/input";
 import type { TurnResult } from "../../src/core/results";
+import { supportsCapability } from "../../src/core/capabilities";
 import { isDeepStrictEqual } from "node:util";
 
 const DEFAULT_SMOKE_PROVIDERS = new Set<ProviderId>(["claude", "codex"]);
@@ -115,6 +116,10 @@ export async function runSmokeScenario(params: {
         "Repeat exactly your previous assistant reply and nothing else.",
     },
     expectSessionStarted: false,
+    expectAssistantStreaming: supportsCapability(
+      resumedSession.capabilities,
+      "stream:message-delta",
+    ),
     label: `${params.provider} resumed streamed turn`,
   });
   const resumedResult = resumedTurn.result;
@@ -241,6 +246,7 @@ async function runSmokeStreamedTurn(params: {
   provider: ProviderId;
   input: TurnInput;
   expectSessionStarted: boolean;
+  expectAssistantStreaming?: boolean;
   label: string;
 }): Promise<{ events: AgentEvent[]; result: TurnResult }> {
   const events: AgentEvent[] = [];
@@ -300,6 +306,13 @@ async function runSmokeStreamedTurn(params: {
     });
   } else {
     assertSmokeNoSessionStarted({
+      events,
+      label: params.label,
+    });
+  }
+
+  if (params.expectAssistantStreaming) {
+    assertSmokeAssistantStreaming({
       events,
       label: params.label,
     });
@@ -420,6 +433,52 @@ function assertSmokeEventSessions(params: {
       );
     }
   }
+}
+
+function assertSmokeAssistantStreaming(params: {
+  events: AgentEvent[];
+  label: string;
+}): void {
+  const deltaIndex = params.events.findIndex((event) => event.type === "message.delta");
+  const completedIndex = params.events.findIndex(
+    (event) => event.type === "message.completed",
+  );
+  const terminalIndex = params.events.findIndex(
+    (event) => event.type === "turn.completed" || event.type === "turn.failed",
+  );
+
+  assertSmoke(
+    deltaIndex >= 0,
+    `${params.label} did not emit any message.delta events`,
+    {
+      label: params.label,
+      events: params.events,
+    },
+  );
+  assertSmoke(
+    completedIndex >= 0,
+    `${params.label} did not emit a message.completed event`,
+    {
+      label: params.label,
+      events: params.events,
+    },
+  );
+  assertSmoke(
+    deltaIndex >= 0 && terminalIndex >= 0 && deltaIndex < terminalIndex,
+    `${params.label} did not emit message.delta before the terminal event`,
+    {
+      label: params.label,
+      events: params.events,
+    },
+  );
+  assertSmoke(
+    completedIndex >= 0 && terminalIndex >= 0 && completedIndex < terminalIndex,
+    `${params.label} did not emit message.completed before the terminal event`,
+    {
+      label: params.label,
+      events: params.events,
+    },
+  );
 }
 
 function assertSmokeTurnStarted(params: {

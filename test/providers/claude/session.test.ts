@@ -1,4 +1,8 @@
 import { expect, test } from "bun:test";
+import type {
+  SDKMessage,
+  SessionMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 
 import { AgentError } from "../../../src/core/errors";
 import { ClaudeAdapter } from "../../../src/providers/claude/adapter";
@@ -397,3 +401,339 @@ test("run rejects unsupported attachments", async () => {
     }),
   ).rejects.toBeInstanceOf(AgentError);
 });
+
+test("resumeSession runStreamed synthesizes assistant deltas from the session transcript", async () => {
+  const sessionId = "claude-session-resumed-stream";
+  const factory = new FakeClaudeQueryFactory([
+    new DelayedFakeClaudeQuery([
+      {
+        message: createInitMessage(sessionId),
+      },
+      {
+        delayMs: 30,
+        message: createSuccessResultMessage(sessionId, "Hello world"),
+      },
+    ]),
+  ]);
+  const transcriptSnapshots: SessionMessage[][] = [
+    [createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1")],
+    [createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1")],
+    [
+      createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1"),
+      createTranscriptAssistantMessage(sessionId, "Hello", "assistant-new-1"),
+    ],
+    [
+      createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1"),
+      createTranscriptAssistantMessage(sessionId, "Hello world", "assistant-new-1"),
+    ],
+  ];
+  let transcriptReadCount = 0;
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+    sessionMessagesLoader: async () =>
+      transcriptSnapshots[Math.min(transcriptReadCount++, transcriptSnapshots.length - 1)] ?? [],
+    transcriptPollIntervalMs: 5,
+  });
+  const session = await adapter.resumeSession({
+    provider: "claude",
+    sessionId,
+  });
+  const events = [];
+
+  for await (const event of session.runStreamed({
+    prompt: "Continue",
+  })) {
+    events.push(event);
+  }
+
+  expect(factory.invocations[0]?.options.resume).toBe(sessionId);
+  expect(events.map((event) => event.type)).toEqual([
+    "turn.started",
+    "message.delta",
+    "message.delta",
+    "message.completed",
+    "turn.completed",
+  ]);
+  expect(events[1]).toMatchObject({
+    type: "message.delta",
+    delta: "Hello",
+  });
+  expect(events[2]).toMatchObject({
+    type: "message.delta",
+    delta: " world",
+  });
+  expect(events[3]).toMatchObject({
+    type: "message.completed",
+    text: "Hello world",
+  });
+  expect(events[4]).toMatchObject({
+    type: "turn.completed",
+    result: {
+      text: "Hello world",
+    },
+  });
+});
+
+test("resumeSession runStreamed emits assistant lifecycle even when result wins before the first poll", async () => {
+  const sessionId = "claude-session-fast-result";
+  const factory = new FakeClaudeQueryFactory([
+    new DelayedFakeClaudeQuery([
+      {
+        message: createInitMessage(sessionId),
+      },
+      {
+        delayMs: 30,
+        message: createSuccessResultMessage(sessionId, "Hello world"),
+      },
+    ]),
+  ]);
+  let transcriptReadCount = 0;
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+    sessionMessagesLoader: async () => {
+      transcriptReadCount += 1;
+
+      return [createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1")];
+    },
+    transcriptPollIntervalMs: 100,
+  });
+  const session = await adapter.resumeSession({
+    provider: "claude",
+    sessionId,
+  });
+  const events = [];
+
+  for await (const event of session.runStreamed({
+    prompt: "Continue",
+  })) {
+    events.push(event);
+  }
+
+  expect(transcriptReadCount).toBeGreaterThanOrEqual(1);
+  expect(events.map((event) => event.type)).toEqual([
+    "turn.started",
+    "message.delta",
+    "message.completed",
+    "turn.completed",
+  ]);
+  expect(events[1]).toMatchObject({
+    type: "message.delta",
+    delta: "Hello world",
+  });
+  expect(events[2]).toMatchObject({
+    type: "message.completed",
+    text: "Hello world",
+  });
+  expect(events[3]).toMatchObject({
+    type: "turn.completed",
+    result: {
+      text: "Hello world",
+    },
+  });
+});
+
+test("resumeSession runStreamed uses the authoritative result text when the transcript lags", async () => {
+  const sessionId = "claude-session-stale-transcript";
+  const factory = new FakeClaudeQueryFactory([
+    new DelayedFakeClaudeQuery([
+      {
+        message: createInitMessage(sessionId),
+      },
+      {
+        delayMs: 25,
+        message: createSuccessResultMessage(sessionId, "Hello world"),
+      },
+    ]),
+  ]);
+  const transcriptSnapshots: SessionMessage[][] = [
+    [createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1")],
+    [createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1")],
+    [
+      createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1"),
+      createTranscriptAssistantMessage(sessionId, "Hello", "assistant-new-1"),
+    ],
+    [
+      createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1"),
+      createTranscriptAssistantMessage(sessionId, "Hello", "assistant-new-1"),
+    ],
+  ];
+  let transcriptReadCount = 0;
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+    sessionMessagesLoader: async () =>
+      transcriptSnapshots[Math.min(transcriptReadCount++, transcriptSnapshots.length - 1)] ?? [],
+    transcriptPollIntervalMs: 5,
+  });
+  const session = await adapter.resumeSession({
+    provider: "claude",
+    sessionId,
+  });
+  const events = [];
+
+  for await (const event of session.runStreamed({
+    prompt: "Continue",
+  })) {
+    events.push(event);
+  }
+
+  expect(events.map((event) => event.type)).toEqual([
+    "turn.started",
+    "message.delta",
+    "message.delta",
+    "message.completed",
+    "turn.completed",
+  ]);
+  expect(events[1]).toMatchObject({
+    type: "message.delta",
+    delta: "Hello",
+  });
+  expect(events[2]).toMatchObject({
+    type: "message.delta",
+    delta: " world",
+  });
+  expect(events[3]).toMatchObject({
+    type: "message.completed",
+    text: "Hello world",
+  });
+  expect(events[4]).toMatchObject({
+    type: "turn.completed",
+    result: {
+      text: "Hello world",
+    },
+  });
+});
+
+test("resumeSession runStreamed keeps transcript fallback active across non-text stream events", async () => {
+  const sessionId = "claude-session-non-text-stream";
+  const factory = new FakeClaudeQueryFactory([
+    new DelayedFakeClaudeQuery([
+      {
+        message: createInitMessage(sessionId),
+      },
+      {
+        delayMs: 1,
+        message: createNonTextStreamEvent(sessionId),
+      },
+      {
+        delayMs: 24,
+        message: createSuccessResultMessage(sessionId, "Hello world"),
+      },
+    ]),
+  ]);
+  const transcriptSnapshots: SessionMessage[][] = [
+    [createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1")],
+    [createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1")],
+    [
+      createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1"),
+      createTranscriptAssistantMessage(sessionId, "Hello", "assistant-new-1"),
+    ],
+    [
+      createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1"),
+      createTranscriptAssistantMessage(sessionId, "Hello world", "assistant-new-1"),
+    ],
+  ];
+  let transcriptReadCount = 0;
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+    sessionMessagesLoader: async () =>
+      transcriptSnapshots[Math.min(transcriptReadCount++, transcriptSnapshots.length - 1)] ?? [],
+    transcriptPollIntervalMs: 5,
+  });
+  const session = await adapter.resumeSession({
+    provider: "claude",
+    sessionId,
+  });
+  const events = [];
+
+  for await (const event of session.runStreamed({
+    prompt: "Continue",
+  })) {
+    events.push(event);
+  }
+
+  expect(events.map((event) => event.type)).toEqual([
+    "turn.started",
+    "message.delta",
+    "message.delta",
+    "message.completed",
+    "turn.completed",
+  ]);
+  expect(events[1]).toMatchObject({
+    type: "message.delta",
+    delta: "Hello",
+  });
+  expect(events[2]).toMatchObject({
+    type: "message.delta",
+    delta: " world",
+  });
+});
+
+class DelayedFakeClaudeQuery extends FakeClaudeQuery {
+  constructor(
+    private readonly steps: Array<{
+      delayMs?: number;
+      message: SDKMessage;
+    }>,
+  ) {
+    super([]);
+  }
+
+  override async *[Symbol.asyncIterator](): AsyncIterator<SDKMessage> {
+    for (const step of this.steps) {
+      if (step.delayMs) {
+        await Bun.sleep(step.delayMs);
+      }
+
+      yield step.message;
+    }
+  }
+}
+
+function createTranscriptAssistantMessage(
+  sessionId: string,
+  text: string,
+  uuid: string,
+): SessionMessage {
+  return {
+    type: "assistant",
+    uuid,
+    session_id: sessionId,
+    parent_tool_use_id: null,
+    message: {
+      role: "assistant",
+      content: [
+        {
+          type: "text",
+          text,
+        },
+      ],
+    },
+  };
+}
+
+function createNonTextStreamEvent(sessionId: string): SDKMessage {
+  return {
+    type: "stream_event",
+    session_id: sessionId,
+    uuid: "00000000-0000-4000-8000-000000009999",
+    parent_tool_use_id: null,
+    event: {
+      type: "message_start",
+      message: {
+        id: `${sessionId}-partial`,
+        type: "message",
+        role: "assistant",
+        model: "claude-sonnet-4-6",
+        content: [],
+        stop_reason: null,
+        stop_sequence: null,
+        usage: {
+          input_tokens: 0,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+          output_tokens: 0,
+        },
+      },
+    },
+  } as SDKMessage;
+}
