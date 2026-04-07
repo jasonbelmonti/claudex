@@ -230,10 +230,14 @@ class ClaudeSessionTranscriptStreamingFallback
       this.sdkProcessedTextLength = 0;
     }
 
-    const delta = resolveAppendedText(this.emittedText, params.text);
+    const text = resolveMonotonicAssistantText(this.emittedText, params.text);
+    const delta = resolveAppendedText(this.emittedText, text);
 
-    params.state.latestAssistantText = params.text;
-    this.emittedText = params.text;
+    params.state.latestAssistantText = resolveMonotonicAssistantText(
+      params.state.latestAssistantText,
+      text,
+    );
+    this.emittedText = text;
 
     const events: AgentEvent[] = [];
 
@@ -260,7 +264,7 @@ class ClaudeSessionTranscriptStreamingFallback
         session: params.session,
         messageId: this.activeMessageId,
         role: "assistant",
-        text: params.text,
+        text,
         raw: {
           source: "transcript_fallback",
           sessionId: this.sessionId,
@@ -425,11 +429,30 @@ function resolveFinalAssistantText(
     return authoritativeText;
   }
 
-  if (transcriptText?.length) {
-    return transcriptText;
+  return resolveMonotonicAssistantText(latestAssistantText, transcriptText ?? "");
+}
+
+function resolveMonotonicAssistantText(
+  currentText: string,
+  nextText: string,
+): string {
+  if (!currentText) {
+    return nextText;
   }
 
-  return latestAssistantText;
+  if (!nextText) {
+    return currentText;
+  }
+
+  if (nextText.startsWith(currentText)) {
+    return nextText;
+  }
+
+  if (currentText.startsWith(nextText)) {
+    return currentText;
+  }
+
+  return nextText.length >= currentText.length ? nextText : currentText;
 }
 
 function getRecord(value: unknown): Record<string, unknown> | null {

@@ -749,6 +749,76 @@ test("resumeSession runStreamed uses the authoritative result text when the tran
   });
 });
 
+test("resumeSession runStreamed keeps transcript fallback monotonic when snapshots regress", async () => {
+  const sessionId = "claude-session-regressing-transcript";
+  const factory = new FakeClaudeQueryFactory([
+    new DelayedFakeClaudeQuery([
+      {
+        message: createInitMessage(sessionId),
+      },
+      {
+        delayMs: 25,
+        message: createSuccessResultMessage(sessionId, ""),
+      },
+    ]),
+  ]);
+  const transcriptSnapshots: SessionMessage[][] = [
+    [createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1")],
+    [createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1")],
+    [
+      createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1"),
+      createTranscriptAssistantMessage(sessionId, "Hello world", "assistant-new-1"),
+    ],
+    [
+      createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1"),
+      createTranscriptAssistantMessage(sessionId, "Hello", "assistant-new-1"),
+    ],
+    [
+      createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1"),
+      createTranscriptAssistantMessage(sessionId, "Hello", "assistant-new-1"),
+    ],
+  ];
+  let transcriptReadCount = 0;
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+    sessionMessagesLoader: async () =>
+      transcriptSnapshots[Math.min(transcriptReadCount++, transcriptSnapshots.length - 1)] ?? [],
+    transcriptPollIntervalMs: 5,
+  });
+  const session = await adapter.resumeSession({
+    provider: "claude",
+    sessionId,
+  });
+  const events = [];
+
+  for await (const event of session.runStreamed({
+    prompt: "Continue",
+  })) {
+    events.push(event);
+  }
+
+  expect(events.map((event) => event.type)).toEqual([
+    "turn.started",
+    "message.delta",
+    "message.completed",
+    "turn.completed",
+  ]);
+  expect(events[1]).toMatchObject({
+    type: "message.delta",
+    delta: "Hello world",
+  });
+  expect(events[2]).toMatchObject({
+    type: "message.completed",
+    text: "Hello world",
+  });
+  expect(events[3]).toMatchObject({
+    type: "turn.completed",
+    result: {
+      text: "Hello world",
+    },
+  });
+});
+
 test("resumeSession runStreamed keeps transcript fallback active across non-text stream events", async () => {
   const sessionId = "claude-session-non-text-stream";
   const factory = new FakeClaudeQueryFactory([
