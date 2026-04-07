@@ -89,6 +89,7 @@ export class ClaudeSession implements AgentSession {
           this.state.currentReference?.sessionId === queryOptions.resume
             ? queryOptions.resume
             : null,
+        dir: queryOptions.cwd,
         loadMessages: this.state.sessionMessagesLoader,
         pollIntervalMs: this.state.transcriptPollIntervalMs,
         signal: options.signal,

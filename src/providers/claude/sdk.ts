@@ -20,4 +20,5 @@ export const createClaudeQuery: ClaudeQueryFactory = (params: {
 
 export const createClaudeSessionMessagesLoader: ClaudeSessionMessagesLoader = (
   sessionId,
-) => getSessionMessages(sessionId);
+  options,
+) => getSessionMessages(sessionId, options);

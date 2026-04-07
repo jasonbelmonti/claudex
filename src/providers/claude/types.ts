@@ -24,6 +24,9 @@ export type ClaudeQueryFactory = (params: {
 
 export type ClaudeSessionMessagesLoader = (
   sessionId: string,
+  options?: {
+    dir?: string;
+  },
 ) => Promise<SessionMessage[]>;
 
 export type ClaudeSessionProviderOptions = {

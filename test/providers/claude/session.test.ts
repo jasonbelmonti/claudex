@@ -620,6 +620,46 @@ test("resumeSession runStreamed honors abort while initializing transcript fallb
   expect(factory.invocations).toHaveLength(0);
 });
 
+test("resumeSession runStreamed passes cwd when loading transcript messages", async () => {
+  const sessionId = "claude-session-loader-dir";
+  const loaderCalls: Array<{ sessionId: string; dir?: string }> = [];
+  const adapter = new ClaudeAdapter({
+    queryFactory: new FakeClaudeQueryFactory([
+      new FakeClaudeQuery([
+        createInitMessage(sessionId),
+        createSuccessResultMessage(sessionId, "Done"),
+      ]),
+    ]).create,
+    sessionMessagesLoader: async (loadedSessionId, options) => {
+      loaderCalls.push({
+        sessionId: loadedSessionId,
+        dir: options?.dir,
+      });
+
+      return [createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1")];
+    },
+    transcriptPollIntervalMs: 100,
+  });
+  const session = await adapter.resumeSession(
+    {
+      provider: "claude",
+      sessionId,
+    },
+    {
+      workingDirectory: "/tmp/claude-project",
+    },
+  );
+
+  await session.runStreamed({
+    prompt: "Continue",
+  }).next();
+
+  expect(loaderCalls[0]).toEqual({
+    sessionId,
+    dir: "/tmp/claude-project",
+  });
+});
+
 test("resumeSession runStreamed emits assistant lifecycle even when result wins before the first poll", async () => {
   const sessionId = "claude-session-fast-result";
   const factory = new FakeClaudeQueryFactory([
@@ -783,6 +823,74 @@ test("resumeSession runStreamed keeps transcript fallback monotonic when snapsho
     queryFactory: factory.create,
     sessionMessagesLoader: async () =>
       transcriptSnapshots[Math.min(transcriptReadCount++, transcriptSnapshots.length - 1)] ?? [],
+    transcriptPollIntervalMs: 5,
+  });
+  const session = await adapter.resumeSession({
+    provider: "claude",
+    sessionId,
+  });
+  const events = [];
+
+  for await (const event of session.runStreamed({
+    prompt: "Continue",
+  })) {
+    events.push(event);
+  }
+
+  expect(events.map((event) => event.type)).toEqual([
+    "turn.started",
+    "message.delta",
+    "message.completed",
+    "turn.completed",
+  ]);
+  expect(events[1]).toMatchObject({
+    type: "message.delta",
+    delta: "Hello world",
+  });
+  expect(events[2]).toMatchObject({
+    type: "message.completed",
+    text: "Hello world",
+  });
+  expect(events[3]).toMatchObject({
+    type: "turn.completed",
+    result: {
+      text: "Hello world",
+    },
+  });
+});
+
+test("resumeSession runStreamed still emits completion when transcript refresh fails", async () => {
+  const sessionId = "claude-session-refresh-failure";
+  const factory = new FakeClaudeQueryFactory([
+    new DelayedFakeClaudeQuery([
+      {
+        message: createInitMessage(sessionId),
+      },
+      {
+        delayMs: 25,
+        message: createSuccessResultMessage(sessionId, ""),
+      },
+    ]),
+  ]);
+  let transcriptReadCount = 0;
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+    sessionMessagesLoader: async () => {
+      transcriptReadCount += 1;
+
+      if (transcriptReadCount === 1) {
+        return [createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1")];
+      }
+
+      if (transcriptReadCount === 2) {
+        return [
+          createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1"),
+          createTranscriptAssistantMessage(sessionId, "Hello world", "assistant-new-1"),
+        ];
+      }
+
+      throw new Error("transcript read failed");
+    },
     transcriptPollIntervalMs: 5,
   });
   const session = await adapter.resumeSession({

@@ -26,6 +26,7 @@ type ClaudeTranscriptStreamingFallback = {
 
 export async function createClaudeTranscriptStreamingFallback(params: {
   sessionId?: string | null;
+  dir?: string;
   loadMessages: ClaudeSessionMessagesLoader;
   pollIntervalMs?: number;
   signal?: AbortSignal;
@@ -38,6 +39,7 @@ export async function createClaudeTranscriptStreamingFallback(params: {
     const baselineMessages = await loadSessionMessages({
       loadMessages: params.loadMessages,
       sessionId: params.sessionId,
+      dir: params.dir,
       signal: params.signal,
     });
 
@@ -47,6 +49,7 @@ export async function createClaudeTranscriptStreamingFallback(params: {
       baselineMessages,
       pollIntervalMs: params.pollIntervalMs ?? DEFAULT_CLAUDE_TRANSCRIPT_POLL_INTERVAL_MS,
       signal: params.signal,
+      dir: params.dir,
     });
   } catch (error) {
     if (isAbortLikeError(error)) {
@@ -65,6 +68,7 @@ class ClaudeSessionTranscriptStreamingFallback
   private readonly baselineAssistantMessageIds: Set<string>;
   private readonly loadMessages: ClaudeSessionMessagesLoader;
   private readonly sessionId: string;
+  private readonly dir?: string;
   private readonly signal?: AbortSignal;
   private activeMessageId?: string;
   private emittedText = "";
@@ -77,11 +81,13 @@ class ClaudeSessionTranscriptStreamingFallback
     baselineMessages: SessionMessage[];
     pollIntervalMs: number;
     signal?: AbortSignal;
+    dir?: string;
   }) {
     this.sessionId = params.sessionId;
     this.loadMessages = params.loadMessages;
     this.pollIntervalMs = params.pollIntervalMs;
     this.signal = params.signal;
+    this.dir = params.dir;
     this.baselineAssistantMessageIds = new Set(
       params.baselineMessages.flatMap((message) =>
         message.type === "assistant" ? [message.uuid] : [],
@@ -170,7 +176,10 @@ class ClaudeSessionTranscriptStreamingFallback
         throw error;
       }
 
-      if (!params.authoritativeText?.length) {
+      if (
+        !params.authoritativeText?.length &&
+        !params.state.latestAssistantText.length
+      ) {
         return [];
       }
     }
@@ -203,6 +212,7 @@ class ClaudeSessionTranscriptStreamingFallback
     const messages = await loadSessionMessages({
       loadMessages: this.loadMessages,
       sessionId: this.sessionId,
+      dir: this.dir,
       signal: this.signal,
     });
     const candidate = findCandidateAssistantMessage(
@@ -354,15 +364,23 @@ function resolveLeadingOverlap(existingText: string, delta: string): number {
 async function loadSessionMessages(params: {
   loadMessages: ClaudeSessionMessagesLoader;
   sessionId: string;
+  dir?: string;
   signal?: AbortSignal;
 }): Promise<SessionMessage[]> {
   throwIfAborted(params.signal);
 
   if (!params.signal) {
-    return params.loadMessages(params.sessionId);
+    return params.loadMessages(params.sessionId, {
+      dir: params.dir,
+    });
   }
 
-  return awaitAbortable(params.loadMessages(params.sessionId), params.signal);
+  return awaitAbortable(
+    params.loadMessages(params.sessionId, {
+      dir: params.dir,
+    }),
+    params.signal,
+  );
 }
 
 async function awaitAbortable<T>(
