@@ -821,6 +821,69 @@ test("resumeSession runStreamed does not duplicate deltas when the SDK already s
   });
 });
 
+test("resumeSession runStreamed preserves SDK suffix deltas after synthetic fallback starts", async () => {
+  const sessionId = "claude-session-synthetic-to-sdk";
+  const factory = new FakeClaudeQueryFactory([
+    new DelayedFakeClaudeQuery([
+      {
+        message: createInitMessage(sessionId),
+      },
+      {
+        delayMs: 15,
+        message: createTextDeltaMessage(sessionId, "Hello"),
+      },
+      {
+        delayMs: 5,
+        message: createTextDeltaMessage(sessionId, " world"),
+      },
+      {
+        delayMs: 5,
+        message: createSuccessResultMessage(sessionId, "Hello world"),
+      },
+    ]),
+  ]);
+  const transcriptSnapshots: SessionMessage[][] = [
+    [createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1")],
+    [
+      createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1"),
+      createTranscriptAssistantMessage(sessionId, "Hello", "assistant-new-1"),
+    ],
+  ];
+  let transcriptReadCount = 0;
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+    sessionMessagesLoader: async () =>
+      transcriptSnapshots[Math.min(transcriptReadCount++, transcriptSnapshots.length - 1)] ?? [],
+    transcriptPollIntervalMs: 5,
+  });
+  const session = await adapter.resumeSession({
+    provider: "claude",
+    sessionId,
+  });
+  const events = [];
+
+  for await (const event of session.runStreamed({
+    prompt: "Continue",
+  })) {
+    events.push(event);
+  }
+
+  expect(events.map((event) => event.type)).toEqual([
+    "turn.started",
+    "message.delta",
+    "message.delta",
+    "message.completed",
+    "turn.completed",
+  ]);
+  expect(
+    events.filter((event) => event.type === "message.delta").map((event) => event.delta),
+  ).toEqual(["Hello", " world"]);
+  expect(events[3]).toMatchObject({
+    type: "message.completed",
+    text: "Hello world",
+  });
+});
+
 test("resumeSession runStreamed emits the remaining suffix before a fast assistant completion", async () => {
   const sessionId = "claude-session-fast-assistant";
   const factory = new FakeClaudeQueryFactory([

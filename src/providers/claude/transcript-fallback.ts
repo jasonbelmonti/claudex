@@ -11,6 +11,7 @@ type ClaudeTranscriptStreamingFallback = {
   readonly pollIntervalMs: number;
   readonly hasSyntheticDelta: boolean;
   poll(session: SessionReference | null, state: ClaudeTurnState): Promise<AgentEvent[]>;
+  reconcileSdkDelta(delta: string): string;
   disablePolling(): void;
   flush(params: {
     session: SessionReference | null;
@@ -75,6 +76,14 @@ class ClaudeSessionTranscriptStreamingFallback
 
   get hasSyntheticDelta() {
     return this.emittedText.length > 0;
+  }
+
+  reconcileSdkDelta(delta: string) {
+    const nextDelta = trimOverlappingDeltaPrefix(this.emittedText, delta);
+
+    this.emittedText += nextDelta;
+
+    return nextDelta;
   }
 
   disablePolling() {
@@ -271,6 +280,18 @@ function extractTranscriptAssistantText(message: unknown): string {
 
     return [record.text];
   }).join("");
+}
+
+function trimOverlappingDeltaPrefix(existingText: string, delta: string): string {
+  const maxOverlap = Math.min(existingText.length, delta.length);
+
+  for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
+    if (existingText.endsWith(delta.slice(0, overlap))) {
+      return delta.slice(overlap);
+    }
+  }
+
+  return delta;
 }
 
 function resolveAppendedText(previousText: string, nextText: string): string {

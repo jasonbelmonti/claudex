@@ -198,14 +198,35 @@ export class ClaudeSession implements AgentSession {
           );
 
           if (hasMappedDelta) {
-            sawSdkAssistantDelta = true;
             transcriptFallback?.disablePolling();
 
-            if (transcriptFallback?.hasSyntheticDelta) {
-              mappedEvents = mappedEvents.filter(
-                (event) => event.type !== "message.delta",
-              );
+            const nextMappedEvents: AgentEvent[] = [];
+
+            for (const event of mappedEvents) {
+              if (event.type !== "message.delta") {
+                nextMappedEvents.push(event);
+                continue;
+              }
+
+              const delta =
+                transcriptFallback?.hasSyntheticDelta
+                  ? transcriptFallback.reconcileSdkDelta(event.delta)
+                  : event.delta;
+
+              if (!delta) {
+                continue;
+              }
+
+              turnState.latestAssistantText += delta;
+              sawSdkAssistantDelta = true;
+
+              nextMappedEvents.push({
+                ...event,
+                delta,
+              });
             }
+
+            mappedEvents = nextMappedEvents;
           }
         }
 
