@@ -27,21 +27,31 @@ export async function createClaudeTranscriptStreamingFallback(params: {
   sessionId?: string | null;
   loadMessages: ClaudeSessionMessagesLoader;
   pollIntervalMs?: number;
+  signal?: AbortSignal;
 }): Promise<ClaudeTranscriptStreamingFallback | null> {
   if (!params.sessionId) {
     return null;
   }
 
   try {
-    const baselineMessages = await params.loadMessages(params.sessionId);
+    const baselineMessages = await loadSessionMessages({
+      loadMessages: params.loadMessages,
+      sessionId: params.sessionId,
+      signal: params.signal,
+    });
 
     return new ClaudeSessionTranscriptStreamingFallback({
       sessionId: params.sessionId,
       loadMessages: params.loadMessages,
       baselineMessages,
       pollIntervalMs: params.pollIntervalMs ?? DEFAULT_CLAUDE_TRANSCRIPT_POLL_INTERVAL_MS,
+      signal: params.signal,
     });
-  } catch {
+  } catch (error) {
+    if (isAbortLikeError(error)) {
+      throw error;
+    }
+
     return null;
   }
 }
@@ -54,6 +64,7 @@ class ClaudeSessionTranscriptStreamingFallback
   private readonly baselineAssistantMessageIds: Set<string>;
   private readonly loadMessages: ClaudeSessionMessagesLoader;
   private readonly sessionId: string;
+  private readonly signal?: AbortSignal;
   private activeMessageId?: string;
   private emittedText = "";
   private sdkProcessedTextLength = 0;
@@ -64,10 +75,12 @@ class ClaudeSessionTranscriptStreamingFallback
     loadMessages: ClaudeSessionMessagesLoader;
     baselineMessages: SessionMessage[];
     pollIntervalMs: number;
+    signal?: AbortSignal;
   }) {
     this.sessionId = params.sessionId;
     this.loadMessages = params.loadMessages;
     this.pollIntervalMs = params.pollIntervalMs;
+    this.signal = params.signal;
     this.baselineAssistantMessageIds = new Set(
       params.baselineMessages.flatMap((message) =>
         message.type === "assistant" ? [message.uuid] : [],
@@ -123,7 +136,11 @@ class ClaudeSessionTranscriptStreamingFallback
         includeDelta: true,
         includeCompleted: false,
       });
-    } catch {
+    } catch (error) {
+      if (isAbortLikeError(error)) {
+        throw error;
+      }
+
       this.disablePolling();
       return [];
     }
@@ -143,7 +160,11 @@ class ClaudeSessionTranscriptStreamingFallback
 
     try {
       snapshot = await this.readLatestAssistantSnapshot();
-    } catch {
+    } catch (error) {
+      if (isAbortLikeError(error)) {
+        throw error;
+      }
+
       if (!params.authoritativeText?.length) {
         return [];
       }
@@ -174,7 +195,11 @@ class ClaudeSessionTranscriptStreamingFallback
     messageId?: string;
     text: string;
   } | null> {
-    const messages = await this.loadMessages(this.sessionId);
+    const messages = await loadSessionMessages({
+      loadMessages: this.loadMessages,
+      sessionId: this.sessionId,
+      signal: this.signal,
+    });
     const candidate = findCandidateAssistantMessage(
       messages,
       this.baselineAssistantMessageIds,
@@ -315,6 +340,64 @@ function resolveLeadingOverlap(existingText: string, delta: string): number {
   }
 
   return 0;
+}
+
+async function loadSessionMessages(params: {
+  loadMessages: ClaudeSessionMessagesLoader;
+  sessionId: string;
+  signal?: AbortSignal;
+}): Promise<SessionMessage[]> {
+  throwIfAborted(params.signal);
+
+  if (!params.signal) {
+    return params.loadMessages(params.sessionId);
+  }
+
+  return awaitAbortable(params.loadMessages(params.sessionId), params.signal);
+}
+
+async function awaitAbortable<T>(
+  promise: Promise<T>,
+  signal: AbortSignal,
+): Promise<T> {
+  if (signal.aborted) {
+    throw createAbortError();
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      reject(createAbortError());
+    };
+
+    signal.addEventListener("abort", onAbort, { once: true });
+
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw createAbortError();
+  }
+}
+
+function createAbortError() {
+  const error = new Error("Transcript fallback load aborted.");
+  error.name = "AbortError";
+  return error;
+}
+
+function isAbortLikeError(error: unknown): error is Error {
+  return error instanceof Error && error.name === "AbortError";
 }
 
 function resolveAppendedText(previousText: string, nextText: string): string {

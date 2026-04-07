@@ -91,6 +91,7 @@ export class ClaudeSession implements AgentSession {
             : null,
         loadMessages: this.state.sessionMessagesLoader,
         pollIntervalMs: this.state.transcriptPollIntervalMs,
+        signal: options.signal,
       });
 
       query = this.queryFactory({

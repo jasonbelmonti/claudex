@@ -581,6 +581,45 @@ test("resumeSession runStreamed waits to emit transcript events until turn.start
   ]);
 });
 
+test("resumeSession runStreamed honors abort while initializing transcript fallback", async () => {
+  const sessionId = "claude-session-abort-fallback-init";
+  const factory = new FakeClaudeQueryFactory([
+    new FakeClaudeQuery([createInitMessage(sessionId)]),
+  ]);
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+    sessionMessagesLoader: async () => await new Promise<SessionMessage[]>(() => {}),
+  });
+  const session = await adapter.resumeSession({
+    provider: "claude",
+    sessionId,
+  });
+  const abortController = new AbortController();
+  const iterator = session.runStreamed(
+    {
+      prompt: "Continue",
+    },
+    {
+      signal: abortController.signal,
+    },
+  )[Symbol.asyncIterator]();
+
+  const nextEventPromise = iterator.next();
+  abortController.abort();
+
+  const nextEvent = await nextEventPromise;
+
+  expect(nextEvent.done).toBe(false);
+  expect(nextEvent.value).toMatchObject({
+    type: "turn.failed",
+    error: {
+      code: "aborted",
+      message: "Claude turn was aborted.",
+    },
+  });
+  expect(factory.invocations).toHaveLength(0);
+});
+
 test("resumeSession runStreamed emits assistant lifecycle even when result wins before the first poll", async () => {
   const sessionId = "claude-session-fast-result";
   const factory = new FakeClaudeQueryFactory([
