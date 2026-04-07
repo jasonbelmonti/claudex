@@ -242,7 +242,7 @@ export class ClaudeSession implements AgentSession {
           !sawAssistantCompleted
         ) {
           const authoritativeText =
-            message.result.trim().length > 0 ? message.result : turnState.latestAssistantText;
+            message.result.trim().length > 0 ? message.result : undefined;
 
           for (const event of await transcriptFallback.flush({
             session: this.reference,
@@ -257,6 +257,14 @@ export class ClaudeSession implements AgentSession {
 
             yield event;
           }
+        }
+
+        if (message.type === "result") {
+          mappedEvents = mapClaudeMessageEvent({
+            message,
+            session: this.reference,
+            state: turnState,
+          });
         }
 
         for (const mappedEvent of mappedEvents) {
