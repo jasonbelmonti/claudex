@@ -56,6 +56,7 @@ class ClaudeSessionTranscriptStreamingFallback
   private readonly sessionId: string;
   private activeMessageId?: string;
   private emittedText = "";
+  private sdkProcessedTextLength = 0;
   private pollingEnabled = true;
 
   constructor(params: {
@@ -79,8 +80,17 @@ class ClaudeSessionTranscriptStreamingFallback
   }
 
   reconcileSdkDelta(delta: string) {
-    const nextDelta = trimOverlappingDeltaPrefix(this.emittedText, delta);
+    const replayOverlap = resolveLeadingOverlap(
+      this.emittedText.slice(this.sdkProcessedTextLength),
+      delta,
+    );
+    const nextDelta = delta.slice(
+      replayOverlap > 0
+        ? replayOverlap
+        : resolveOverlappingDeltaPrefix(this.emittedText, delta),
+    );
 
+    this.sdkProcessedTextLength += delta.length;
     this.emittedText += nextDelta;
 
     return nextDelta;
@@ -192,6 +202,7 @@ class ClaudeSessionTranscriptStreamingFallback
     if (params.messageId && params.messageId !== this.activeMessageId) {
       this.activeMessageId = params.messageId;
       this.emittedText = "";
+      this.sdkProcessedTextLength = 0;
     }
 
     const delta = resolveAppendedText(this.emittedText, params.text);
@@ -282,16 +293,28 @@ function extractTranscriptAssistantText(message: unknown): string {
   }).join("");
 }
 
-function trimOverlappingDeltaPrefix(existingText: string, delta: string): string {
+function resolveOverlappingDeltaPrefix(existingText: string, delta: string): number {
   const maxOverlap = Math.min(existingText.length, delta.length);
 
   for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
     if (existingText.endsWith(delta.slice(0, overlap))) {
-      return delta.slice(overlap);
+      return overlap;
     }
   }
 
-  return delta;
+  return 0;
+}
+
+function resolveLeadingOverlap(existingText: string, delta: string): number {
+  const maxOverlap = Math.min(existingText.length, delta.length);
+
+  for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
+    if (existingText.startsWith(delta.slice(0, overlap))) {
+      return overlap;
+    }
+  }
+
+  return 0;
 }
 
 function resolveAppendedText(previousText: string, nextText: string): string {

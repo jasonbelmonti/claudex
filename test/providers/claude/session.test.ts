@@ -884,6 +884,68 @@ test("resumeSession runStreamed preserves SDK suffix deltas after synthetic fall
   });
 });
 
+test("resumeSession runStreamed ignores SDK deltas already covered by synthetic text", async () => {
+  const sessionId = "claude-session-synthetic-ahead";
+  const factory = new FakeClaudeQueryFactory([
+    new DelayedFakeClaudeQuery([
+      {
+        message: createInitMessage(sessionId),
+      },
+      {
+        delayMs: 15,
+        message: createTextDeltaMessage(sessionId, "Hello"),
+      },
+      {
+        delayMs: 5,
+        message: createTextDeltaMessage(sessionId, " world"),
+      },
+      {
+        delayMs: 5,
+        message: createSuccessResultMessage(sessionId, "Hello world"),
+      },
+    ]),
+  ]);
+  const transcriptSnapshots: SessionMessage[][] = [
+    [createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1")],
+    [
+      createTranscriptAssistantMessage(sessionId, "Previous reply", "assistant-history-1"),
+      createTranscriptAssistantMessage(sessionId, "Hello world", "assistant-new-1"),
+    ],
+  ];
+  let transcriptReadCount = 0;
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+    sessionMessagesLoader: async () =>
+      transcriptSnapshots[Math.min(transcriptReadCount++, transcriptSnapshots.length - 1)] ?? [],
+    transcriptPollIntervalMs: 5,
+  });
+  const session = await adapter.resumeSession({
+    provider: "claude",
+    sessionId,
+  });
+  const events = [];
+
+  for await (const event of session.runStreamed({
+    prompt: "Continue",
+  })) {
+    events.push(event);
+  }
+
+  expect(events.map((event) => event.type)).toEqual([
+    "turn.started",
+    "message.delta",
+    "message.completed",
+    "turn.completed",
+  ]);
+  expect(events[1]).toMatchObject({
+    type: "message.delta",
+    delta: "Hello world",
+  });
+  expect(
+    events.filter((event) => event.type === "message.delta").map((event) => event.delta),
+  ).toEqual(["Hello world"]);
+});
+
 test("resumeSession runStreamed emits the remaining suffix before a fast assistant completion", async () => {
   const sessionId = "claude-session-fast-assistant";
   const factory = new FakeClaudeQueryFactory([
