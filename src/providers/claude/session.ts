@@ -102,7 +102,7 @@ export class ClaudeSession implements AgentSession {
       let pendingMessageResult = queryIterator.next();
 
       while (true) {
-        const nextResult = transcriptFallback
+        const nextResult = transcriptFallback?.isPollingEnabled
           ? await raceClaudeQueryWithTranscriptPollTick({
               pendingMessageResult,
               pollIntervalMs: transcriptFallback.pollIntervalMs,

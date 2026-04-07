@@ -686,7 +686,7 @@ test("resumeSession runStreamed uses the authoritative result text when the tran
         message: createInitMessage(sessionId),
       },
       {
-        delayMs: 25,
+        delayMs: 35,
         message: createSuccessResultMessage(sessionId, "Hello world"),
       },
     ]),

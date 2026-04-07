@@ -10,6 +10,7 @@ export const DEFAULT_CLAUDE_TRANSCRIPT_POLL_INTERVAL_MS = 100;
 type ClaudeTranscriptStreamingFallback = {
   readonly pollIntervalMs: number;
   readonly hasSyntheticDelta: boolean;
+  readonly isPollingEnabled: boolean;
   poll(session: SessionReference | null, state: ClaudeTurnState): Promise<AgentEvent[]>;
   reconcileSdkDelta(delta: string): string;
   disablePolling(): void;
@@ -90,6 +91,10 @@ class ClaudeSessionTranscriptStreamingFallback
 
   get hasSyntheticDelta() {
     return this.emittedText.length > 0;
+  }
+
+  get isPollingEnabled() {
+    return this.pollingEnabled;
   }
 
   reconcileSdkDelta(delta: string) {
