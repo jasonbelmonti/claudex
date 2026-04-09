@@ -24,7 +24,6 @@ import {
   createRegistry,
   removeFixtureWorkspace,
   rotateFile,
-  setFilePermissions,
   truncateFile,
 } from "./helpers";
 
@@ -1524,10 +1523,10 @@ test("scanNow emits file-open-failed warnings and continues processing other fil
   expect(warnings.map((warning) => warning.code)).toEqual(["file-open-failed"]);
 });
 
-test("scanNow emits file-open-failed for unreadable files with stored cursors and still processes changed neighbors", async () => {
+test("scanNow emits file-open-failed for files that disappear after discovery even with stored cursors", async () => {
   const workspace = await createFixtureWorkspace({
     "claude/a-good.jsonl": "good\n",
-    "claude/b-unreadable.jsonl": "locked\n",
+    "claude/b-late-disappear.jsonl": "locked\n",
   });
   workspaces.push(workspace);
 
@@ -1536,10 +1535,11 @@ test("scanNow emits file-open-failed for unreadable files with stored cursors an
     path: join(workspace, "claude"),
   };
   const readableFilePath = join(root.path, "a-good.jsonl");
-  const unreadableFilePath = join(root.path, "b-unreadable.jsonl");
+  const disappearingFilePath = join(root.path, "b-late-disappear.jsonl");
   const parseCalls: string[] = [];
   const warnings: IngestWarning[] = [];
   const cursorStore = createInMemoryCursorStore();
+  let deleteDuringNextScan = false;
 
   const service = createSessionIngestService({
     roots: [root],
@@ -1548,6 +1548,14 @@ test("scanNow emits file-open-failed for unreadable files with stored cursors an
         provider: "claude",
         matchExtension: ".jsonl",
         parseCalls,
+        async beforeParse(context) {
+          if (!deleteDuringNextScan || context.filePath !== readableFilePath) {
+            return;
+          }
+
+          deleteDuringNextScan = false;
+          await deleteFile(disappearingFilePath);
+        },
         recordFactory(context) {
           return [
             createObservedEventRecord({
@@ -1575,17 +1583,12 @@ test("scanNow emits file-open-failed for unreadable files with stored cursors an
 
   await service.scanNow();
   await Bun.write(readableFilePath, "good\nagain\n");
-  await setFilePermissions(unreadableFilePath, 0o000);
-
-  try {
-    await service.scanNow();
-  } finally {
-    await setFilePermissions(unreadableFilePath, 0o644).catch(() => undefined);
-  }
+  deleteDuringNextScan = true;
+  await service.scanNow();
 
   expect(parseCalls).toEqual([
     readableFilePath,
-    unreadableFilePath,
+    disappearingFilePath,
     readableFilePath,
   ]);
   expect(warnings.map((warning) => warning.code)).toEqual(["file-open-failed"]);
