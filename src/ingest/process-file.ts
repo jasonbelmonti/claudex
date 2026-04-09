@@ -294,3 +294,9 @@ async function capturePreParseContinuity(options: {
     continuityToken: endOfFileState.continuityToken,
   };
 }
+
+export const __internal = {
+  buildPersistedCursor,
+  capturePreParseContinuity,
+  doesPreParseContinuityMatch,
+};

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rename, rm, truncate } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rename, rm, truncate } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -48,6 +48,10 @@ export async function truncateFile(filePath: string, size: number): Promise<void
 
 export async function deleteFile(filePath: string): Promise<void> {
   await rm(filePath, { force: true });
+}
+
+export async function setFilePermissions(filePath: string, mode: number): Promise<void> {
+  await chmod(filePath, mode);
 }
 
 export async function waitForCondition(
