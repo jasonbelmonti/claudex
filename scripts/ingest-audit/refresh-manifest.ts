@@ -213,18 +213,44 @@ function hasMatchingPriorProvenance(
   record: LiveFixtureRefreshManifestRecord,
   priorRecord: LiveFixtureRefreshManifestRecord,
 ): boolean {
-  const latestPriorProvenance = record.provenanceHistory.at(-1);
+  const expectedHistory = [
+    ...priorRecord.provenanceHistory,
+    toProvenanceEntry(priorRecord),
+  ];
 
-  if (latestPriorProvenance === undefined) {
+  if (record.provenanceHistory.length !== expectedHistory.length) {
     return false;
   }
 
+  return record.provenanceHistory.every(
+    (entry, index) => hasSameProvenanceEntry(entry, expectedHistory[index]),
+  );
+}
+
+function toProvenanceEntry(
+  record: LiveFixtureRefreshManifestRecord,
+): LiveFixtureRefreshManifestRecord["provenanceHistory"][number] {
+  return {
+    capturedAt: record.capturedAt,
+    artifactVersion: record.artifactVersion,
+    providerVersion: record.providerVersion,
+    sdkVersion: record.sdkVersion,
+    sanitizerVersion: record.sanitizerVersion,
+    sanitizedBy: record.sanitizedBy,
+  };
+}
+
+function hasSameProvenanceEntry(
+  left: LiveFixtureRefreshManifestRecord["provenanceHistory"][number],
+  right: LiveFixtureRefreshManifestRecord["provenanceHistory"][number] | undefined,
+): boolean {
   return (
-    latestPriorProvenance.capturedAt === priorRecord.capturedAt &&
-    latestPriorProvenance.artifactVersion === priorRecord.artifactVersion &&
-    latestPriorProvenance.providerVersion === priorRecord.providerVersion &&
-    latestPriorProvenance.sdkVersion === priorRecord.sdkVersion &&
-    latestPriorProvenance.sanitizerVersion === priorRecord.sanitizerVersion &&
-    latestPriorProvenance.sanitizedBy === priorRecord.sanitizedBy
+    right !== undefined &&
+    left.capturedAt === right.capturedAt &&
+    left.artifactVersion === right.artifactVersion &&
+    left.providerVersion === right.providerVersion &&
+    left.sdkVersion === right.sdkVersion &&
+    left.sanitizerVersion === right.sanitizerVersion &&
+    left.sanitizedBy === right.sanitizedBy
   );
 }
