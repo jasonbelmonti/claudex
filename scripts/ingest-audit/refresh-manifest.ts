@@ -78,6 +78,10 @@ export function normalizeRefreshManifestRecord<
     return null;
   }
 
+  if (supersedesFixturePath !== null && metadata.provenanceHistory?.length === 0) {
+    return null;
+  }
+
   return {
     ...value,
     ...metadata,
@@ -123,7 +127,58 @@ function hasConsistentSupersessionGraph(
     }
   }
 
+  if (hasSupersessionCycle(recordsByPath)) {
+    return false;
+  }
+
   return true;
+}
+
+function hasSupersessionCycle(
+  recordsByPath: ReadonlyMap<string, LiveFixtureRefreshManifestRecord>,
+): boolean {
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+
+  for (const fixturePath of recordsByPath.keys()) {
+    if (detectCycle(fixturePath, recordsByPath, visited, visiting)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function detectCycle(
+  fixturePath: string,
+  recordsByPath: ReadonlyMap<string, LiveFixtureRefreshManifestRecord>,
+  visited: Set<string>,
+  visiting: Set<string>,
+): boolean {
+  if (visited.has(fixturePath)) {
+    return false;
+  }
+
+  if (visiting.has(fixturePath)) {
+    return true;
+  }
+
+  visiting.add(fixturePath);
+
+  const record = recordsByPath.get(fixturePath);
+  const priorFixturePath = record?.supersedesFixturePath;
+
+  if (
+    priorFixturePath !== null &&
+    priorFixturePath !== undefined &&
+    detectCycle(priorFixturePath, recordsByPath, visited, visiting)
+  ) {
+    return true;
+  }
+
+  visiting.delete(fixturePath);
+  visited.add(fixturePath);
+  return false;
 }
 
 function hasSameSourceFamilies(

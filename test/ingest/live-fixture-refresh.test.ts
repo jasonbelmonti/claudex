@@ -159,6 +159,24 @@ test("refresh manifest loader rejects malformed append-only records", async () =
   expect(normalizeRefreshManifest(manifest)).toBeNull();
 });
 
+test("refresh manifest rejects superseding records without prior provenance", () => {
+  const manifest = [
+    createManifestRecord({
+      fixturePath: "test/fixtures/codex/live-transcript-excerpt.v2.jsonl",
+      supersedesFixturePath: "test/fixtures/codex/live-transcript-excerpt.jsonl",
+      capturedAt: "2026-04-10T16:10:41.718Z",
+      artifactVersion: "artifact-b",
+      providerVersion: "Codex Desktop 0.103.1",
+      sdkVersion: "not-recorded",
+      sanitizerVersion: "bel-633-manual-v1",
+      sanitizedBy: "Codex BEL-633",
+      provenanceHistory: [],
+    }),
+  ];
+
+  expect(normalizeRefreshManifest(manifest)).toBeNull();
+});
+
 test("sidecar helpers preserve scenario-specific payloads and provenance history", async () => {
   const metadata = await readCodexFixtureMetadata(
     "live-transcript-excerpt.fixture.json",
@@ -252,4 +270,23 @@ test("refresh manifest treats source family ordering as non-semantic", () => {
   ];
 
   expect(normalizeRefreshManifest(manifest)).not.toBeNull();
+});
+
+test("refresh manifest rejects cyclic supersession graphs", () => {
+  const manifest = [
+    createManifestRecord({
+      fixturePath: "test/fixtures/codex/live-transcript-excerpt.a.jsonl",
+      supersedesFixturePath: "test/fixtures/codex/live-transcript-excerpt.b.jsonl",
+      artifactVersion: "artifact-a",
+      provenanceHistory: [createProvenanceEntry({ artifactVersion: "artifact-b" })],
+    }),
+    createManifestRecord({
+      fixturePath: "test/fixtures/codex/live-transcript-excerpt.b.jsonl",
+      supersedesFixturePath: "test/fixtures/codex/live-transcript-excerpt.a.jsonl",
+      artifactVersion: "artifact-b",
+      provenanceHistory: [createProvenanceEntry({ artifactVersion: "artifact-a" })],
+    }),
+  ];
+
+  expect(normalizeRefreshManifest(manifest)).toBeNull();
 });
