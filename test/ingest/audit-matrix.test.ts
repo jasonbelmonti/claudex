@@ -14,6 +14,7 @@ import {
   INGEST_AUDIT_SCENARIOS,
   INGEST_AUDIT_SOURCE_FAMILIES,
   INGEST_LIVE_FIXTURE_REQUIRED_FIELDS,
+  INGEST_LIVE_FIXTURE_REFRESH_CONTRACT,
   INGEST_LIVE_FIXTURE_METADATA,
 } from "./audit-matrix";
 
@@ -57,7 +58,21 @@ test("audit scenarios use stable ids, explicit invariants, and known enums", () 
     for (const dimension of scenario.dimensions) {
       expect(INGEST_AUDIT_DIMENSIONS).toContain(dimension);
     }
+
+    if (scenario.probeKind === "live-capture") {
+      expect(scenario.refreshContract).toEqual(
+        INGEST_LIVE_FIXTURE_REFRESH_CONTRACT,
+      );
+    } else {
+      expect("refreshContract" in scenario).toBeFalse();
+    }
   }
+
+  expect(
+    INGEST_AUDIT_SCENARIOS.filter(
+      (scenario) => scenario.probeKind === "live-capture",
+    ),
+  ).toHaveLength(2);
 });
 
 test("baseline commands and known blind spots stay actionable", () => {
@@ -98,6 +113,35 @@ test("live fixture provenance requirements remain explicit", () => {
     INGEST_LIVE_FIXTURE_REQUIRED_FIELDS,
   );
   expect(INGEST_LIVE_FIXTURE_METADATA.notes).toHaveLength(3);
+});
+
+test("live refresh contract stays declarative, append-only, and scenario-stable", () => {
+  expect(INGEST_LIVE_FIXTURE_REFRESH_CONTRACT).toEqual({
+    manifestPath: "refresh-manifest.json",
+    requiredFields: [
+      "scenarioId",
+      "provider",
+      "sourceFamilies",
+      "fixturePath",
+      "supersedesFixturePath",
+      "capturedAt",
+      "captureKind",
+      "artifactVersion",
+      "providerVersion",
+      "sdkVersion",
+      "sanitizerVersion",
+      "sanitizedBy",
+      "provenanceHistory",
+    ],
+    executionMode: "opt-in",
+    revisionPolicy: "append-only",
+    scenarioIdentityPolicy: "stable",
+    provenanceHistoryPolicy: "preserve-prior-revisions",
+    notes: [
+      "The refresh manifest is declarative contract data, not a runnable workflow; later scripts may encode the same shape as a manifest file or equivalent sidecar-backed record.",
+      "A refresh must preserve scenario identity, keep prior revisions discoverable, and record which artifact replaces which earlier fixture.",
+    ],
+  });
 });
 
 test("codex branch-expansion checklist stays explicit and file-backed", () => {

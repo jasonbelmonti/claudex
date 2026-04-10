@@ -50,6 +50,7 @@ export type IngestAuditScenario = {
   dimensions: readonly IngestAuditDimension[];
   invariants: readonly string[];
   existingCoverage: readonly string[];
+  refreshContract?: IngestLiveFixtureRefreshContract;
   notes?: string;
 };
 
@@ -63,6 +64,16 @@ export type IngestAuditScenarioChecklistItem = {
 export type IngestLiveFixtureMetadataRequirements = {
   sidecarSuffix: string;
   requiredFields: readonly string[];
+  notes: readonly string[];
+};
+
+export type IngestLiveFixtureRefreshContract = {
+  manifestPath: string;
+  requiredFields: readonly string[];
+  executionMode: "opt-in";
+  revisionPolicy: "append-only";
+  scenarioIdentityPolicy: "stable";
+  provenanceHistoryPolicy: "preserve-prior-revisions";
   notes: readonly string[];
 };
 
@@ -105,9 +116,36 @@ export const INGEST_LIVE_FIXTURE_METADATA = {
   notes: [
     "Live-capture fixtures stay opt-in and must never become a required CI dependency.",
     "Sidecars should retain replay-relevant structure while stripping secrets and machine-specific paths.",
-    "Refreshing a live fixture should add or update scenario expectations rather than silently replacing the audit baseline.",
+    "Refreshing a live fixture should add or update scenario expectations without erasing provenance history or prior revisions.",
   ],
 } as const satisfies IngestLiveFixtureMetadataRequirements;
+
+export const INGEST_LIVE_FIXTURE_REFRESH_CONTRACT = {
+  manifestPath: "refresh-manifest.json",
+  requiredFields: [
+    "scenarioId",
+    "provider",
+    "sourceFamilies",
+    "fixturePath",
+    "supersedesFixturePath",
+    "capturedAt",
+    "captureKind",
+    "artifactVersion",
+    "providerVersion",
+    "sdkVersion",
+    "sanitizerVersion",
+    "sanitizedBy",
+    "provenanceHistory",
+  ],
+  executionMode: "opt-in",
+  revisionPolicy: "append-only",
+  scenarioIdentityPolicy: "stable",
+  provenanceHistoryPolicy: "preserve-prior-revisions",
+  notes: [
+    "The refresh manifest is declarative contract data, not a runnable workflow; later scripts may encode the same shape as a manifest file or equivalent sidecar-backed record.",
+    "A refresh must preserve scenario identity, keep prior revisions discoverable, and record which artifact replaces which earlier fixture.",
+  ],
+} as const satisfies IngestLiveFixtureRefreshContract;
 
 export const CODEX_TRANSCRIPT_BRANCH_EXPANSION_CHECKLIST = [
   {
@@ -390,6 +428,7 @@ export const INGEST_AUDIT_SCENARIOS = [
     sourceFamilies: ["claude-transcript", "claude-snapshot-task"],
     probeKind: "live-capture",
     baselineStatus: "planned",
+    refreshContract: INGEST_LIVE_FIXTURE_REFRESH_CONTRACT,
     dimensions: [
       "parser-acceptance",
       "normalization",
@@ -411,6 +450,7 @@ export const INGEST_AUDIT_SCENARIOS = [
     sourceFamilies: ["codex-transcript", "codex-session-index"],
     probeKind: "live-capture",
     baselineStatus: "partial",
+    refreshContract: INGEST_LIVE_FIXTURE_REFRESH_CONTRACT,
     dimensions: [
       "parser-acceptance",
       "normalization",
