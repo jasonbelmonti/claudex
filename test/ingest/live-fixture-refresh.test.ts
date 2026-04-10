@@ -236,6 +236,26 @@ test("sidecar helpers preserve scenario-specific payloads and provenance history
   ]);
 });
 
+test("sidecar helpers treat undefined provenance history as absent", async () => {
+  const metadata = await readCodexFixtureMetadata(
+    "live-transcript-excerpt.fixture.json",
+  );
+
+  const normalized = normalizeLiveFixtureSidecar(metadata);
+  expect(normalized).not.toBeNull();
+
+  if (normalized === null) {
+    throw new Error("Expected live fixture sidecar to normalize.");
+  }
+
+  const rebuilt = createLiveFixtureSidecar({
+    ...normalized,
+    provenanceHistory: undefined,
+  });
+
+  expect(rebuilt.provenanceHistory).toBeUndefined();
+});
+
 test("refresh manifest rejects superseding a different scenario record", () => {
   const manifest = [
     createManifestRecord({

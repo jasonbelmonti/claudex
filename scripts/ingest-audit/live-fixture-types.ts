@@ -182,9 +182,10 @@ export function normalizeLiveFixtureMetadata(
   const sanitizedBy = readStringField(value, "sanitizedBy");
 
   const requiresHistory = options?.requireProvenanceHistory === true;
-  const hasHistory = Object.hasOwn(value, "provenanceHistory");
+  const rawHistory = value.provenanceHistory;
+  const hasHistory = rawHistory !== undefined;
   const normalizedHistory = hasHistory
-    ? normalizeProvenanceHistory(value.provenanceHistory)
+    ? normalizeProvenanceHistory(rawHistory)
     : undefined;
 
   if (
