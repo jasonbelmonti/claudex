@@ -100,6 +100,7 @@ function hasConsistentSupersessionGraph(
 ): boolean {
   const recordsByPath = new Map<string, LiveFixtureRefreshManifestRecord>();
   const supersessionTargets = new Set<string>();
+  const rootLineages = new Set<string>();
 
   for (const record of manifest) {
     if (
@@ -114,6 +115,13 @@ function hasConsistentSupersessionGraph(
 
   for (const record of manifest) {
     if (record.supersedesFixturePath === null) {
+      const rootLineageKey = createLineageKey(record);
+
+      if (rootLineages.has(rootLineageKey)) {
+        return false;
+      }
+
+      rootLineages.add(rootLineageKey);
       continue;
     }
 
@@ -144,6 +152,14 @@ function hasConsistentSupersessionGraph(
   }
 
   return true;
+}
+
+function createLineageKey(record: LiveFixtureRefreshManifestRecord): string {
+  return JSON.stringify({
+    scenarioId: record.scenarioId,
+    provider: record.provider,
+    sourceFamilies: [...record.sourceFamilies].sort(),
+  });
 }
 
 function hasSupersessionCycle(

@@ -205,10 +205,12 @@ export function normalizeLiveFixtureMetadata(
     return null;
   }
 
+  const { provenanceHistory: _rawProvenanceHistory, ...passthrough } = value;
+
   const normalized: LiveFixtureSidecarCore & {
     provenanceHistory?: LiveFixtureProvenanceHistory;
   } = {
-    ...value,
+    ...passthrough,
     scenarioId,
     provider,
     sourceFamilies,

@@ -254,6 +254,7 @@ test("sidecar helpers treat undefined provenance history as absent", async () =>
   });
 
   expect(rebuilt.provenanceHistory).toBeUndefined();
+  expect(Object.hasOwn(rebuilt, "provenanceHistory")).toBeFalse();
 });
 
 test("refresh manifest rejects superseding a different scenario record", () => {
@@ -367,6 +368,25 @@ test("refresh manifest rejects supersession fan-out branches", () => {
       sanitizerVersion: "bel-633-manual-v2",
       sanitizedBy: "Codex BEL-633",
       provenanceHistory: [createProvenanceEntry({ artifactVersion: "artifact-a" })],
+    }),
+  ];
+
+  expect(normalizeRefreshManifest(manifest)).toBeNull();
+});
+
+test("refresh manifest rejects parallel root records for the same lineage", () => {
+  const manifest = [
+    createManifestRecord({
+      fixturePath: "test/fixtures/codex/live-transcript-excerpt.a.jsonl",
+      artifactVersion: "artifact-a",
+    }),
+    createManifestRecord({
+      fixturePath: "test/fixtures/codex/live-transcript-excerpt.b.jsonl",
+      artifactVersion: "artifact-b",
+      capturedAt: "2026-04-10T16:10:41.718Z",
+      providerVersion: "Codex Desktop 0.103.1",
+      sanitizerVersion: "bel-633-manual-v1",
+      sanitizedBy: "Codex BEL-633",
     }),
   ];
 
