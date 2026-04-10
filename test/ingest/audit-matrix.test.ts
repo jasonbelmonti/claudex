@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { expect, test } from "bun:test";
 
 import {
+  CODEX_TRANSCRIPT_BRANCH_EXPANSION_CHECKLIST,
   INGEST_AUDIT_BASELINE,
   INGEST_AUDIT_BASELINE_COMMANDS,
   INGEST_AUDIT_BASELINE_STATUSES,
@@ -65,12 +66,13 @@ test("baseline commands and known blind spots stay actionable", () => {
     "bun test --coverage --coverage-reporter=text test/ingest test/ingest-public-api.test.ts",
   ]);
   expect(INGEST_AUDIT_BASELINE.commands).toEqual(INGEST_AUDIT_BASELINE_COMMANDS);
-  expect(INGEST_AUDIT_BASELINE.passingTests).toBe(82);
-  expect(INGEST_AUDIT_BASELINE.testFiles).toBe(13);
-  expect(INGEST_AUDIT_BASELINE.expectCalls).toBe(316);
+  expect(INGEST_AUDIT_BASELINE.passingTests).toBe(109);
+  expect(INGEST_AUDIT_BASELINE.testFiles).toBe(20);
+  expect(INGEST_AUDIT_BASELINE.expectCalls).toBe(668);
   expect(INGEST_AUDIT_BASELINE.knownBlindSpots).toEqual(
     INGEST_AUDIT_KNOWN_BLIND_SPOTS,
   );
+  expect(INGEST_AUDIT_KNOWN_BLIND_SPOTS).toEqual([]);
 
   for (const hotspot of INGEST_AUDIT_KNOWN_BLIND_SPOTS) {
     expect(hotspot.lineCoveragePct).toBeLessThan(90);
@@ -96,4 +98,24 @@ test("live fixture provenance requirements remain explicit", () => {
     INGEST_LIVE_FIXTURE_REQUIRED_FIELDS,
   );
   expect(INGEST_LIVE_FIXTURE_METADATA.notes).toHaveLength(3);
+});
+
+test("codex branch-expansion checklist stays explicit and file-backed", () => {
+  const checklistIds = new Set<string>();
+
+  expect(CODEX_TRANSCRIPT_BRANCH_EXPANSION_CHECKLIST.length).toBeGreaterThan(0);
+
+  for (const item of CODEX_TRANSCRIPT_BRANCH_EXPANSION_CHECKLIST) {
+    expect(item.id.length).toBeGreaterThan(0);
+    expect(item.family.length).toBeGreaterThan(0);
+    expect(item.focus.length).toBeGreaterThan(0);
+    expect(item.coverageTargets.length).toBeGreaterThan(0);
+    expect(checklistIds.has(item.id)).toBeFalse();
+
+    checklistIds.add(item.id);
+
+    for (const target of item.coverageTargets) {
+      expect(existsSync(resolve(REPO_ROOT, target))).toBeTrue();
+    }
+  }
 });

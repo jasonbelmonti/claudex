@@ -53,6 +53,13 @@ export type IngestAuditScenario = {
   notes?: string;
 };
 
+export type IngestAuditScenarioChecklistItem = {
+  id: string;
+  family: string;
+  focus: string;
+  coverageTargets: readonly string[];
+};
+
 export type IngestLiveFixtureMetadataRequirements = {
   sidecarSuffix: string;
   requiredFields: readonly string[];
@@ -64,50 +71,7 @@ export const INGEST_AUDIT_BASELINE_COMMANDS = [
   "bun test --coverage --coverage-reporter=text test/ingest test/ingest-public-api.test.ts",
 ] as const;
 
-export const INGEST_AUDIT_KNOWN_BLIND_SPOTS = [
-  {
-    path: "src/ingest/codex/normalize-response-item-function-call.ts",
-    lineCoveragePct: 5.62,
-    rationale:
-      "Function call and function_call_output branches do not yet have direct audit scenarios.",
-  },
-  {
-    path: "src/ingest/codex/normalize-tool-helpers.ts",
-    lineCoveragePct: 11.11,
-    rationale:
-      "Tool descriptor inference and outcome classification need branch-focused probes.",
-  },
-  {
-    path: "src/ingest/codex/normalize-usage.ts",
-    lineCoveragePct: 11.36,
-    rationale:
-      "Usage extraction variants are only exercised indirectly by the current suite.",
-  },
-  {
-    path: "src/ingest/codex/normalize-response-item-custom-tool.ts",
-    lineCoveragePct: 51.65,
-    rationale:
-      "Custom-tool payload variants and malformed branches need explicit coverage.",
-  },
-  {
-    path: "src/ingest/codex/normalize-response-item-message.ts",
-    lineCoveragePct: 40.0,
-    rationale:
-      "Assistant message content permutations need dedicated fixture rows instead of incidental coverage.",
-  },
-  {
-    path: "src/ingest/codex/normalize-state.ts",
-    lineCoveragePct: 67.68,
-    rationale:
-      "Turn-state transitions and stale-state resets need stronger direct assertions.",
-  },
-  {
-    path: "src/ingest/codex/normalize-event-msg.ts",
-    lineCoveragePct: 67.56,
-    rationale:
-      "Event-message variants still rely too heavily on aggregate transcript fixtures.",
-  },
-] as const satisfies readonly IngestAuditCoverageHotspot[];
+export const INGEST_AUDIT_KNOWN_BLIND_SPOTS: readonly IngestAuditCoverageHotspot[] = [];
 
 export const INGEST_LIVE_FIXTURE_REQUIRED_FIELDS = [
   "scenarioId",
@@ -125,12 +89,12 @@ export const INGEST_LIVE_FIXTURE_REQUIRED_FIELDS = [
 export const INGEST_AUDIT_BASELINE = {
   capturedAt: "2026-04-09",
   commands: INGEST_AUDIT_BASELINE_COMMANDS,
-  passingTests: 82,
-  testFiles: 13,
-  expectCalls: 316,
+  passingTests: 109,
+  testFiles: 20,
+  expectCalls: 668,
   coverage: {
-    functionPct: 91.22,
-    linePct: 87.09,
+    functionPct: 97.29,
+    linePct: 97.13,
   },
   knownBlindSpots: INGEST_AUDIT_KNOWN_BLIND_SPOTS,
 } as const;
@@ -144,6 +108,126 @@ export const INGEST_LIVE_FIXTURE_METADATA = {
     "Refreshing a live fixture should add or update scenario expectations rather than silently replacing the audit baseline.",
   ],
 } as const satisfies IngestLiveFixtureMetadataRequirements;
+
+export const CODEX_TRANSCRIPT_BRANCH_EXPANSION_CHECKLIST = [
+  {
+    id: "codex-message-turn-start-and-mirror-collapse",
+    family: "message",
+    focus:
+      "Response-item and event-message user or assistant branches cover turn start, mirror collapse, duplicate suppression, and developer-only no-op records.",
+    coverageTargets: [
+      "src/ingest/codex/normalize-response-item-message.ts",
+      "src/ingest/codex/normalize-event-msg.ts",
+      "test/ingest/codex-normalize-state-message.test.ts",
+      "test/ingest/codex-audit-fixtures.test.ts",
+    ],
+  },
+  {
+    id: "codex-reasoning-summary-and-encrypted-fallback",
+    family: "message",
+    focus:
+      "Reasoning branches cover summary extraction, encrypted-content fallback, and mirror de-duplication between event_msg and response_item records.",
+    coverageTargets: [
+      "src/ingest/codex/normalize-response-item-message.ts",
+      "src/ingest/codex/normalize-event-msg.ts",
+      "test/ingest/codex-normalize-state-message.test.ts",
+      "test/ingest/codex-audit-fixtures.test.ts",
+    ],
+  },
+  {
+    id: "codex-function-call-descriptors-and-output-outcomes",
+    family: "function-tool-custom-tool",
+    focus:
+      "Function-call normalization covers command and MCP descriptor inference, parsed inputs, unsupported missing identifiers, orphaned completions, and outcome mapping.",
+    coverageTargets: [
+      "src/ingest/codex/normalize-response-item-function-call.ts",
+      "src/ingest/codex/normalize-tool-helpers.ts",
+      "test/ingest/codex-normalize-tooling.test.ts",
+    ],
+  },
+  {
+    id: "codex-custom-tool-and-web-search-replay",
+    family: "function-tool-custom-tool",
+    focus:
+      "Custom-tool and web-search normalization covers explicit call ids, latest-pending reuse, missing identifiers, and synthetic completion ids when no pending search exists.",
+    coverageTargets: [
+      "src/ingest/codex/normalize-response-item-custom-tool.ts",
+      "src/ingest/codex/normalize-tool-helpers.ts",
+      "test/ingest/codex-normalize-tooling.test.ts",
+      "test/ingest/codex-audit-fixtures.test.ts",
+    ],
+  },
+  {
+    id: "codex-state-roundtrip-and-turn-resets",
+    family: "state",
+    focus:
+      "Persisted normalization state round-trips session, turn, pending tool, and synthetic-id metadata while dropping invalid persisted shapes and resetting stale turn state on new tasks or session metadata.",
+    coverageTargets: [
+      "src/ingest/codex/normalize-state.ts",
+      "src/ingest/codex/normalize-event-msg.ts",
+      "src/ingest/codex/normalize.ts",
+      "test/ingest/codex-normalize-state-message.test.ts",
+    ],
+  },
+  {
+    id: "codex-usage-snapshot-variants",
+    family: "usage",
+    focus:
+      "Usage extraction covers total_token_usage and last_token_usage variants, invalid partial usage payloads, and mapping into normalized agent usage on turn completion.",
+    coverageTargets: [
+      "src/ingest/codex/normalize-usage.ts",
+      "src/ingest/codex/normalize-event-msg.ts",
+      "test/ingest/codex-normalize-tooling.test.ts",
+      "test/ingest/codex-normalize-state-message.test.ts",
+    ],
+  },
+  {
+    id: "codex-malformed-and-unsupported-records",
+    family: "malformed-unsupported",
+    focus:
+      "Malformed JSON, missing payload identifiers, unsupported transcript record types, and unsupported response item variants surface warnings with file attribution instead of crashing replay.",
+    coverageTargets: [
+      "src/ingest/codex/normalize.ts",
+      "src/ingest/codex/normalize-event-msg.ts",
+      "src/ingest/codex/normalize-response-item.ts",
+      "test/ingest/codex-normalize-state-message.test.ts",
+      "test/ingest/codex-audit-fixtures.test.ts",
+    ],
+  },
+  {
+    id: "codex-incremental-replay-dedup",
+    family: "incremental-replay-parity",
+    focus:
+      "Incremental replay preserves mirror collapse, avoids duplicate event or result emission across cursor resumes, and only emits the newly completed semantic turn outcome.",
+    coverageTargets: [
+      "test/fixtures/codex/transcript-incremental-replay.initial.jsonl",
+      "test/fixtures/codex/transcript-incremental-replay.resumed.jsonl",
+      "test/ingest/codex-audit-fixtures.test.ts",
+    ],
+  },
+  {
+    id: "codex-provisional-to-canonical-refinement",
+    family: "incremental-replay-parity",
+    focus:
+      "Session-index bootstrap fixtures refine into canonical transcript-backed session identity without inventing duplicate sessions or losing file attribution.",
+    coverageTargets: [
+      "test/fixtures/codex/session-index-provisional-refinement.jsonl",
+      "test/fixtures/codex/transcript-provisional-refinement.jsonl",
+      "test/ingest/codex-audit-fixtures.test.ts",
+    ],
+  },
+  {
+    id: "codex-live-transcript-parity-excerpt",
+    family: "live-parity",
+    focus:
+      "A sanitized live Codex transcript excerpt replays through the same harness and compares the observed event sequence against declared sidecar expectations.",
+    coverageTargets: [
+      "test/fixtures/codex/live-transcript-excerpt.jsonl",
+      "test/fixtures/codex/live-transcript-excerpt.fixture.json",
+      "test/ingest/codex-live-parity.test.ts",
+    ],
+  },
+] as const satisfies readonly IngestAuditScenarioChecklistItem[];
 
 export const INGEST_AUDIT_SCENARIOS = [
   {
@@ -256,7 +340,7 @@ export const INGEST_AUDIT_SCENARIOS = [
     title: "Codex transcript branch coverage captures tool, state, message, and usage edge cases",
     sourceFamilies: ["codex-transcript"],
     probeKind: "deterministic-fixture",
-    baselineStatus: "partial",
+    baselineStatus: "covered",
     dimensions: [
       "parser-acceptance",
       "normalization",
@@ -270,10 +354,13 @@ export const INGEST_AUDIT_SCENARIOS = [
     ],
     existingCoverage: [
       "test/ingest/codex-normalize.test.ts",
+      "test/ingest/codex-normalize-tooling.test.ts",
+      "test/ingest/codex-normalize-state-message.test.ts",
       "test/ingest/codex-transcript-parser.test.ts",
+      "test/ingest/codex-audit-fixtures.test.ts",
     ],
     notes:
-      "BEL-632 is expected to drive most of the coverage and fixture growth for this row.",
+      "BEL-632 closed the matrix checklist in CODEX_TRANSCRIPT_BRANCH_EXPANSION_CHECKLIST and moved the targeted Codex normalization hotspots above 90% line coverage.",
   },
   {
     id: "codex-session-index-bootstrap",
@@ -323,7 +410,7 @@ export const INGEST_AUDIT_SCENARIOS = [
     title: "Sanitized live Codex artifacts replay through the same audit matrix",
     sourceFamilies: ["codex-transcript", "codex-session-index"],
     probeKind: "live-capture",
-    baselineStatus: "planned",
+    baselineStatus: "partial",
     dimensions: [
       "parser-acceptance",
       "normalization",
@@ -335,8 +422,8 @@ export const INGEST_AUDIT_SCENARIOS = [
       "provenance sidecars make dependency-version diffs possible without guessing capture history",
       "new Codex artifact variants are introduced as new matrix rows or fixture revisions instead of ad hoc test rewrites",
     ],
-    existingCoverage: [],
+    existingCoverage: ["test/ingest/codex-live-parity.test.ts"],
     notes:
-      "BEL-633 supplies capture and sanitization; BEL-632 closes the remaining Codex normalization gaps.",
+      "BEL-632 seeds the first sanitized live transcript replay behind CLAUDEX_AUDIT_LIVE=1; BEL-633 should add refresh tooling and session-index live parity.",
   },
 ] as const satisfies readonly IngestAuditScenario[];
