@@ -1,0 +1,10 @@
+{"timestamp":"2026-04-09T20:10:00.000Z","type":"session_meta","payload":{"id":"session-codex-warning-paths"}}
+{"timestamp":"2026-04-09T20:10:00.050Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-codex-warning-paths"}}
+{"timestamp":"2026-04-09T20:10:00.100Z","type":"event_msg","payload":{"type":"user_message","message":"Keep replay moving despite warnings."}}
+{"timestamp":"2026-04-09T20:10:00.150Z","type":"event_msg","payload":{}}
+{"timestamp":"2026-04-09T20:10:00.200Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[]}}
+{"timestamp":"2026-04-09T20:10:00.250Z","type":"response_item","payload":{"type":"function_call_output","output":"{\"error\":\"missing call id\"}"}}
+{"timestamp":"2026-04-09T20:10:00.300Z","type":"mystery","payload":{"hello":"world"}}
+{ bad json
+{"timestamp":"2026-04-09T20:10:00.400Z","type":"event_msg","payload":{"type":"agent_message","message":"Warnings stayed non-fatal.","phase":"final_answer"}}
+{"timestamp":"2026-04-09T20:10:00.450Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-codex-warning-paths","last_agent_message":"Warnings stayed non-fatal."}}

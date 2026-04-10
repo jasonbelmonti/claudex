@@ -197,11 +197,7 @@ function resolveWebSearchToolCallId(
 function findLatestPendingWebSearchToolCallId(
   context: CodexTranscriptNormalizationContext,
 ): string | null {
-  const pendingEntries = [...context.pendingToolCalls.entries()];
-
-  for (let index = pendingEntries.length - 1; index >= 0; index -= 1) {
-    const [toolCallId, pendingTool] = pendingEntries[index]!;
-
+  for (const [toolCallId, pendingTool] of [...context.pendingToolCalls.entries()].reverse()) {
     if (pendingTool.toolName === "web_search") {
       return toolCallId;
     }

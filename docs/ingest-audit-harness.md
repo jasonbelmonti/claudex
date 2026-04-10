@@ -22,23 +22,23 @@ The harness must do four things:
 Baseline captured on April 9, 2026 from a clean local checkout:
 
 - Command: `bun test test/ingest test/ingest-public-api.test.ts`
-- Result: `82 pass`, `13 files`, `316 expect() calls`
+- Result: `109 pass`, `1 skip`, `20 files`, `668 expect() calls`
 - Command: `bun test --coverage --coverage-reporter=text test/ingest test/ingest-public-api.test.ts`
-- Coverage: `91.22%` functions, `87.09%` lines
+- Coverage: `97.29%` functions, `97.13%` lines
 
-Current confidence is strongest in the shared runtime and cursor path. The main
-remaining blind spots are concentrated in Codex normalization branches:
+BEL-632 closes the original Codex normalization hotspot list with direct probes
+and named fixtures:
 
-- `src/ingest/codex/normalize-response-item-function-call.ts`
-- `src/ingest/codex/normalize-tool-helpers.ts`
-- `src/ingest/codex/normalize-usage.ts`
-- `src/ingest/codex/normalize-response-item-custom-tool.ts`
-- `src/ingest/codex/normalize-response-item-message.ts`
-- `src/ingest/codex/normalize-state.ts`
-- `src/ingest/codex/normalize-event-msg.ts`
+- `src/ingest/codex/normalize-response-item-function-call.ts` at `100%` lines
+- `src/ingest/codex/normalize-tool-helpers.ts` at `95.65%` lines
+- `src/ingest/codex/normalize-usage.ts` at `97.44%` lines
+- `src/ingest/codex/normalize-response-item-custom-tool.ts` at `100%` lines
+- `src/ingest/codex/normalize-response-item-message.ts` at `100%` lines
+- `src/ingest/codex/normalize-state.ts` at `98%` lines
+- `src/ingest/codex/normalize-event-msg.ts` at `100%` lines
 
-Those hotspots are recorded in the executable matrix so later tickets can close
-them with named scenario coverage instead of only chasing percentages.
+The main remaining low-coverage areas are no longer concentrated in Codex
+normalization and fall outside the BEL-632 scope.
 
 ## Supported Source Families
 
@@ -74,8 +74,8 @@ The initial rows are intentionally opinionated:
 
 - runtime and cursor behavior is already `covered` or `partial`
 - Claude replay is mostly `covered`
-- Codex branch-heavy normalization is `partial`
-- live replay parity remains `planned`
+- Codex branch-heavy normalization is `covered`
+- live replay parity is now `partial`
 
 That gives later tickets a stable place to extend coverage without redefining
 scope every time dependencies move.
@@ -93,6 +93,7 @@ Live capture probes are validation, not the default oracle:
 - they stay opt-in
 - they verify that real provider artifacts still replay through the same matrix
 - they exist to catch dependency drift, not to replace deterministic fixtures
+- current Codex entrypoint: `CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/codex-live-parity.test.ts`
 
 Future automation should run deterministic probes on every change and reserve
 live refresh for explicit upgrade or verification workflows.
@@ -149,4 +150,3 @@ This foundation is designed so the follow-on work is additive:
 
 If a later ticket needs to change the matrix itself, that should be a deliberate
 contract update rather than an incidental side effect.
-

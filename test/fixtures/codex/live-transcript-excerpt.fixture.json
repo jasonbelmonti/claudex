@@ -1,0 +1,28 @@
+{
+  "scenarioId": "live-codex-replay-parity",
+  "provider": "codex",
+  "sourceFamilies": [
+    "codex-transcript"
+  ],
+  "capturedAt": "2026-04-09T16:10:41.718Z",
+  "captureKind": "sanitized-live-transcript-excerpt",
+  "artifactVersion": "rollout-2026-04-09T11-10-41-019d7302-91b1-7f90-90b3-aaa72ff11be3.jsonl#excerpt",
+  "providerVersion": "Codex Desktop 0.103.0",
+  "sdkVersion": "not-recorded",
+  "sanitizerVersion": "bel-632-manual-v1",
+  "sanitizedBy": "Codex BEL-632",
+  "expected": {
+    "eventTypes": [
+      "session.started",
+      "turn.started",
+      "reasoning.summary",
+      "tool.started",
+      "tool.completed",
+      "message.completed",
+      "turn.completed"
+    ],
+    "warningCodes": [],
+    "sessionId": "live-codex-bel-632",
+    "resultText": "<sanitized assistant reply>"
+  }
+}

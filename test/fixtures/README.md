@@ -41,9 +41,11 @@ The sidecar should carry the provenance fields defined in
 - `sanitizerVersion`
 - `sanitizedBy`
 
+Sidecars may add scenario-specific expectation summaries when a live parity
+probe compares replay output against declared event or warning expectations.
+
 ## Upgrade rule
 
 When Claude or Codex dependencies change, do not overwrite fixtures blindly.
 Add or refresh fixtures in a way that keeps the scenario id and provenance
 history explicit so the audit harness can compare old and new behavior.
-

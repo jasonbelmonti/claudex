@@ -1,0 +1,18 @@
+{"timestamp":"2026-04-09T20:00:00.000Z","type":"session_meta","payload":{"id":"session-codex-branch-expansion","cwd":"/workspace/project","originator":"Codex Desktop"}}
+{"timestamp":"2026-04-09T20:00:00.050Z","type":"response_item","payload":{"type":"message","role":"developer","content":[{"type":"input_text","text":"<sanitized developer instructions>"}]}}
+{"timestamp":"2026-04-09T20:00:00.100Z","type":"event_msg","payload":{"type":"task_started","turn_id":"turn-codex-branch-expansion"}}
+{"timestamp":"2026-04-09T20:00:00.150Z","type":"turn_context","payload":{"turn_id":"turn-codex-branch-expansion","model":"gpt-5.3-codex"}}
+{"timestamp":"2026-04-09T20:00:00.200Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Expand Codex audit coverage."},{"type":"input_text","text":"Keep the harness evolvable."}]}}
+{"timestamp":"2026-04-09T20:00:00.250Z","type":"event_msg","payload":{"type":"user_message","message":"Expand Codex audit coverage.\n\nKeep the harness evolvable."}}
+{"timestamp":"2026-04-09T20:00:00.300Z","type":"event_msg","payload":{"type":"agent_reasoning","text":"Comparing deterministic fixture and live replay paths."}}
+{"timestamp":"2026-04-09T20:00:00.350Z","type":"response_item","payload":{"type":"reasoning","summary":[{"type":"summary_text","text":"Comparing deterministic fixture and live replay paths."}],"encrypted_content":"opaque"}}
+{"timestamp":"2026-04-09T20:00:00.400Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{\"cmd\":\"bun test test/ingest/codex-transcript-parser.test.ts\",\"workdir\":\"/workspace/project\"}","call_id":"call-command"}}
+{"timestamp":"2026-04-09T20:00:00.450Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-command","output":"{\"output\":\"branch expansion passed\",\"metadata\":{\"exit_code\":0}}"}}
+{"timestamp":"2026-04-09T20:00:00.500Z","type":"response_item","payload":{"type":"custom_tool_call","name":"workspace-write","input":"{\"path\":\"docs/report.md\"}","call_id":"call-custom"}}
+{"timestamp":"2026-04-09T20:00:00.550Z","type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call-custom","output":"{\"ok\":true}"}}
+{"timestamp":"2026-04-09T20:00:00.600Z","type":"response_item","payload":{"type":"web_search_call","status":"in_progress","query":"Codex normalization audit"}}
+{"timestamp":"2026-04-09T20:00:00.650Z","type":"response_item","payload":{"type":"web_search_call","status":"completed","query":"Codex normalization audit"}}
+{"timestamp":"2026-04-09T20:00:00.700Z","type":"event_msg","payload":{"type":"agent_message","message":"Coverage expanded without duplicate semantic events.","phase":"final_answer"}}
+{"timestamp":"2026-04-09T20:00:00.750Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Coverage expanded without duplicate semantic events."}]}}
+{"timestamp":"2026-04-09T20:00:00.800Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":144,"cached_input_tokens":32,"output_tokens":55,"reasoning_output_tokens":13,"total_tokens":199},"model_context_window":258400}}}
+{"timestamp":"2026-04-09T20:00:00.850Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-codex-branch-expansion","last_agent_message":"Coverage expanded without duplicate semantic events."}}
