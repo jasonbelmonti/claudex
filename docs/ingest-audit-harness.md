@@ -139,6 +139,25 @@ The sidecar exists so future upgrade flows can answer three concrete questions:
 Machine-specific paths and secrets should be removed during sanitization, but
 replay-relevant structure must remain intact.
 
+## Live Refresh Contract
+
+BEL-633 defines the shared refresh contract for live fixtures. The eventual
+workflow may materialize this as a named refresh manifest or an equivalent
+declarative record, but the contract itself is stable:
+
+- live refresh stays opt-in and never becomes a CI dependency
+- `scenarioId` stays stable across fixture revisions
+- refreshes are append-only; they add a new revision instead of overwriting the
+  prior artifact in place
+- provenance history is retained so later upgrades can compare the new capture
+  against the previous one without guessing
+- the refresh record must name which artifact is current and which artifact it
+  supersedes
+
+BEL-633 owns this shared capture and refresh mechanics. BEL-631 separately
+owns Claude-specific parity assertions, so this slice must not absorb the
+provider-specific assertion work.
+
 ## Next Tickets
 
 This foundation is designed so the follow-on work is additive:

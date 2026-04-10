@@ -44,6 +44,21 @@ The sidecar should carry the provenance fields defined in
 Sidecars may add scenario-specific expectation summaries when a live parity
 probe compares replay output against declared event or warning expectations.
 
+## Refresh contract
+
+Live refreshes are append-only. A refresh may introduce a new fixture revision
+or a declarative refresh manifest, but it must not silently replace the old
+history.
+
+- keep the `scenarioId` stable across revisions
+- preserve provenance history so the new capture can be compared to the prior
+  one
+- record which artifact supersedes which earlier fixture
+- keep the workflow opt-in; deterministic fixtures remain the default oracle
+
+That rule is shared by Claude and Codex live fixtures. BEL-633 owns the common
+capture/refresh contract, while BEL-631 owns Claude-specific parity assertions.
+
 ## Upgrade rule
 
 When Claude or Codex dependencies change, do not overwrite fixtures blindly.
