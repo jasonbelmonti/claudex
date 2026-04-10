@@ -18,6 +18,7 @@ import {
 
 import {
   createFixtureWorkspace,
+  deleteFile,
   createObservedEventRecord,
   createObservedSessionRecord,
   createRegistry,
@@ -1520,6 +1521,157 @@ test("scanNow emits file-open-failed warnings and continues processing other fil
     join(workspace, "claude", "c-good.jsonl"),
   ]);
   expect(warnings.map((warning) => warning.code)).toEqual(["file-open-failed"]);
+});
+
+test("scanNow emits file-open-failed for files that disappear after discovery even with stored cursors", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/a-good.jsonl": "good\n",
+    "claude/b-late-disappear.jsonl": "locked\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const readableFilePath = join(root.path, "a-good.jsonl");
+  const disappearingFilePath = join(root.path, "b-late-disappear.jsonl");
+  const parseCalls: string[] = [];
+  const warnings: IngestWarning[] = [];
+  const cursorStore = createInMemoryCursorStore();
+  let deleteDuringNextScan = false;
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        parseCalls,
+        async beforeParse(context) {
+          if (!deleteDuringNextScan || context.filePath !== readableFilePath) {
+            return;
+          }
+
+          deleteDuringNextScan = false;
+          await deleteFile(disappearingFilePath);
+        },
+        recordFactory(context) {
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: `session:${context.filePath}`,
+              cursor: {
+                provider: "claude",
+                rootPath: context.root.path,
+                filePath: context.filePath,
+                byteOffset: Number(Bun.file(context.filePath).size),
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    cursorStore,
+    onWarning(warning) {
+      warnings.push(warning);
+    },
+  });
+
+  await service.scanNow();
+  await Bun.write(readableFilePath, "good\nagain\n");
+  deleteDuringNextScan = true;
+  await service.scanNow();
+
+  expect(parseCalls).toEqual([
+    readableFilePath,
+    disappearingFilePath,
+    readableFilePath,
+  ]);
+  expect(warnings.map((warning) => warning.code)).toEqual(["file-open-failed"]);
+});
+
+test("reconcileNow reparses delete-and-recreate files from the beginning and treats them as changed", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/recreated.jsonl": "one\n",
+  });
+  workspaces.push(workspace);
+
+  const root = {
+    provider: "claude" as const,
+    path: join(workspace, "claude"),
+  };
+  const filePath = join(root.path, "recreated.jsonl");
+  const cursorKey = {
+    provider: "claude" as const,
+    rootPath: root.path,
+    filePath,
+  };
+  const parseCursors: (number | null)[] = [];
+  const warnings: IngestWarning[] = [];
+  const discoveryEvents: DiscoveryEvent[] = [];
+  const cursorStore = createInMemoryCursorStore();
+
+  const service = createSessionIngestService({
+    roots: [root],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        recordFactory(context) {
+          parseCursors.push(context.cursor?.byteOffset ?? null);
+
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: "session-recreated",
+              discoveryPhase: context.discoveryPhase,
+              cursor: {
+                provider: "claude",
+                rootPath: context.root.path,
+                filePath: context.filePath,
+                byteOffset: Number(Bun.file(context.filePath).size),
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    cursorStore,
+    onWarning(warning) {
+      warnings.push(warning);
+    },
+    onDiscoveryEvent(event) {
+      discoveryEvents.push(event);
+    },
+  });
+
+  await service.scanNow();
+  await deleteFile(filePath);
+  await Bun.write(filePath, "two\nthree\n");
+  await service.reconcileNow();
+
+  expect(parseCursors).toEqual([null, null]);
+  expect(warnings.map((warning) => warning.code)).toEqual(["rotated-file"]);
+  expect(
+    discoveryEvents
+      .filter((event) => event.discoveryPhase === "reconcile")
+      .map((event) => event.type),
+  ).toEqual([
+    "reconcile.started",
+    "file.changed",
+    "reconcile.completed",
+  ]);
+  expect(await cursorStore.get(cursorKey)).toMatchObject({
+    filePath,
+    byteOffset: Number(Bun.file(filePath).size),
+  });
 });
 
 test("scanNow emits root.skipped for missing roots and ignores unmatched files", async () => {
