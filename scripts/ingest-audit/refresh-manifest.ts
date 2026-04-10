@@ -78,6 +78,10 @@ export function normalizeRefreshManifestRecord<
     return null;
   }
 
+  if (supersedesFixturePath === null && metadata.provenanceHistory?.length !== 0) {
+    return null;
+  }
+
   if (supersedesFixturePath !== null && metadata.provenanceHistory?.length === 0) {
     return null;
   }
@@ -95,6 +99,7 @@ function hasConsistentSupersessionGraph(
   manifest: readonly LiveFixtureRefreshManifestRecord[],
 ): boolean {
   const recordsByPath = new Map<string, LiveFixtureRefreshManifestRecord>();
+  const supersessionTargets = new Set<string>();
 
   for (const record of manifest) {
     if (
@@ -112,6 +117,12 @@ function hasConsistentSupersessionGraph(
       continue;
     }
 
+    if (supersessionTargets.has(record.supersedesFixturePath)) {
+      return false;
+    }
+
+    supersessionTargets.add(record.supersedesFixturePath);
+
     const priorRecord = recordsByPath.get(record.supersedesFixturePath);
 
     if (priorRecord === undefined) {
@@ -121,7 +132,8 @@ function hasConsistentSupersessionGraph(
     if (
       priorRecord.scenarioId !== record.scenarioId ||
       priorRecord.provider !== record.provider ||
-      !hasSameSourceFamilies(priorRecord.sourceFamilies, record.sourceFamilies)
+      !hasSameSourceFamilies(priorRecord.sourceFamilies, record.sourceFamilies) ||
+      !hasMatchingPriorProvenance(record, priorRecord)
     ) {
       return false;
     }
@@ -194,5 +206,25 @@ function hasSameSourceFamilies(
 
   return leftFamilies.every(
     (sourceFamily, index) => sourceFamily === rightFamilies[index],
+  );
+}
+
+function hasMatchingPriorProvenance(
+  record: LiveFixtureRefreshManifestRecord,
+  priorRecord: LiveFixtureRefreshManifestRecord,
+): boolean {
+  const latestPriorProvenance = record.provenanceHistory.at(-1);
+
+  if (latestPriorProvenance === undefined) {
+    return false;
+  }
+
+  return (
+    latestPriorProvenance.capturedAt === priorRecord.capturedAt &&
+    latestPriorProvenance.artifactVersion === priorRecord.artifactVersion &&
+    latestPriorProvenance.providerVersion === priorRecord.providerVersion &&
+    latestPriorProvenance.sdkVersion === priorRecord.sdkVersion &&
+    latestPriorProvenance.sanitizerVersion === priorRecord.sanitizerVersion &&
+    latestPriorProvenance.sanitizedBy === priorRecord.sanitizedBy
   );
 }
