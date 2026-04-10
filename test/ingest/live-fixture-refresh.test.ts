@@ -229,3 +229,27 @@ test("refresh manifest rejects superseding a different scenario record", () => {
 
   expect(normalizeRefreshManifest(manifest)).toBeNull();
 });
+
+test("refresh manifest treats source family ordering as non-semantic", () => {
+  const manifest = [
+    createManifestRecord({
+      sourceFamilies: ["codex-session-index", "codex-transcript"],
+      fixturePath: "test/fixtures/codex/live-session-index-excerpt.jsonl",
+      artifactVersion: "artifact-a",
+    }),
+    createManifestRecord({
+      sourceFamilies: ["codex-transcript", "codex-session-index"],
+      fixturePath: "test/fixtures/codex/live-session-index-excerpt.v2.jsonl",
+      supersedesFixturePath: "test/fixtures/codex/live-session-index-excerpt.jsonl",
+      capturedAt: "2026-04-10T16:10:41.718Z",
+      artifactVersion: "artifact-b",
+      providerVersion: "Codex Desktop 0.103.1",
+      sdkVersion: "not-recorded",
+      sanitizerVersion: "bel-633-manual-v1",
+      sanitizedBy: "Codex BEL-633",
+      provenanceHistory: [createProvenanceEntry({ artifactVersion: "artifact-a" })],
+    }),
+  ];
+
+  expect(normalizeRefreshManifest(manifest)).not.toBeNull();
+});

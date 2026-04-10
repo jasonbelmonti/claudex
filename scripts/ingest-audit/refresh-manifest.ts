@@ -130,8 +130,14 @@ function hasSameSourceFamilies(
   left: readonly string[],
   right: readonly string[],
 ): boolean {
-  return (
-    left.length === right.length &&
-    left.every((sourceFamily, index) => sourceFamily === right[index])
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  const leftFamilies = [...left].sort();
+  const rightFamilies = [...right].sort();
+
+  return leftFamilies.every(
+    (sourceFamily, index) => sourceFamily === rightFamilies[index],
   );
 }
