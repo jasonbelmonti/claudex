@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
+import { createDeterministicAuditEnv } from "../../scripts/ingest-audit/deterministic-env";
 import { prepareAuditOutputDir } from "../../scripts/ingest-audit/output-dir";
 import {
   buildAuditReport,
@@ -126,7 +127,7 @@ test("scenario summaries reject live sidecars with provider or source-family dri
 test("prepareAuditOutputDir removes stale audit artifacts before a new run", () => {
   const outputDir = join(
     REPO_ROOT,
-    ".worktrees",
+    "out",
     "tmp-audit-output-tests",
     crypto.randomUUID(),
   );
@@ -154,10 +155,10 @@ test("prepareAuditOutputDir rejects repo root and parent directories", () => {
 
   expect(() =>
     prepareAuditOutputDir(REPO_ROOT, REPO_ROOT, coverageDir),
-  ).toThrow("safe repo descendant");
+  ).toThrow("safe audit output subtree");
   expect(() =>
     prepareAuditOutputDir(REPO_ROOT, parentDir, join(parentDir, "coverage")),
-  ).toThrow("safe repo descendant");
+  ).toThrow("safe audit output subtree");
 });
 
 test("prepareAuditOutputDir rejects filesystem root", () => {
@@ -170,6 +171,38 @@ test("prepareAuditOutputDir rejects filesystem root", () => {
       join(filesystemRoot, "coverage"),
     ),
   ).toThrow("filesystem root");
+});
+
+test("prepareAuditOutputDir rejects repo descendants outside the out subtree", () => {
+  expect(() =>
+    prepareAuditOutputDir(
+      REPO_ROOT,
+      join(REPO_ROOT, "src"),
+      join(REPO_ROOT, "src", "coverage"),
+    ),
+  ).toThrow("safe audit output subtree");
+
+  expect(() =>
+    prepareAuditOutputDir(
+      REPO_ROOT,
+      join(REPO_ROOT, ".git"),
+      join(REPO_ROOT, ".git", "coverage"),
+    ),
+  ).toThrow("safe audit output subtree");
+});
+
+test("createDeterministicAuditEnv disables opt-in live parity", () => {
+  const env = createDeterministicAuditEnv({
+    CLAUDEX_AUDIT_LIVE: "1",
+    FOO: "bar",
+    EMPTY: undefined,
+  });
+
+  expect(env).toMatchObject({
+    CLAUDEX_AUDIT_LIVE: "0",
+    FOO: "bar",
+  });
+  expect("EMPTY" in env).toBeFalse();
 });
 
 test("coverage parser aggregates lcov totals", async () => {

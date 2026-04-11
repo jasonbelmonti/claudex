@@ -1,6 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import { createDeterministicAuditEnv } from "./deterministic-env";
 import { prepareAuditOutputDir } from "./output-dir";
 import {
   buildAuditReport,
@@ -169,7 +170,7 @@ async function runCommand(input: RunCommandInput): Promise<IngestAuditCommandRes
     cwd: repoRoot,
     stdout: "pipe",
     stderr: "pipe",
-    env: Bun.env,
+    env: createDeterministicAuditEnv(Bun.env),
   });
   const durationMs = Math.round(performance.now() - startedAt);
   const stdout = result.stdout.toString();

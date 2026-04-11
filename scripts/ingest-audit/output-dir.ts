@@ -14,10 +14,11 @@ export function prepareAuditOutputDir(
 
 function assertSafeAuditOutputDir(repoRoot: string, outputDir: string): void {
   const normalizedRepoRoot = resolve(repoRoot);
+  const safeOutputRoot = resolve(normalizedRepoRoot, "out");
   const normalizedOutputDir = resolve(outputDir);
   const filesystemRoot = parse(normalizedOutputDir).root;
-  const outputDirRelativeToRepo = relative(
-    normalizedRepoRoot,
+  const outputDirRelativeToSafeRoot = relative(
+    safeOutputRoot,
     normalizedOutputDir,
   );
 
@@ -28,13 +29,13 @@ function assertSafeAuditOutputDir(repoRoot: string, outputDir: string): void {
   }
 
   if (
-    outputDirRelativeToRepo === "" ||
-    outputDirRelativeToRepo === "." ||
-    outputDirRelativeToRepo.startsWith("..") ||
-    isAbsolute(outputDirRelativeToRepo)
+    outputDirRelativeToSafeRoot === "" ||
+    outputDirRelativeToSafeRoot === "." ||
+    outputDirRelativeToSafeRoot.startsWith("..") ||
+    isAbsolute(outputDirRelativeToSafeRoot)
   ) {
     throw new Error(
-      `Refusing to clean audit output directory outside a safe repo descendant: ${normalizedOutputDir}`,
+      `Refusing to clean audit output directory outside a safe audit output subtree: ${normalizedOutputDir}`,
     );
   }
 }
