@@ -93,6 +93,7 @@ Live capture probes are validation, not the default oracle:
 - they stay opt-in
 - they verify that real provider artifacts still replay through the same matrix
 - they exist to catch dependency drift, not to replace deterministic fixtures
+- current Claude entrypoint: `CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/claude-live-parity.test.ts`
 - current Codex entrypoint: `CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/codex-live-parity.test.ts`
 
 Future automation should run deterministic probes on every change and reserve

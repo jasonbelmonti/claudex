@@ -1,0 +1,37 @@
+{
+  "scenarioId": "live-claude-replay-parity",
+  "provider": "claude",
+  "sourceFamilies": [
+    "claude-transcript"
+  ],
+  "capturedAt": "2026-04-11T11:02:03.000Z",
+  "captureKind": "sanitized-live-transcript-excerpt",
+  "artifactVersion": "claude-live-2026-04-11-transcript-excerpt#sanitized",
+  "providerVersion": "Claude Code 1.0.0-sanitized",
+  "sdkVersion": "not-recorded",
+  "sanitizerVersion": "bel-631-manual-v1",
+  "sanitizedBy": "Codex BEL-631",
+  "expected": {
+    "eventTypes": [
+      "turn.started",
+      "tool.started",
+      "tool.updated",
+      "tool.completed",
+      "message.completed",
+      "turn.completed"
+    ],
+    "completeness": [
+      "complete",
+      "complete",
+      "complete",
+      "complete",
+      "complete",
+      "complete"
+    ],
+    "warningCodes": [],
+    "sessionId": "live-claude-bel-631",
+    "workingDirectory": "/sanitized/worktree",
+    "resultText": "<sanitized assistant reply>",
+    "stopReason": "end_turn"
+  }
+}

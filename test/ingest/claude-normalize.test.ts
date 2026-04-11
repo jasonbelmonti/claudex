@@ -1,9 +1,42 @@
 import { expect, test } from "bun:test";
 
+import { createClaudeIngestRegistries } from "../../src/ingest/claude";
 import {
   createClaudeArtifactNormalizationContext,
+  createClaudeArtifactNormalizationMetadata,
+  getClaudeArtifactWorkingDirectory,
   normalizeClaudeArtifactRecord,
 } from "../../src/ingest/claude/normalize";
+
+function expectSingleClaudeEvent(
+  record: unknown,
+  context?: ReturnType<typeof createClaudeArtifactNormalizationContext>,
+) {
+  const normalized = normalizeClaudeArtifactRecord(record, context);
+
+  expect(normalized.warnings).toEqual([]);
+  expect(normalized.events).toHaveLength(1);
+
+  const [event] = normalized.events;
+  if (!event) {
+    throw new Error("Expected exactly one normalized Claude event.");
+  }
+
+  return event;
+}
+
+function expectUnsupportedClaudeRecord(record: unknown, message: string) {
+  const normalized = normalizeClaudeArtifactRecord(record);
+
+  expect(normalized.events).toEqual([]);
+  expect(normalized.warnings).toEqual([
+    {
+      code: "unsupported-record",
+      message,
+      raw: record,
+    },
+  ]);
+}
 
 test("normalizes Claude auth status payloads emitted by replay artifacts", () => {
   const normalized = normalizeClaudeArtifactRecord({
@@ -441,4 +474,332 @@ test("maps Claude replay error results without requiring usage metadata", () => 
       }),
     });
   }
+});
+
+test("restores persisted Claude normalization context and preserves only active session state", () => {
+  const context = createClaudeArtifactNormalizationContext({
+    claudePendingAssistantTexts: {
+      "session-1": "Cached assistant reply",
+      "session-2": {
+        latestAssistantText: "Pending assistant reply",
+        workingDirectory: "/sanitized/worktree",
+      },
+      ignored: 42,
+    },
+  });
+
+  expect(createClaudeArtifactNormalizationMetadata(
+    createClaudeArtifactNormalizationContext(),
+  )).toBeUndefined();
+  expect(createClaudeArtifactNormalizationMetadata({
+    sessions: new Map([["ignored", {}]]),
+  })).toBeUndefined();
+  expect(getClaudeArtifactWorkingDirectory(context, "session-2")).toBe(
+    "/sanitized/worktree",
+  );
+
+  const userEvent = expectSingleClaudeEvent({
+    type: "user",
+    session_id: "session-2",
+    timestamp: "2026-04-11T12:00:00.000Z",
+    message: {
+      role: "user",
+      content: "Reuse the sanitized cwd",
+    },
+  }, context);
+  const resultEvent = expectSingleClaudeEvent({
+    type: "result",
+    subtype: "success",
+    session_id: "session-1",
+    result: "",
+    usage: {
+      input_tokens: 1,
+      output_tokens: 2,
+    },
+  }, context);
+
+  expect(userEvent).toMatchObject({
+    type: "turn.started",
+    extensions: {
+      cwd: "/sanitized/worktree",
+    },
+  });
+  expect(resultEvent).toMatchObject({
+    type: "turn.completed",
+    result: {
+      text: "Cached assistant reply",
+    },
+  });
+  expect(createClaudeArtifactNormalizationMetadata(context)).toEqual({
+    claudePendingAssistantTexts: {
+      "session-2": {
+        latestAssistantText: "Pending assistant reply",
+        workingDirectory: "/sanitized/worktree",
+      },
+    },
+  });
+});
+
+test("surfaces unsupported Claude replay shapes as explicit warnings", () => {
+  const cases = [
+    {
+      record: { hello: "world" },
+      message: "Skipped malformed Claude record.",
+    },
+    {
+      record: {
+        type: "assistant",
+        session_id: "session-1",
+        message: {
+          content: [{ type: "tool_result", tool_use_id: "tool-1" }],
+        },
+      },
+      message: "Claude assistant record is missing renderable text.",
+    },
+    {
+      record: {
+        type: "stream_event",
+        session_id: "session-1",
+        event: {
+          type: "message_start",
+        },
+      },
+      message: "Unsupported Claude stream event payload.",
+    },
+    {
+      record: {
+        type: "stream_event",
+        session_id: "session-1",
+        event: {
+          type: "content_block_delta",
+          delta: {
+            type: "input_json_delta",
+          },
+        },
+      },
+      message: "Unsupported Claude stream delta payload.",
+    },
+    {
+      record: {
+        type: "auth_status",
+        session_id: "session-1",
+      },
+      message: "Unsupported Claude auth status payload.",
+    },
+    {
+      record: {
+        type: "tool_progress",
+        session_id: "session-1",
+      },
+      message: "Unsupported Claude tool progress payload.",
+    },
+    {
+      record: {
+        type: "system",
+        subtype: "files_persisted",
+        session_id: "session-1",
+        files: [{ nope: true }],
+        failed: [{ filename: "" }],
+      },
+      message: "Unsupported Claude system payload.",
+    },
+    {
+      record: {
+        type: "mystery",
+        session_id: "session-1",
+      },
+      message: "Unsupported Claude event type: mystery",
+    },
+  ] as const;
+
+  for (const { record, message } of cases) {
+    expectUnsupportedClaudeRecord(record, message);
+  }
+});
+
+test("normalizes Claude lifecycle fallback variants and alternate task outcomes", () => {
+  const authReadyEvent = expectSingleClaudeEvent({
+    type: "auth_status",
+    session_id: "session-1",
+    output: ["Browser ready"],
+    detail: "Ready to continue",
+  });
+  const authNeedsAuthEvent = expectSingleClaudeEvent({
+    type: "auth_status",
+    session_id: "session-1",
+    status: "needs-auth",
+    detail: "Reauthenticate",
+  });
+  const filesPersistedEvent = expectSingleClaudeEvent({
+    type: "system",
+    subtype: "files_persisted",
+    session_id: "session-1",
+    failed: [{ filename: "draft.md" }],
+  });
+  const taskStartedEvent = expectSingleClaudeEvent({
+    type: "system",
+    subtype: "task_started",
+    session_id: "session-1",
+    task_id: "task-1",
+  });
+  const taskProgressEvent = expectSingleClaudeEvent({
+    type: "system",
+    subtype: "task_progress",
+    session_id: "session-1",
+    task_id: "task-1",
+    last_tool_name: "Read",
+    usage: "ignored",
+  });
+  const taskStoppedEvent = expectSingleClaudeEvent({
+    type: "system",
+    subtype: "task_notification",
+    session_id: "session-1",
+    task_id: "task-1",
+    status: "stopped",
+  });
+  const taskErroredEvent = expectSingleClaudeEvent({
+    type: "system",
+    subtype: "task_notification",
+    session_id: "session-1",
+    task_id: "task-1",
+    status: "failed",
+  });
+
+  expect(authReadyEvent).toMatchObject({
+    type: "auth.status",
+    status: "ready",
+    detail: "Browser ready",
+  });
+  expect(authNeedsAuthEvent).toMatchObject({
+    type: "auth.status",
+    status: "needs-auth",
+    detail: "Reauthenticate",
+  });
+  expect(filesPersistedEvent).toMatchObject({
+    type: "file.changed",
+    changes: [],
+    outcome: "error",
+    extensions: {
+      failed: [{ path: "draft.md" }],
+    },
+  });
+  expect(taskStartedEvent).toMatchObject({
+    type: "tool.started",
+    toolCallId: "task-1",
+    toolName: "task",
+    kind: "custom",
+  });
+  expect(taskStartedEvent.type).toBe("tool.started");
+  if (taskStartedEvent.type !== "tool.started") {
+    throw new Error("Expected Claude task_started payload to normalize.");
+  }
+
+  expect(taskStartedEvent.input).toBeUndefined();
+  expect(taskProgressEvent).toMatchObject({
+    type: "tool.updated",
+    toolCallId: "task-1",
+    output: {
+      lastToolName: "Read",
+    },
+  });
+  expect(taskStoppedEvent).toMatchObject({
+    type: "tool.completed",
+    outcome: "cancelled",
+  });
+  expect(taskErroredEvent).toMatchObject({
+    type: "tool.completed",
+    outcome: "error",
+  });
+});
+
+test("normalizes Claude result stringification, provider-failure defaults, and parser failures", () => {
+  const circularStructuredOutput = {
+    toString() {
+      return "[sanitized structured output]";
+    },
+  } as { self?: unknown; toString(): string };
+  circularStructuredOutput.self = circularStructuredOutput;
+
+  const structuredString = normalizeClaudeArtifactRecord({
+    type: "result",
+    subtype: "success",
+    session_id: "session-1",
+    result: "",
+    structured_output: "already serialized",
+    usage: {},
+  });
+  const structuredFallback = normalizeClaudeArtifactRecord({
+    type: "result",
+    subtype: "success",
+    session_id: "session-1",
+    result: "   ",
+    structured_output: circularStructuredOutput,
+    usage: {},
+  });
+  const providerFailure = normalizeClaudeArtifactRecord({
+    type: "result",
+    subtype: "error_internal",
+    session_id: "session-1",
+    errors: [42],
+    permission_denials: "ignored",
+  });
+  const throwingRecord = {
+    type: "assistant",
+    get message() {
+      throw new Error("kaboom");
+    },
+  };
+  const parseFailure = normalizeClaudeArtifactRecord(throwingRecord);
+
+  expect(structuredString.events[0]).toMatchObject({
+    type: "turn.completed",
+    result: {
+      text: "already serialized",
+      usage: null,
+    },
+  });
+  expect(structuredFallback.events[0]).toMatchObject({
+    type: "turn.completed",
+    result: {
+      text: "[sanitized structured output]",
+      usage: null,
+    },
+  });
+  expect(providerFailure.events[0]).toMatchObject({
+    type: "turn.failed",
+    error: expect.objectContaining({
+      code: "provider_failure",
+      message: "Claude returned a result error.",
+      details: {
+        subtype: "error_internal",
+        permissionDenials: [],
+      },
+    }),
+  });
+  expect(parseFailure.events).toEqual([]);
+  expect(parseFailure.warnings).toHaveLength(1);
+  expect(parseFailure.warnings[0]).toMatchObject({
+    code: "parse-failed",
+    message: "Claude artifact record parsing failed.",
+  });
+});
+
+test("exposes Claude snapshot and transcript registries in stable order", () => {
+  const registries = createClaudeIngestRegistries();
+  const root = {
+    provider: "claude" as const,
+    path: "/tmp/claude",
+  };
+
+  expect(registries).toHaveLength(2);
+  expect(registries[0]?.provider).toBe("claude");
+  expect(registries[0]?.matchFile("/tmp/snapshot.json", root)).toEqual({
+    kind: "snapshot",
+  });
+  expect(registries[0]?.matchFile("/tmp/transcript.jsonl", root)).toBeNull();
+  expect(registries[1]?.provider).toBe("claude");
+  expect(registries[1]?.matchFile("/tmp/transcript.jsonl", root)).toEqual({
+    kind: "transcript",
+  });
+  expect(registries[1]?.matchFile("/tmp/snapshot.json", root)).toBeNull();
 });

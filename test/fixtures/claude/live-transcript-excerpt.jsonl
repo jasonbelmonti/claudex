@@ -1,0 +1,6 @@
+{"type":"user","session_id":"live-claude-bel-631","cwd":"/sanitized/worktree","timestamp":"2026-04-11T11:02:03.000Z","message":{"role":"user","content":"<sanitized user request>"}}
+{"type":"system","subtype":"task_started","session_id":"live-claude-bel-631","task_id":"task-live-1","tool_use_id":"tool-live-1","description":"<sanitized task description>","prompt":"<sanitized task prompt>","task_type":"task"}
+{"type":"tool_progress","session_id":"live-claude-bel-631","tool_use_id":"tool-live-1","tool_name":"Read","task_id":"task-live-1","elapsed_time_seconds":2}
+{"type":"system","subtype":"task_notification","session_id":"live-claude-bel-631","task_id":"task-live-1","tool_use_id":"tool-live-1","status":"completed","summary":"<sanitized task summary>","usage":{"total_tokens":27}}
+{"type":"assistant","session_id":"live-claude-bel-631","uuid":"assistant-live-1","message":{"content":[{"type":"text","text":"<sanitized assistant reply>"}]}}
+{"type":"result","subtype":"success","session_id":"live-claude-bel-631","result":"","stop_reason":"end_turn","usage":{"input_tokens":12,"output_tokens":7}}
