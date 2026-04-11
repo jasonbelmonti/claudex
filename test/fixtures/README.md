@@ -44,6 +44,11 @@ The sidecar should carry the provenance fields defined in
 Sidecars may add scenario-specific expectation summaries when a live parity
 probe compares replay output against declared event or warning expectations.
 
+The deterministic `bun run audit:ingest` entrypoint also reads these sidecars
+as upgrade-readiness metadata. That means malformed or mismatched sidecars are
+not just a live-test problem; they break the reporting contract for future
+dependency comparisons too.
+
 ## Refresh contract
 
 Live refreshes are append-only. A refresh may introduce a new fixture revision

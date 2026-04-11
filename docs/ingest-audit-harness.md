@@ -87,17 +87,54 @@ Deterministic fixture probes are the default audit path:
 - they run in normal local development
 - they stay stable in CI
 - they are the primary correctness oracle
+- stable entrypoint: `bun run audit:ingest`
+- default report outputs:
+  - `out/ingest-audit/report.json`
+  - `out/ingest-audit/report.txt`
 
 Live capture probes are validation, not the default oracle:
 
 - they stay opt-in
 - they verify that real provider artifacts still replay through the same matrix
 - they exist to catch dependency drift, not to replace deterministic fixtures
-- current Claude entrypoint: `CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/claude-live-parity.test.ts`
-- current Codex entrypoint: `CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/codex-live-parity.test.ts`
+- current Claude entrypoint: `bun run audit:ingest:live:claude`
+- current Codex entrypoint: `bun run audit:ingest:live:codex`
 
 Future automation should run deterministic probes on every change and reserve
 live refresh for explicit upgrade or verification workflows.
+
+## Report Contract
+
+`bun run audit:ingest` emits both a machine-readable JSON report and a short
+maintainer-facing text summary from the same underlying contract.
+
+The report shape is designed to stay small and stable:
+
+- `commands` records the deterministic test and coverage invocations, exit
+  status, durations, and captured stdout or stderr paths
+- `scenarios` projects the current audit matrix into an execution-oriented
+  inventory keyed by stable scenario ids
+- `findings.confirmedRegressions` maps failing deterministic test files back to
+  matrix scenario ids via each row's existing coverage targets
+- `findings.unsupportedButObserved` is reserved for sidecar-declared
+  unsupported-but-observed artifacts without treating them as silent noise
+- `findings.intentionallyUnasserted` keeps partial or opt-in rows visible
+  instead of pretending the default harness covers more than it does
+- `coverage` records aggregate line and function percentages from the
+  deterministic coverage run
+
+The report also records enough provenance to make later upgrade comparisons
+boring in the good way:
+
+- repo package version
+- git branch, commit sha, and dirty state
+- Bun version and package manager string
+- Claude SDK and Codex SDK dependency versions
+- live sidecar fixture provenance for any opt-in scenarios already captured
+
+If later automation wants to compare dependency upgrades, it should compare the
+JSON report artifacts across runs rather than infer state from raw console
+output.
 
 ## Fixture Extension Model
 
@@ -139,6 +176,10 @@ The sidecar exists so future upgrade flows can answer three concrete questions:
 
 Machine-specific paths and secrets should be removed during sanitization, but
 replay-relevant structure must remain intact.
+
+The deterministic audit report reads these sidecars as metadata, even when live
+tests are not executed, so upgrade-readiness provenance stays visible in the
+default harness output.
 
 ## Live Refresh Contract
 
