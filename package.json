@@ -34,6 +34,9 @@
     "access": "public"
   },
   "scripts": {
+    "audit:ingest": "bun run ./scripts/ingest-audit/run-audit.ts",
+    "audit:ingest:live:claude": "CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/claude-live-parity.test.ts",
+    "audit:ingest:live:codex": "CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/codex-live-parity.test.ts",
     "lint": "biome lint .",
     "test": "bun test",
     "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov",
