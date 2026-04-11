@@ -374,6 +374,33 @@ test("refresh manifest rejects supersession fan-out branches", () => {
   expect(normalizeRefreshManifest(manifest)).toBeNull();
 });
 
+test("refresh manifest rejects external supersession fan-out branches", () => {
+  const manifest = [
+    createManifestRecord({
+      fixturePath: "test/fixtures/codex/live-transcript-excerpt.b.jsonl",
+      supersedesFixturePath: "test/fixtures/codex/external-a.jsonl",
+      artifactVersion: "artifact-b",
+      capturedAt: "2026-04-10T16:10:41.718Z",
+      providerVersion: "Codex Desktop 0.103.1",
+      sanitizerVersion: "bel-633-manual-v1",
+      sanitizedBy: "Codex BEL-633",
+      provenanceHistory: [createProvenanceEntry({ artifactVersion: "artifact-a" })],
+    }),
+    createManifestRecord({
+      fixturePath: "test/fixtures/codex/live-transcript-excerpt.c.jsonl",
+      supersedesFixturePath: "test/fixtures/codex/external-a.jsonl",
+      artifactVersion: "artifact-c",
+      capturedAt: "2026-04-10T17:10:41.718Z",
+      providerVersion: "Codex Desktop 0.103.2",
+      sanitizerVersion: "bel-633-manual-v2",
+      sanitizedBy: "Codex BEL-633",
+      provenanceHistory: [createProvenanceEntry({ artifactVersion: "artifact-a" })],
+    }),
+  ];
+
+  expect(normalizeRefreshManifest(manifest)).toBeNull();
+});
+
 test("refresh manifest rejects parallel root records for the same lineage", () => {
   const manifest = [
     createManifestRecord({

@@ -117,15 +117,17 @@ function hasConsistentSupersessionGraph(
   }
 
   for (const record of manifest) {
+    if (record.supersedesFixturePath !== null) {
+      if (supersessionTargets.has(record.supersedesFixturePath)) {
+        return false;
+      }
+
+      supersessionTargets.add(record.supersedesFixturePath);
+    }
+
     if (!hasInManifestPredecessor(record, recordsByPath)) {
       continue;
     }
-
-    if (supersessionTargets.has(record.supersedesFixturePath)) {
-      return false;
-    }
-
-    supersessionTargets.add(record.supersedesFixturePath);
 
     const priorRecord = recordsByPath.get(record.supersedesFixturePath);
 
