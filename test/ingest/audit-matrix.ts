@@ -427,7 +427,7 @@ export const INGEST_AUDIT_SCENARIOS = [
     title: "Sanitized live Claude artifacts replay through the same audit matrix",
     sourceFamilies: ["claude-transcript", "claude-snapshot-task"],
     probeKind: "live-capture",
-    baselineStatus: "planned",
+    baselineStatus: "partial",
     refreshContract: INGEST_LIVE_FIXTURE_REFRESH_CONTRACT,
     dimensions: [
       "parser-acceptance",
@@ -440,9 +440,9 @@ export const INGEST_AUDIT_SCENARIOS = [
       "fixture sidecars record provider and artifact provenance needed for upgrade comparisons",
       "unsupported-but-observed shapes are documented explicitly instead of being silently ignored",
     ],
-    existingCoverage: [],
+    existingCoverage: ["test/ingest/claude-live-parity.test.ts"],
     notes:
-      "BEL-633 supplies the capture and sanitization workflow; BEL-631 adds the Claude-specific parity assertions.",
+      "BEL-633 supplies the capture and sanitization workflow; BEL-631 seeds the first transcript parity probe, while snapshot-task live parity remains open.",
   },
   {
     id: "live-codex-replay-parity",
