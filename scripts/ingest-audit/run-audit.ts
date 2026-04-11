@@ -25,7 +25,7 @@ const junitPath = resolve(outputDir, "deterministic.junit.xml");
 const jsonPath = resolve(outputDir, options.jsonOut ?? "report.json");
 const textPath = resolve(outputDir, options.textOut ?? "report.txt");
 
-prepareAuditOutputDir(outputDir, coverageDir);
+prepareAuditOutputDir(repoRoot, outputDir, coverageDir);
 
 const packageJson = await Bun.file(resolve(repoRoot, "package.json")).json();
 const generatedAt = new Date().toISOString();

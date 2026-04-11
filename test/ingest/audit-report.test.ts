@@ -125,8 +125,10 @@ test("scenario summaries reject live sidecars with provider or source-family dri
 
 test("prepareAuditOutputDir removes stale audit artifacts before a new run", () => {
   const outputDir = join(
-    tmpdir(),
-    `claudex-ingest-audit-output-${crypto.randomUUID()}`,
+    REPO_ROOT,
+    ".worktrees",
+    "tmp-audit-output-tests",
+    crypto.randomUUID(),
   );
   const coverageDir = join(outputDir, "coverage");
   const staleJunitPath = join(outputDir, "deterministic.junit.xml");
@@ -136,7 +138,7 @@ test("prepareAuditOutputDir removes stale audit artifacts before a new run", () 
   writeFileSync(staleJunitPath, "stale junit");
   writeFileSync(staleCoveragePath, "stale coverage");
 
-  prepareAuditOutputDir(outputDir, coverageDir);
+  prepareAuditOutputDir(REPO_ROOT, outputDir, coverageDir);
 
   expect(existsSync(outputDir)).toBeTrue();
   expect(existsSync(coverageDir)).toBeTrue();
@@ -144,6 +146,30 @@ test("prepareAuditOutputDir removes stale audit artifacts before a new run", () 
   expect(existsSync(staleCoveragePath)).toBeFalse();
 
   rmSync(outputDir, { force: true, recursive: true });
+});
+
+test("prepareAuditOutputDir rejects repo root and parent directories", () => {
+  const parentDir = join(REPO_ROOT, "..");
+  const coverageDir = join(REPO_ROOT, "coverage");
+
+  expect(() =>
+    prepareAuditOutputDir(REPO_ROOT, REPO_ROOT, coverageDir),
+  ).toThrow("safe repo descendant");
+  expect(() =>
+    prepareAuditOutputDir(REPO_ROOT, parentDir, join(parentDir, "coverage")),
+  ).toThrow("safe repo descendant");
+});
+
+test("prepareAuditOutputDir rejects filesystem root", () => {
+  const filesystemRoot = process.platform === "win32" ? "C:\\" : "/";
+
+  expect(() =>
+    prepareAuditOutputDir(
+      REPO_ROOT,
+      filesystemRoot,
+      join(filesystemRoot, "coverage"),
+    ),
+  ).toThrow("filesystem root");
 });
 
 test("coverage parser aggregates lcov totals", async () => {
