@@ -100,7 +100,6 @@ function hasConsistentSupersessionGraph(
 ): boolean {
   const recordsByPath = new Map<string, LiveFixtureRefreshManifestRecord>();
   const supersessionTargets = new Set<string>();
-  const rootLineages = new Set<string>();
 
   for (const record of manifest) {
     if (
@@ -113,15 +112,12 @@ function hasConsistentSupersessionGraph(
     recordsByPath.set(record.fixturePath, record);
   }
 
+  if (!hasUniqueLineageHeads(manifest, recordsByPath)) {
+    return false;
+  }
+
   for (const record of manifest) {
-    if (record.supersedesFixturePath === null) {
-      const rootLineageKey = createLineageKey(record);
-
-      if (rootLineages.has(rootLineageKey)) {
-        return false;
-      }
-
-      rootLineages.add(rootLineageKey);
+    if (!hasInManifestPredecessor(record, recordsByPath)) {
       continue;
     }
 
@@ -175,6 +171,39 @@ function hasSupersessionCycle(
   }
 
   return false;
+}
+
+function hasUniqueLineageHeads(
+  manifest: readonly LiveFixtureRefreshManifestRecord[],
+  recordsByPath: ReadonlyMap<string, LiveFixtureRefreshManifestRecord>,
+): boolean {
+  const lineageHeads = new Set<string>();
+
+  for (const record of manifest) {
+    if (hasInManifestPredecessor(record, recordsByPath)) {
+      continue;
+    }
+
+    const rootLineageKey = createLineageKey(record);
+
+    if (lineageHeads.has(rootLineageKey)) {
+      return false;
+    }
+
+    lineageHeads.add(rootLineageKey);
+  }
+
+  return true;
+}
+
+function hasInManifestPredecessor(
+  record: LiveFixtureRefreshManifestRecord,
+  recordsByPath: ReadonlyMap<string, LiveFixtureRefreshManifestRecord>,
+): record is LiveFixtureRefreshManifestRecord & { supersedesFixturePath: string } {
+  return (
+    record.supersedesFixturePath !== null &&
+    recordsByPath.has(record.supersedesFixturePath)
+  );
 }
 
 function detectCycle(

@@ -393,6 +393,33 @@ test("refresh manifest rejects parallel root records for the same lineage", () =
   expect(normalizeRefreshManifest(manifest)).toBeNull();
 });
 
+test("refresh manifest rejects duplicate lineage heads with external supersedes", () => {
+  const manifest = [
+    createManifestRecord({
+      fixturePath: "test/fixtures/codex/live-transcript-excerpt.b.jsonl",
+      supersedesFixturePath: "test/fixtures/codex/external-a.jsonl",
+      artifactVersion: "artifact-b",
+      capturedAt: "2026-04-10T16:10:41.718Z",
+      providerVersion: "Codex Desktop 0.103.1",
+      sanitizerVersion: "bel-633-manual-v1",
+      sanitizedBy: "Codex BEL-633",
+      provenanceHistory: [createProvenanceEntry({ artifactVersion: "artifact-a" })],
+    }),
+    createManifestRecord({
+      fixturePath: "test/fixtures/codex/live-transcript-excerpt.c.jsonl",
+      supersedesFixturePath: "test/fixtures/codex/external-z.jsonl",
+      artifactVersion: "artifact-c",
+      capturedAt: "2026-04-10T17:10:41.718Z",
+      providerVersion: "Codex Desktop 0.103.2",
+      sanitizerVersion: "bel-633-manual-v2",
+      sanitizedBy: "Codex BEL-633",
+      provenanceHistory: [createProvenanceEntry({ artifactVersion: "artifact-z" })],
+    }),
+  ];
+
+  expect(normalizeRefreshManifest(manifest)).toBeNull();
+});
+
 test("refresh manifest rejects truncated prior provenance chains", () => {
   const manifest = [
     createManifestRecord({
