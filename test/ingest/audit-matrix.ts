@@ -427,7 +427,7 @@ export const INGEST_AUDIT_SCENARIOS = [
     title: "Sanitized live Claude artifacts replay through the same audit matrix",
     sourceFamilies: ["claude-transcript", "claude-snapshot-task"],
     probeKind: "live-capture",
-    baselineStatus: "partial",
+    baselineStatus: "covered",
     refreshContract: INGEST_LIVE_FIXTURE_REFRESH_CONTRACT,
     dimensions: [
       "parser-acceptance",
@@ -436,20 +436,20 @@ export const INGEST_AUDIT_SCENARIOS = [
       "warning-propagation",
     ],
     invariants: [
-      "sanitized live artifacts retain enough structure to replay through the deterministic harness",
+      "sanitized live transcript and snapshot artifacts retain enough structure to replay through the deterministic harness",
       "fixture sidecars record provider and artifact provenance needed for upgrade comparisons",
       "unsupported-but-observed shapes are documented explicitly instead of being silently ignored",
     ],
     existingCoverage: ["test/ingest/claude-live-parity.test.ts"],
     notes:
-      "BEL-633 supplies the capture and sanitization workflow; BEL-631 seeds the first transcript parity probe, while snapshot-task live parity remains open.",
+      "BEL-631 seeded transcript parity; the current matrix now includes manifest-backed Claude transcript and snapshot live parity fixtures.",
   },
   {
     id: "live-codex-replay-parity",
     title: "Sanitized live Codex artifacts replay through the same audit matrix",
     sourceFamilies: ["codex-transcript", "codex-session-index"],
     probeKind: "live-capture",
-    baselineStatus: "partial",
+    baselineStatus: "covered",
     refreshContract: INGEST_LIVE_FIXTURE_REFRESH_CONTRACT,
     dimensions: [
       "parser-acceptance",
@@ -458,12 +458,12 @@ export const INGEST_AUDIT_SCENARIOS = [
       "warning-propagation",
     ],
     invariants: [
-      "live transcript and bootstrap artifacts map back to stable scenario identifiers",
+      "live transcript and session-index artifacts map back to stable scenario identifiers",
       "provenance sidecars make dependency-version diffs possible without guessing capture history",
       "new Codex artifact variants are introduced as new matrix rows or fixture revisions instead of ad hoc test rewrites",
     ],
     existingCoverage: ["test/ingest/codex-live-parity.test.ts"],
     notes:
-      "BEL-632 seeds the first sanitized live transcript replay behind CLAUDEX_AUDIT_LIVE=1; BEL-633 should add refresh tooling and session-index live parity.",
+      "BEL-632 seeded transcript parity; the current matrix now includes manifest-backed Codex transcript and session-index live parity fixtures.",
   },
 ] as const satisfies readonly IngestAuditScenario[];

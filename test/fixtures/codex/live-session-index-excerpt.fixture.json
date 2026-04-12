@@ -1,0 +1,45 @@
+{
+  "scenarioId": "live-codex-replay-parity",
+  "provider": "codex",
+  "sourceFamilies": [
+    "codex-session-index"
+  ],
+  "capturedAt": "2026-04-11T12:51:00.000Z",
+  "captureKind": "sanitized-live-session-index-excerpt",
+  "artifactVersion": "codex-live-2026-04-11-session-index-excerpt#sanitized",
+  "providerVersion": "Codex Desktop 0.103.0",
+  "sdkVersion": "not-recorded",
+  "sanitizerVersion": "drift-proof-foundation-manual-v1",
+  "sanitizedBy": "Codex drift-proof-foundation",
+  "expected": {
+    "events": {
+      "eventTypes": [],
+      "completeness": []
+    },
+    "sessions": [
+      {
+        "reason": "index",
+        "completeness": "best-effort",
+        "sessionId": "thread-bootstrap-1",
+        "state": "provisional",
+        "metadata": {
+          "threadName": "Bootstrap parser coverage",
+          "updatedAt": "2026-03-13T18:22:00.000000Z"
+        }
+      },
+      {
+        "reason": "index",
+        "completeness": "best-effort",
+        "sessionId": "thread-bootstrap-2",
+        "state": "provisional",
+        "metadata": {
+          "threadName": "Refine observed session identity",
+          "updatedAt": "2026-03-13T19:04:11.245000Z"
+        }
+      }
+    ],
+    "warnings": {
+      "codes": []
+    }
+  }
+}

@@ -12,17 +12,51 @@
   "sanitizerVersion": "bel-632-manual-v1",
   "sanitizedBy": "Codex BEL-632",
   "expected": {
-    "eventTypes": [
-      "session.started",
-      "turn.started",
-      "reasoning.summary",
-      "tool.started",
-      "tool.completed",
-      "message.completed",
-      "turn.completed"
+    "events": {
+      "eventTypes": [
+        "session.started",
+        "turn.started",
+        "reasoning.summary",
+        "tool.started",
+        "tool.completed",
+        "message.completed",
+        "turn.completed"
+      ],
+      "completeness": [
+        "complete",
+        "complete",
+        "complete",
+        "complete",
+        "complete",
+        "complete",
+        "complete"
+      ],
+      "observedSession": {
+        "sessionId": "live-codex-bel-632",
+        "state": "canonical"
+      }
+    },
+    "sessions": [
+      {
+        "reason": "transcript",
+        "completeness": "complete",
+        "sessionId": "live-codex-bel-632",
+        "state": "canonical"
+      }
     ],
-    "warningCodes": [],
-    "sessionId": "live-codex-bel-632",
-    "resultText": "<sanitized assistant reply>"
+    "warnings": {
+      "codes": []
+    },
+    "terminalResult": {
+      "text": "<sanitized assistant reply>",
+      "stopReason": "completed",
+      "usage": {
+        "tokens": {
+          "input": 14944,
+          "output": 42,
+          "cachedInput": 14720
+        }
+      }
+    }
   }
 }
