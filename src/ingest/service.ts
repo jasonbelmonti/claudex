@@ -43,8 +43,15 @@ export type SessionIngestServiceOptions = {
 export interface SessionIngestService {
   readonly roots: DiscoveryRootConfig[];
 
+  /**
+   * Performs an initial scan across all active roots, then starts watch processing
+   * only for roots configured with `watch: true`.
+   */
   start(): Promise<void>;
+  /** Stops active watch processing and emits watch shutdown events for watched roots. */
   stop(): Promise<void>;
+  /** Performs an immediate full scan across all active roots. */
   scanNow(): Promise<void>;
+  /** Reconciles current filesystem state across all active roots. */
   reconcileNow(): Promise<void>;
 }
