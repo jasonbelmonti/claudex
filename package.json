@@ -44,7 +44,7 @@
     "typecheck": "tsc --noEmit",
     "check": "bun run lint && bun run typecheck && bun run test",
     "ci": "bun run lint && bun run typecheck && bun run test:coverage",
-    "package:check": "npm pack --dry-run"
+    "package:check": "npm pack --dry-run && bun test ./test/package/root-import-typecheck.test.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",

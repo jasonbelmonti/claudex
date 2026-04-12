@@ -1,13 +1,15 @@
 import type { ProviderCapabilities } from "../../core/capabilities";
 import type { AgentProviderAdapter, ProviderId } from "../../core/provider";
-import type { ClaudeAdapterOptions } from "../claude/types";
-import type { CodexAdapterOptions } from "../codex/types";
+
+// Keep nested provider configuration opaque on the root surface so strict
+// consumers can import ClaudexAdapter without inheriting provider SDK types.
+export type ClaudexNestedProviderOptions = Readonly<Record<string, unknown>>;
 
 export type ClaudexAdapterOptions = {
   preferredProviders?: readonly ProviderId[];
   providers?: Partial<Record<ProviderId, AgentProviderAdapter>>;
-  claude?: ClaudeAdapterOptions;
-  codex?: CodexAdapterOptions;
+  claude?: ClaudexNestedProviderOptions;
+  codex?: ClaudexNestedProviderOptions;
 };
 
 export type ClaudexAdapterMetadata = {
