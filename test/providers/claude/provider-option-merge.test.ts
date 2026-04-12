@@ -168,3 +168,33 @@ test("mergeClaudeProviderOptions treats __proto__ as data instead of mutating pr
   });
   expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
 });
+
+test("mergeClaudeProviderOptions rewires base-only self references to the merged record", () => {
+  const basePluginConfig: Record<string, unknown> = {
+    alpha: true,
+  };
+  basePluginConfig.self = basePluginConfig;
+
+  const merged = mergeClaudeProviderOptions(
+    {
+      claude: {
+        pluginConfig: basePluginConfig,
+      },
+    },
+    {
+      claude: {
+        pluginConfig: {
+          beta: true,
+        },
+      },
+    },
+  );
+
+  const pluginConfig = (merged?.claude as Record<string, unknown>)
+    .pluginConfig as Record<string, unknown>;
+
+  expect(pluginConfig.alpha).toBe(true);
+  expect(pluginConfig.beta).toBe(true);
+  expect(pluginConfig.self).toBe(pluginConfig);
+  expect(pluginConfig.self).not.toBe(basePluginConfig);
+});
