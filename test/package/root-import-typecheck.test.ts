@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -9,6 +10,8 @@ const repoRoot = resolve(
   "..",
   "..",
 );
+const repoInstallRoot = resolveRepoInstallRoot();
+const tscPath = join(repoInstallRoot, "node_modules", ".bin", "tsc");
 const workspaces: string[] = [];
 
 afterEach(async () => {
@@ -86,10 +89,34 @@ test("packed root package passes strict consumer type-checking", async () => {
   });
 
   runCommand({
-    cmd: ["bun", "x", "--bun", "tsc", "--project", join(consumerDir, "tsconfig.json")],
+    cmd: [tscPath, "--project", join(consumerDir, "tsconfig.json")],
     cwd: consumerDir,
   });
 });
+
+function resolveRepoInstallRoot(): string {
+  const result = Bun.spawnSync({
+    cmd: ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+    cwd: repoRoot,
+    stdout: "pipe",
+    stderr: "pipe",
+    env: Bun.env,
+  });
+
+  const gitCommonDir = result.stdout.toString().trim();
+  const installRoot =
+    result.exitCode === 0 && gitCommonDir
+      ? dirname(gitCommonDir)
+      : repoRoot;
+
+  if (!existsSync(join(installRoot, "node_modules", ".bin", "tsc"))) {
+    throw new Error(
+      `Expected a repo-pinned TypeScript CLI at ${join(installRoot, "node_modules", ".bin", "tsc")}. Run bun install before package smoke tests.`,
+    );
+  }
+
+  return installRoot;
+}
 
 function runCommand(input: {
   cmd: string[];
