@@ -327,6 +327,75 @@ test("fork() preserves inherited nested Claude provider options", async () => {
   ]);
 });
 
+test("fork() preserves sibling nested Claude provider namespaces in base session options", async () => {
+  const factory = new FakeClaudeQueryFactory([
+    new FakeClaudeQuery([
+      createInitMessage("claude-session-namespace-1"),
+      createAssistantMessage("claude-session-namespace-1", "Original"),
+      createSuccessResultMessage("claude-session-namespace-1", "Original"),
+    ]),
+  ]);
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+  });
+  const session = await adapter.createSession({
+    providerOptions: {
+      claude: {
+        pluginConfig: {
+          alpha: true,
+          nested: {
+            a: 1,
+            list: ["base"],
+          },
+        },
+        mcp: {
+          enabled: true,
+        },
+      },
+    },
+  });
+
+  await session.run({
+    prompt: "Original turn",
+  });
+
+  const forkedSession = await session.fork?.({
+    providerOptions: {
+      claude: {
+        pluginConfig: {
+          beta: true,
+          nested: {
+            b: 2,
+            list: ["override"],
+          },
+        },
+        mcp: {
+          server: "local",
+        },
+      },
+    },
+  });
+
+  expect(forkedSession).toBeDefined();
+  expect(getBaseProviderOptions(forkedSession)).toEqual({
+    claude: {
+      pluginConfig: {
+        alpha: true,
+        beta: true,
+        nested: {
+          a: 1,
+          b: 2,
+          list: ["override"],
+        },
+      },
+      mcp: {
+        enabled: true,
+        server: "local",
+      },
+    },
+  });
+});
+
 test("fork() preserves adapter sdkOptions defaults", async () => {
   const factory = new FakeClaudeQueryFactory([
     new FakeClaudeQuery([
@@ -1364,4 +1433,18 @@ function createNonTextStreamEvent(sessionId: string): SDKMessage {
       },
     },
   } as SDKMessage;
+}
+
+function getBaseProviderOptions(
+  session: unknown,
+): Record<string, unknown> | undefined {
+  return (
+    session as {
+      state: {
+        baseSessionOptions: {
+          providerOptions?: Record<string, unknown>;
+        };
+      };
+    }
+  ).state.baseSessionOptions.providerOptions;
 }

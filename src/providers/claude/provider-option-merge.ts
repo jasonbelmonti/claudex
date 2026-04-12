@@ -6,9 +6,9 @@ export function mergeClaudeProviderOptions(
     return undefined;
   }
 
-  const baseClaude = asRecord(base?.claude);
-  const overrideClaude = asRecord(override?.claude);
-  const mergedClaude = mergeClaudeNamespace(baseClaude, overrideClaude);
+  const baseClaude = asPlainRecord(base?.claude);
+  const overrideClaude = asPlainRecord(override?.claude);
+  const mergedClaude = mergePlainRecords(baseClaude, overrideClaude);
 
   return {
     ...(base ?? {}),
@@ -17,33 +17,36 @@ export function mergeClaudeProviderOptions(
   };
 }
 
-function mergeClaudeNamespace(
+function mergePlainRecords(
   base?: Record<string, unknown>,
   override?: Record<string, unknown>,
 ): Record<string, unknown> | undefined {
-  if (!base && !override) {
-    return undefined;
+  if (!base) {
+    return override ? { ...override } : undefined;
   }
 
-  const baseOptions = asRecord(base?.options);
-  const overrideOptions = asRecord(override?.options);
-  const mergedOptions =
-    baseOptions || overrideOptions
-      ? {
-          ...(baseOptions ?? {}),
-          ...(overrideOptions ?? {}),
-        }
-      : undefined;
+  if (!override) {
+    return { ...base };
+  }
 
-  return {
-    ...(base ?? {}),
-    ...(override ?? {}),
-    ...(mergedOptions ? { options: mergedOptions } : {}),
-  };
+  const merged: Record<string, unknown> = { ...base };
+
+  for (const [key, overrideValue] of Object.entries(override)) {
+    const baseRecord = asPlainRecord(base[key]);
+    const overrideRecord = asPlainRecord(overrideValue);
+
+    if (baseRecord && overrideRecord) {
+      merged[key] = mergePlainRecords(baseRecord, overrideRecord);
+    } else {
+      merged[key] = overrideValue;
+    }
+  }
+
+  return merged;
 }
 
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === "object" && value !== null
+function asPlainRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : undefined;
 }
