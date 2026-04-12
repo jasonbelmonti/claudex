@@ -202,6 +202,8 @@ const service = createSessionIngestService({
 await service.scanNow();
 ```
 
+`service.start()` uses the same root coverage for startup: it performs an initial scan across all active roots, then creates watch processing only for roots configured with `watch: true`.
+
 Treat ingest output as best-effort observation:
 
 - `completeness` may be `partial` or `best-effort` when files are malformed, truncated, or only partially observable

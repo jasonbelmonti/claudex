@@ -106,6 +106,105 @@ test("start watches file changes and stop prevents further watch processing", as
   );
 });
 
+test("start scans non-watch roots before starting watchers for watched roots", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude-watch/live.jsonl": "one\n",
+    "claude-cold/snapshot.jsonl": "cold\n",
+  });
+  workspaces.push(workspace);
+
+  const watchRoot = {
+    provider: "claude" as const,
+    path: join(workspace, "claude-watch"),
+    watch: true,
+    metadata: { lane: "watch" },
+  };
+  const coldRoot = {
+    provider: "claude" as const,
+    path: join(workspace, "claude-cold"),
+    watch: false,
+    metadata: { lane: "cold" },
+  };
+  const watchFilePath = join(watchRoot.path, "live.jsonl");
+  const coldFilePath = join(coldRoot.path, "snapshot.jsonl");
+  const initialScanFiles: string[] = [];
+  const watchFiles: string[] = [];
+  const discoveryEvents: DiscoveryEvent[] = [];
+
+  const service = createSessionIngestService({
+    roots: [watchRoot, coldRoot],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        recordFactory(context) {
+          if (context.discoveryPhase === "watch") {
+            watchFiles.push(context.filePath);
+          } else {
+            initialScanFiles.push(context.filePath);
+          }
+
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: `session:${context.root.metadata?.lane}:${context.filePath}`,
+              discoveryPhase: context.discoveryPhase,
+              cursor: {
+                provider: "claude",
+                rootPath: context.root.path,
+                filePath: context.filePath,
+                byteOffset: Number(Bun.file(context.filePath).size),
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    watchIntervalMs: 25,
+    onDiscoveryEvent(event) {
+      discoveryEvents.push(event);
+    },
+  });
+
+  await service.start();
+
+  await waitForCondition(() =>
+    discoveryEvents.some((event) => event.type === "watch.started"),
+  );
+
+  expect(initialScanFiles).toEqual([watchFilePath, coldFilePath]);
+  expect(
+    discoveryEvents.map((event) => `${event.type}:${event.filePath ?? event.rootPath}`),
+  ).toEqual([
+    `scan.started:${watchRoot.path}`,
+    `file.discovered:${watchFilePath}`,
+    `scan.completed:${watchRoot.path}`,
+    `scan.started:${coldRoot.path}`,
+    `file.discovered:${coldFilePath}`,
+    `scan.completed:${coldRoot.path}`,
+    `watch.started:${watchRoot.path}`,
+  ]);
+
+  await Bun.write(watchFilePath, "one\ntwo\n");
+  await Bun.write(coldFilePath, "cold\nstill-cold\n");
+
+  await waitForCondition(() =>
+    watchFiles.includes(watchFilePath),
+  );
+
+  expect(watchFiles).not.toContain(coldFilePath);
+  expect(
+    discoveryEvents.some(
+      (event) => event.type === "file.changed" && event.rootPath === coldRoot.path,
+    ),
+  ).toBe(false);
+
+  await service.stop();
+});
+
 test("start resets lifecycle state after initial scan failures and can be retried", async () => {
   const workspace = await createFixtureWorkspace({
     "claude/start-failure.jsonl": "one\n",

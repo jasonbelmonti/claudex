@@ -53,45 +53,26 @@ class DefaultSessionIngestService implements SessionIngestService {
       let startupWatchLoop: IngestWatchLoop | null = null;
       const startedWatchRoots: DiscoveryRootConfig[] = [];
       this.startToken = startToken;
-      const watchRoots = this.activeRoots.filter((root) => root.watch);
+      const watchRoots = this.getWatchRoots();
 
       try {
         await this.emitSkippedRoots();
+        await this.scanRoots(this.activeRoots, "initial_scan");
 
         if (watchRoots.length > 0) {
-          await this.scanRoots(watchRoots, "initial_scan");
-
           if (this.startToken !== startToken) {
             return;
           }
 
-          for (const root of watchRoots) {
-            startedWatchRoots.push(root);
-            await this.emitDiscoveryEvent({
-              type: "watch.started",
-              provider: root.provider,
-              rootPath: root.path,
-              discoveryPhase: "watch",
-            });
-          }
+          await this.emitWatchStarted(watchRoots, startedWatchRoots);
 
           if (this.startToken !== startToken) {
-            await this.emitStartupWatchStopped(startedWatchRoots);
+            await this.emitWatchStopped(startedWatchRoots);
             startedWatchRoots.length = 0;
             return;
           }
 
-          startupWatchLoop = createIngestWatchLoop({
-            intervalMs: this.options.watchIntervalMs ?? DEFAULT_WATCH_INTERVAL_MS,
-            onTick: async () => {
-              await this.runSerialized(async () => {
-                await this.reconcileRoots(watchRoots, "watch");
-              });
-            },
-            onTickError: async (error) => {
-              await this.handleWatchTickFailure(watchRoots, startupWatchLoop, error);
-            },
-          });
+          startupWatchLoop = this.createWatchLoop(watchRoots, () => startupWatchLoop);
 
           this.watchLoop = startupWatchLoop;
         }
@@ -107,7 +88,7 @@ class DefaultSessionIngestService implements SessionIngestService {
         }
 
         if (startedWatchRoots.length > 0) {
-          await this.emitStartupWatchStopped(startedWatchRoots);
+          await this.emitWatchStopped(startedWatchRoots);
           startedWatchRoots.length = 0;
         }
 
@@ -142,16 +123,7 @@ class DefaultSessionIngestService implements SessionIngestService {
         return;
       }
 
-      const watchRoots = this.activeRoots.filter((root) => root.watch);
-
-      for (const root of watchRoots) {
-        await this.emitDiscoveryEvent({
-          type: "watch.stopped",
-          provider: root.provider,
-          rootPath: root.path,
-          discoveryPhase: "watch",
-        });
-      }
+      await this.emitWatchStopped(this.getWatchRoots());
     });
   }
 
@@ -381,6 +353,42 @@ class DefaultSessionIngestService implements SessionIngestService {
     }
   }
 
+  private getWatchRoots(): DiscoveryRootConfig[] {
+    return this.activeRoots.filter((root) => root.watch);
+  }
+
+  private async emitWatchStarted(
+    roots: DiscoveryRootConfig[],
+    startedWatchRoots: DiscoveryRootConfig[],
+  ): Promise<void> {
+    for (const root of roots) {
+      startedWatchRoots.push(root);
+      await this.emitDiscoveryEvent({
+        type: "watch.started",
+        provider: root.provider,
+        rootPath: root.path,
+        discoveryPhase: "watch",
+      });
+    }
+  }
+
+  private createWatchLoop(
+    roots: DiscoveryRootConfig[],
+    getWatchLoop: () => IngestWatchLoop | null,
+  ): IngestWatchLoop {
+    return createIngestWatchLoop({
+      intervalMs: this.options.watchIntervalMs ?? DEFAULT_WATCH_INTERVAL_MS,
+      onTick: async () => {
+        await this.runSerialized(async () => {
+          await this.reconcileRoots(roots, "watch");
+        });
+      },
+      onTickError: async (error) => {
+        await this.handleWatchTickFailure(roots, getWatchLoop(), error);
+      },
+    });
+  }
+
   private async handleWatchTickFailure(
     roots: DiscoveryRootConfig[],
     watchLoop: IngestWatchLoop | null,
@@ -402,19 +410,14 @@ class DefaultSessionIngestService implements SessionIngestService {
         raw: error,
         cause: error,
       });
-
-      await this.emitDiscoveryEvent({
-        type: "watch.stopped",
-        provider: root.provider,
-        rootPath: root.path,
-        discoveryPhase: "watch",
-        raw: error,
-      });
     }
+
+    await this.emitWatchStopped(roots, error);
   }
 
-  private async emitStartupWatchStopped(
+  private async emitWatchStopped(
     roots: DiscoveryRootConfig[],
+    raw?: unknown,
   ): Promise<void> {
     for (const root of roots) {
       await this.emitDiscoveryEvent({
@@ -422,6 +425,7 @@ class DefaultSessionIngestService implements SessionIngestService {
         provider: root.provider,
         rootPath: root.path,
         discoveryPhase: "watch",
+        ...(raw === undefined ? {} : { raw }),
       });
     }
   }
