@@ -19,7 +19,10 @@ import {
   removeFixtureWorkspace,
 } from "./helpers";
 
-function createSelection(root: DiscoveryRootConfig): RegistrySelection {
+function createSelection(
+  root: DiscoveryRootConfig,
+  matchMetadata?: Record<string, unknown>,
+): RegistrySelection {
   const registry = createRegistry({
     provider: root.provider,
     matchExtension: ".jsonl",
@@ -44,9 +47,14 @@ function createSelection(root: DiscoveryRootConfig): RegistrySelection {
 
   return {
     registry,
-    match: {
-      kind: "transcript",
-    },
+    match: matchMetadata
+      ? {
+          kind: "transcript",
+          metadata: matchMetadata,
+        }
+      : {
+          kind: "transcript",
+        },
   };
 }
 
@@ -142,6 +150,78 @@ test("processMatchedFile persists zero-offset cursors for empty files", async ()
     });
     expect(confirmedPersistedCursor.fingerprint).toBeDefined();
     expect(confirmedPersistedCursor.continuityToken).toBeUndefined();
+  } finally {
+    await removeFixtureWorkspace(workspace);
+  }
+});
+
+test("processMatchedFile preserves root-only, match-only, and merged metadata in warnings", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/disappeared.jsonl": "gone soon\n",
+  });
+
+  try {
+    const cases = [
+      {
+        rootMetadata: { lane: "root-only" },
+        matchMetadata: undefined,
+        expectedMetadata: { lane: "root-only" },
+      },
+      {
+        rootMetadata: undefined,
+        matchMetadata: { artifact: "match-only" },
+        expectedMetadata: { artifact: "match-only" },
+      },
+      {
+        rootMetadata: { lane: "root", shared: "root" },
+        matchMetadata: { artifact: "match", shared: "match" },
+        expectedMetadata: {
+          lane: "root",
+          artifact: "match",
+          shared: "match",
+        },
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const root = {
+        provider: "claude" as const,
+        path: join(workspace, "claude"),
+        metadata: testCase.rootMetadata,
+      };
+      const filePath = join(root.path, "disappeared.jsonl");
+      const warnings: IngestWarning[] = [];
+      const selection = createSelection(root, testCase.matchMetadata);
+
+      await Bun.write(filePath, "gone soon\n");
+      await deleteFile(filePath);
+
+      await processMatchedFile({
+        root,
+        filePath,
+        selection,
+        discoveryPhase: "initial_scan",
+        discoveryEventType: "file.discovered",
+        serviceOptions: {
+          roots: [root],
+          registries: [selection.registry],
+          onWarning(warning) {
+            warnings.push(warning);
+          },
+        },
+      });
+
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toMatchObject({
+        code: "file-open-failed",
+        source: {
+          provider: "claude",
+          kind: "transcript",
+          filePath,
+          metadata: testCase.expectedMetadata,
+        },
+      });
+    }
   } finally {
     await removeFixtureWorkspace(workspace);
   }
