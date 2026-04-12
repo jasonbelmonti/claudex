@@ -9,7 +9,6 @@ const repoRoot = resolve(
   "..",
   "..",
 );
-const tscPath = join(repoRoot, "node_modules", ".bin", "tsc");
 const workspaces: string[] = [];
 
 afterEach(async () => {
@@ -87,7 +86,7 @@ test("packed root package passes strict consumer type-checking", async () => {
   });
 
   runCommand({
-    cmd: [tscPath, "--project", join(consumerDir, "tsconfig.json")],
+    cmd: ["bun", "x", "--bun", "tsc", "--project", join(consumerDir, "tsconfig.json")],
     cwd: consumerDir,
   });
 });
