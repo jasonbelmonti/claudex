@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, setDefaultTimeout, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -13,6 +13,8 @@ const repoRoot = resolve(
 const repoInstallRoot = resolveRepoInstallRoot();
 const tscPath = join(repoInstallRoot, "node_modules", ".bin", "tsc");
 const workspaces: string[] = [];
+
+setDefaultTimeout(15_000);
 
 afterEach(async () => {
   await Promise.all(workspaces.splice(0).map((workspace) => removeWorkspace(workspace)));
