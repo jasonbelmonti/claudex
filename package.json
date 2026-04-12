@@ -50,7 +50,7 @@
     "audit:ingest": "bun run ./scripts/ingest-audit/run-audit.ts",
     "audit:ingest:live:claude": "CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/claude-live-parity.test.ts",
     "audit:ingest:live:codex": "CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/codex-live-parity.test.ts",
-    "build:dist": "rm -rf dist && bun build ./src/index.ts ./src/ingest/index.ts --outdir ./dist --format esm --target node --packages external",
+    "build:dist": "rm -rf dist && bun build ./src/index.ts ./src/ingest/index.ts ./src/providers/claude/adapter.ts ./src/providers/codex/adapter.ts --outdir ./dist --format esm --target node --packages external --root ./src",
     "lint": "biome lint .",
     "prepack": "bun run build:dist",
     "test": "bun test",

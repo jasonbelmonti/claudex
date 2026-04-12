@@ -56,6 +56,26 @@ try {
     ["--input-type=module", "-e", "await import('@jasonbelmonti/claudex'); await import('@jasonbelmonti/claudex/ingest');"],
     consumerDir,
   );
+  smokeImport(
+    "node",
+    [
+      "--input-type=module",
+      "-e",
+      [
+        "globalThis.Bun ??= {",
+        "  which: () => null,",
+        "  file: () => ({ exists: async () => false }),",
+        "};",
+        `const { ClaudexAdapter } = await import(${JSON.stringify(packageJson.name)});`,
+        `await import(${JSON.stringify(`${packageJson.name}/ingest`)});`,
+        "const readiness = await new ClaudexAdapter({ preferredProviders: ['codex'] }).checkReadiness();",
+        "if (readiness.provider !== 'codex' || readiness.status !== 'missing_cli') {",
+        "  throw new Error(`Unexpected readiness result: ${JSON.stringify(readiness)}`);",
+        "}",
+      ].join("\n"),
+    ],
+    consumerDir,
+  );
 
   console.log(`Packed artifact smoke passed for ${packageJson.name}.`);
 } finally {
