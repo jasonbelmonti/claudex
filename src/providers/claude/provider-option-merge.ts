@@ -18,8 +18,8 @@ export function mergeClaudeProviderOptions(
 }
 
 function mergePlainRecords(
-  base?: Record<string, unknown>,
-  override?: Record<string, unknown>,
+  base: Record<string, unknown> | undefined,
+  override: Record<string, unknown> | undefined,
   state: MergeState,
 ): Record<string, unknown> | undefined {
   if (!base) {
@@ -53,8 +53,8 @@ function mergePlainRecords(
 
   try {
     for (const key of new Set([...Object.keys(base), ...Object.keys(override)])) {
-      const hasBase = Object.prototype.hasOwnProperty.call(base, key);
-      const hasOverride = Object.prototype.hasOwnProperty.call(override, key);
+      const hasBase = Object.hasOwn(base, key);
+      const hasOverride = Object.hasOwn(override, key);
 
       if (hasBase && hasOverride) {
         const baseValue = base[key];
