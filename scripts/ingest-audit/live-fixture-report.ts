@@ -39,7 +39,11 @@ export async function loadLiveFixtureSummariesByScenario(params: {
     params.repoRoot,
   );
   const sidecarPaths = await listLiveFixtureSidecars(params.repoRoot);
-  validateSidecarManifestCoverage(sidecarPaths, manifestRecords);
+  await validateSidecarManifestCoverage({
+    repoRoot: params.repoRoot,
+    sidecarPaths,
+    manifestRecords,
+  });
 
   const summaries = await Promise.all(
     manifestRecords.map((record) =>
@@ -203,23 +207,34 @@ async function listLiveFixtureSidecars(
   return sidecarPaths.sort();
 }
 
-function validateSidecarManifestCoverage(
-  sidecarPaths: readonly string[],
-  manifestRecords: readonly ManifestBackedLiveFixtureRecord[],
-): void {
+async function validateSidecarManifestCoverage(params: {
+  repoRoot: string;
+  sidecarPaths: readonly string[];
+  manifestRecords: readonly ManifestBackedLiveFixtureRecord[];
+}): Promise<void> {
   const declaredSidecars = new Set(
-    manifestRecords.map((record) => record.sidecarPath),
+    params.manifestRecords.map((record) => record.sidecarPath),
   );
+  const knownSidecars = new Set(params.sidecarPaths);
 
-  for (const record of manifestRecords) {
-    if (!sidecarPaths.includes(record.sidecarPath)) {
+  for (const record of params.manifestRecords) {
+    if (!knownSidecars.has(record.sidecarPath)) {
       throw new Error(
         `Refresh manifest ${record.manifestPath} references missing live fixture sidecar ${record.sidecarPath}.`,
       );
     }
+
+    const absoluteFixturePath = resolve(params.repoRoot, record.fixturePath);
+    const fixtureExists = await Bun.file(absoluteFixturePath).exists();
+
+    if (!fixtureExists) {
+      throw new Error(
+        `Refresh manifest ${record.manifestPath} references missing live fixture artifact ${record.fixturePath}.`,
+      );
+    }
   }
 
-  for (const sidecarPath of sidecarPaths) {
+  for (const sidecarPath of params.sidecarPaths) {
     if (!declaredSidecars.has(sidecarPath)) {
       throw new Error(
         `Live fixture sidecar ${sidecarPath} is not declared in any refresh manifest.`,

@@ -119,6 +119,11 @@ test("scenario summaries reject live sidecars with unknown audit scenario ids", 
   const repoRoot = createTempRepoRoot();
 
   try {
+    writeFixtureArtifact(
+      repoRoot,
+      "test/fixtures/codex/unknown-scenario.jsonl",
+      "{}\n",
+    );
     writeLiveFixtureSidecar(
       repoRoot,
       "test/fixtures/codex/unknown-scenario.fixture.json",
@@ -147,6 +152,11 @@ test("scenario summaries reject live sidecars with provider or source-family dri
   const repoRoot = createTempRepoRoot();
 
   try {
+    writeFixtureArtifact(
+      repoRoot,
+      "test/fixtures/codex/provider-drift.jsonl",
+      "{}\n",
+    );
     writeLiveFixtureSidecar(
       repoRoot,
       "test/fixtures/codex/provider-drift.fixture.json",
@@ -166,6 +176,33 @@ test("scenario summaries reject live sidecars with provider or source-family dri
 
     await expect(createScenarioSummaries(repoRoot)).rejects.toThrow(
       "declares provider",
+    );
+  } finally {
+    rmSync(repoRoot, { force: true, recursive: true });
+  }
+});
+
+test("scenario summaries reject manifest records whose fixture artifact is missing", async () => {
+  const repoRoot = createTempRepoRoot();
+
+  try {
+    writeLiveFixtureSidecar(
+      repoRoot,
+      "test/fixtures/codex/missing-artifact.fixture.json",
+      {
+        scenarioId: "live-codex-replay-parity",
+        provider: "codex",
+        sourceFamilies: ["codex-transcript"],
+      },
+    );
+    writeRefreshManifest(repoRoot, "test/fixtures/codex/refresh-manifest.json", [
+      createRefreshManifestRecord({
+        fixturePath: "test/fixtures/codex/missing-artifact.jsonl",
+      }),
+    ]);
+
+    await expect(createScenarioSummaries(repoRoot)).rejects.toThrow(
+      "references missing live fixture artifact",
     );
   } finally {
     rmSync(repoRoot, { force: true, recursive: true });
@@ -369,6 +406,15 @@ function writeLiveFixtureSidecar(
   };
 
   writeFileSync(filePath, JSON.stringify(sidecar, null, 2));
+}
+
+function writeFixtureArtifact(
+  repoRoot: string,
+  relativePath: string,
+  contents: string,
+): void {
+  const filePath = join(repoRoot, relativePath);
+  writeFileSync(filePath, contents);
 }
 
 function writeRefreshManifest(
