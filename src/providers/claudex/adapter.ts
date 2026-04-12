@@ -12,7 +12,10 @@ import type {
   SessionReference,
 } from "../../core/session";
 import { createNoRunnableProviderError } from "./errors";
-import { createProviderAdapters } from "./factory";
+import {
+  createProviderAdapterLoaders,
+  type ProviderAdapterLoader,
+} from "./factory";
 import {
   type ClaudexResolutionStrategy,
   extendReadinessWithResolution,
@@ -84,7 +87,10 @@ type PinnedResolutionMetadata = {
 export class ClaudexAdapter {
   readonly preferredProviders: readonly ProviderId[];
 
-  private readonly adapters: Record<ProviderId, AgentProviderAdapter>;
+  private readonly adapterLoaders: Record<ProviderId, ProviderAdapterLoader>;
+  private readonly adapterPromises: Partial<
+    Record<ProviderId, Promise<AgentProviderAdapter>>
+  > = {};
   private resolvedAdapter: AgentProviderAdapter | null = null;
   private pinnedResolution: PinnedResolutionMetadata | null = null;
 
@@ -92,7 +98,7 @@ export class ClaudexAdapter {
     this.preferredProviders = normalizePreferredProviders(
       options.preferredProviders,
     );
-    this.adapters = createProviderAdapters(options);
+    this.adapterLoaders = createProviderAdapterLoaders(options);
   }
 
   get provider(): ProviderId | null {
@@ -110,7 +116,7 @@ export class ClaudexAdapter {
     }
 
     const resolution = await probeProvidersInOrder({
-      adapters: this.adapters,
+      getAdapter: (provider) => this.getAdapter(provider),
       preferredProviders: this.preferredProviders,
     });
 
@@ -166,7 +172,7 @@ export class ClaudexAdapter {
       return this.resolvedAdapter.resumeSession(normalizedReference, options);
     }
 
-    const adapter = this.adapters[normalizedReference.provider];
+    const adapter = await this.getAdapter(normalizedReference.provider);
     this.pinAdapter(adapter, {
       probes: [],
       strategy: "pinned",
@@ -181,7 +187,7 @@ export class ClaudexAdapter {
     }
 
     const resolution = await probeProvidersInOrder({
-      adapters: this.adapters,
+      getAdapter: (provider) => this.getAdapter(provider),
       preferredProviders: this.preferredProviders,
     });
 
@@ -226,5 +232,21 @@ export class ClaudexAdapter {
   ): void {
     this.resolvedAdapter = adapter;
     this.pinnedResolution = resolution;
+  }
+
+  private getAdapter(provider: ProviderId): Promise<AgentProviderAdapter> {
+    const existingPromise = this.adapterPromises[provider];
+
+    if (existingPromise) {
+      return existingPromise;
+    }
+
+    const loadPromise = this.adapterLoaders[provider]().catch((error) => {
+      delete this.adapterPromises[provider];
+      throw error;
+    });
+
+    this.adapterPromises[provider] = loadPromise;
+    return loadPromise;
   }
 }

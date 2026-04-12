@@ -10,10 +10,8 @@ the first runnable provider in priority order:
 ```ts
 import {
   ClaudexAdapter,
-  ClaudeAdapter,
-  CodexAdapter,
   supportsCapability,
-} from "claudex";
+} from "@jasonbelmonti/claudex";
 
 const adapter = new ClaudexAdapter();
 ```
@@ -23,11 +21,8 @@ const adapter = new ClaudexAdapter();
 the selected provider after `checkReadiness()`, `createSession()`, or
 `resumeSession()`.
 
-Instantiate `ClaudeAdapter` or `CodexAdapter` directly when:
-
-- you already know the provider up front
-- you want provider-specific dependency injection or test doubles
-- you intentionally do not want default-provider resolution
+Use `preferredProviders` when you already know the order you want, and use the
+`providers` option when you need explicit adapter injection or test doubles.
 
 All adapters in v1 assume CLI-authenticated local environments. API-key and
 env-based auth are intentionally out of scope.

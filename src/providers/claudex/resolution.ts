@@ -15,19 +15,22 @@ export type ClaudexResolution = {
 };
 
 export async function probeProvidersInOrder(params: {
-  adapters: Record<ProviderId, AgentProviderAdapter>;
+  getAdapter: (provider: ProviderId) => Promise<AgentProviderAdapter>;
   preferredProviders: readonly ProviderId[];
 }): Promise<ClaudexResolution> {
   const probes: ProviderReadiness[] = [];
+  const adapters = new Map<ProviderId, AgentProviderAdapter>();
 
   for (const provider of params.preferredProviders) {
-    const readiness = await params.adapters[provider].checkReadiness();
+    const adapter = await params.getAdapter(provider);
+    adapters.set(provider, adapter);
+    const readiness = await adapter.checkReadiness();
     probes.push(readiness);
 
     if (readiness.status === "ready") {
       return {
         selected: readiness,
-        selectedAdapter: params.adapters[provider],
+        selectedAdapter: adapter,
         probes,
         resolution: "ready",
       };
@@ -39,7 +42,7 @@ export async function probeProvidersInOrder(params: {
   if (degraded) {
     return {
       selected: degraded,
-      selectedAdapter: params.adapters[degraded.provider],
+      selectedAdapter: adapters.get(degraded.provider)!,
       probes,
       resolution: "degraded",
     };
@@ -47,7 +50,7 @@ export async function probeProvidersInOrder(params: {
 
   return {
     selected: probes[0]!,
-    selectedAdapter: params.adapters[probes[0]!.provider],
+    selectedAdapter: adapters.get(probes[0]!.provider)!,
     probes,
     resolution: "fallback",
   };
