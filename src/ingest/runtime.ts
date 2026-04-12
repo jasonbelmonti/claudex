@@ -10,6 +10,7 @@ import {
 } from "./reconcile";
 import { getDiscoveryRootIdentityKey } from "./root-identity";
 import type { DiscoveryPhase } from "./source";
+import { buildObservedEventSource } from "./source-builder";
 import type { SessionIngestService, SessionIngestServiceOptions } from "./service";
 import type { IngestWarning } from "./warnings";
 import { createIngestWatchLoop, type IngestWatchLoop } from "./watch-loop";
@@ -341,14 +342,15 @@ class DefaultSessionIngestService implements SessionIngestService {
         message: "File disappeared or is no longer readable",
         provider: root.provider,
         filePath: file.filePath,
-        source: {
+        source: buildObservedEventSource({
           provider: root.provider,
           kind: file.selection.match.kind,
           discoveryPhase,
           rootPath: root.path,
           filePath: file.filePath,
-          metadata: file.selection.match.metadata,
-        },
+          rootMetadata: root.metadata,
+          matchMetadata: file.selection.match.metadata,
+        }),
       });
     }
   }

@@ -4,6 +4,7 @@ import type { IngestParseContext } from "../registry";
 import type { AgentEvent } from "../../core/events";
 import type { ObservedSessionIdentity, ObservedSessionIdentityState } from "../session-identity";
 import type { ObservedEventSource, ObservedEventSourceKind } from "../source";
+import { buildObservedEventSource } from "../source-builder";
 import type { ObservedAgentEvent, ObservedIngestRecord, ObservedSessionRecord, ObservedSessionReason } from "../events";
 import type { IngestWarning } from "../warnings";
 
@@ -30,23 +31,16 @@ export function createIngestSource(
     byteOffset?: number;
   },
 ): ObservedEventSource {
-  const source: ObservedEventSource = {
+  return buildObservedEventSource({
     provider: context.root.provider,
     kind: context.match.kind,
     discoveryPhase: context.discoveryPhase,
     rootPath: context.root.path,
     filePath: context.filePath,
-    metadata: context.root.metadata ?? context.match.metadata,
-  };
-
-  if (location?.line !== undefined || location?.byteOffset !== undefined) {
-    source.location = {
-      line: location.line,
-      byteOffset: location.byteOffset,
-    };
-  }
-
-  return source;
+    location,
+    rootMetadata: context.root.metadata,
+    matchMetadata: context.match.metadata,
+  });
 }
 
 export function createObservedSessionIdentity(

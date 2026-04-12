@@ -7,6 +7,7 @@ import { consumeParsedRecords } from "./record-consumption";
 import { dispatchObservedRecord } from "./record-dispatch";
 import type { RegistrySelection } from "./registry-selection";
 import type { DiscoveryPhase, ObservedEventSource } from "./source";
+import { buildObservedEventSource } from "./source-builder";
 import type { SessionIngestServiceOptions } from "./service";
 
 type ContinuityCheckpoint = {
@@ -23,14 +24,15 @@ export async function processMatchedFile(options: {
   serviceOptions: SessionIngestServiceOptions;
 }): Promise<void> {
   const { root, filePath, selection, discoveryPhase, discoveryEventType, serviceOptions } = options;
-  const source: ObservedEventSource = {
+  const source = buildObservedEventSource({
     provider: root.provider,
     kind: selection.match.kind,
     discoveryPhase,
     rootPath: root.path,
     filePath,
-    metadata: selection.match.metadata,
-  };
+    rootMetadata: root.metadata,
+    matchMetadata: selection.match.metadata,
+  });
 
   await serviceOptions.onDiscoveryEvent?.({
     type: discoveryEventType,
