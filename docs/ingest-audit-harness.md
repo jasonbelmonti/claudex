@@ -75,7 +75,7 @@ The initial rows are intentionally opinionated:
 - runtime and cursor behavior is already `covered` or `partial`
 - Claude replay is mostly `covered`
 - Codex branch-heavy normalization is `covered`
-- live replay parity is now `partial`
+- live replay parity is now `covered`, but still opt-in in the default run
 
 That gives later tickets a stable place to extend coverage without redefining
 scope every time dependencies move.
@@ -120,6 +120,8 @@ The report shape is designed to stay small and stable:
   unsupported-but-observed artifacts without treating them as silent noise
 - `findings.intentionallyUnasserted` keeps partial or opt-in rows visible
   instead of pretending the default harness covers more than it does
+- live scenarios now record `liveParityStatus`, current fixture heads, and any
+  superseded fixture revisions so dependency upgrades have explicit lineage
 - `coverage` records aggregate line and function percentages from the
   deterministic coverage run
 
@@ -146,8 +148,10 @@ When adding a new scenario or artifact variant:
 3. Add the fixture artifact under `test/fixtures/<provider>/`.
 4. If the fixture came from a live capture, add an adjacent sidecar ending in
    `.fixture.json`.
-5. Wire the scenario into the relevant test file.
-6. Re-run the baseline commands and update the recorded snapshot only when the
+5. Add or update the provider refresh manifest so the fixture becomes a
+   declared lineage head or superseded revision.
+6. Wire the scenario into the relevant test file.
+7. Re-run the baseline commands and update the recorded snapshot only when the
    new result is intentional.
 
 This is the key rule for harness evolution: new provider variants become new
@@ -184,8 +188,8 @@ default harness output.
 ## Live Refresh Contract
 
 BEL-633 defines the shared refresh contract for live fixtures. The eventual
-workflow may materialize this as a named refresh manifest or an equivalent
-declarative record, but the contract itself is stable:
+workflow is now represented as provider-local `refresh-manifest.json` files,
+and the contract itself is stable:
 
 - live refresh stays opt-in and never becomes a CI dependency
 - `scenarioId` stays stable across fixture revisions
@@ -195,6 +199,9 @@ declarative record, but the contract itself is stable:
   against the previous one without guessing
 - the refresh record must name which artifact is current and which artifact it
   supersedes
+- every checked-in live sidecar must be declared in a refresh manifest
+- the audit report treats refresh manifests as the authoritative source for
+  current heads and superseded revisions
 
 BEL-633 owns this shared capture and refresh mechanics. BEL-631 separately
 owns Claude-specific parity assertions, so this slice must not absorb the
@@ -205,9 +212,9 @@ provider-specific assertion work.
 This foundation is designed so the follow-on work is additive:
 
 - runtime fault and timeline expansion
-- Claude fixture completion and live parity
-- Codex branch-expansion and live parity
-- audit reporting and upgrade-readiness entrypoints
+- upgrade automation that diffs current lineage heads against refreshed captures
+- unsupported-but-observed triage when new provider artifact shapes appear
+- adjacent runtime hardening for low-coverage provider event and result branches
 
 If a later ticket needs to change the matrix itself, that should be a deliberate
 contract update rather than an incidental side effect.

@@ -1,0 +1,36 @@
+[
+  {
+    "scenarioId": "live-claude-replay-parity",
+    "provider": "claude",
+    "sourceFamilies": [
+      "claude-transcript"
+    ],
+    "captureKind": "sanitized-live-transcript-excerpt",
+    "fixturePath": "test/fixtures/claude/live-transcript-excerpt.jsonl",
+    "supersedesFixturePath": null,
+    "provenanceHistory": [],
+    "capturedAt": "2026-04-11T11:02:03.000Z",
+    "artifactVersion": "claude-live-2026-04-11-transcript-excerpt#sanitized",
+    "providerVersion": "Claude Code 1.0.0-sanitized",
+    "sdkVersion": "not-recorded",
+    "sanitizerVersion": "bel-631-manual-v1",
+    "sanitizedBy": "Codex BEL-631"
+  },
+  {
+    "scenarioId": "live-claude-replay-parity",
+    "provider": "claude",
+    "sourceFamilies": [
+      "claude-snapshot-task"
+    ],
+    "captureKind": "sanitized-live-snapshot-task-excerpt",
+    "fixturePath": "test/fixtures/claude/live-snapshot-task-excerpt.json",
+    "supersedesFixturePath": null,
+    "provenanceHistory": [],
+    "capturedAt": "2026-04-11T12:48:00.000Z",
+    "artifactVersion": "claude-live-2026-04-11-snapshot-task-excerpt#sanitized",
+    "providerVersion": "Claude Code 1.0.0-sanitized",
+    "sdkVersion": "not-recorded",
+    "sanitizerVersion": "drift-proof-foundation-manual-v1",
+    "sanitizedBy": "Codex drift-proof-foundation"
+  }
+]

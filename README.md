@@ -63,8 +63,9 @@ if (supportsCapability(session.capabilities, "session:fork") && session.fork) {
 }
 ```
 
-Use `ClaudeAdapter` or `CodexAdapter` directly when you already know the target
-provider or want explicit provider-specific wiring.
+The stable root entrypoint intentionally exposes the provider-agnostic surface.
+When you need explicit provider wiring or test doubles, pass adapters through
+`ClaudexAdapter`'s `providers` option.
 
 ## What The Contract Guarantees
 

@@ -1,8 +1,3 @@
-import { relative, resolve } from "node:path";
-
-import {
-  normalizeLiveFixtureSidecar,
-} from "./sidecar";
 import {
   INGEST_AUDIT_SCENARIOS,
   type IngestAuditBaselineStatus,
@@ -10,6 +5,10 @@ import {
   type IngestAuditScenario,
   type IngestAuditSourceFamily,
 } from "../../test/ingest/audit-matrix";
+import {
+  createScenarioLiveParitySummary,
+  loadLiveFixtureSummariesByScenario,
+} from "./live-fixture-report";
 
 export const INGEST_AUDIT_REPORT_SCHEMA_VERSION = "ingest-audit-report.v1";
 
@@ -41,6 +40,8 @@ export type IngestAuditCommandResult = {
 };
 
 export type IngestAuditLiveFixtureSummary = {
+  sidecarPath: string;
+  manifestPath: string;
   fixturePath: string;
   scenarioId: string;
   provider: string;
@@ -52,9 +53,20 @@ export type IngestAuditLiveFixtureSummary = {
   sdkVersion: string;
   sanitizerVersion: string;
   sanitizedBy: string;
+  hasProvenanceHistory: boolean;
   provenanceHistoryLength: number;
+  supersedesFixturePath: string | null;
+  supersededByFixturePath: string | null;
+  isCurrentHead: boolean;
+  lineageDepth: number;
   unsupportedObserved: readonly string[];
 };
+
+export type IngestAuditLiveParityStatus =
+  | "not-applicable"
+  | "missing-fixtures"
+  | "partial"
+  | "ready";
 
 export type IngestAuditScenarioSummary = {
   scenarioId: string;
@@ -65,6 +77,9 @@ export type IngestAuditScenarioSummary = {
   dimensions: readonly string[];
   existingCoverage: readonly string[];
   defaultRunInclusion: "executed" | "not-executed";
+  liveParityStatus: IngestAuditLiveParityStatus;
+  currentHeadFixturePaths: readonly string[];
+  supersededFixturePaths: readonly string[];
   liveFixtures: readonly IngestAuditLiveFixtureSummary[];
   notes?: string;
 };
@@ -114,6 +129,8 @@ export type IngestAuditReport = {
     status: "passed" | "failed";
     deterministicScenarioCount: number;
     liveScenarioCount: number;
+    liveReadyScenarioCount: number;
+    livePartialScenarioCount: number;
     confirmedRegressionCount: number;
     unsupportedObservedCount: number;
     intentionallyUnassertedCount: number;
@@ -128,40 +145,38 @@ export type IngestAuditReport = {
   };
 };
 
-type UnsupportedObservedContainer = {
-  expected?: {
-    unsupportedObserved?: unknown;
-  };
-  unsupportedObserved?: unknown;
-};
-
-type LiveFixtureSummariesByScenario = ReadonlyMap<
-  string,
-  readonly IngestAuditLiveFixtureSummary[]
->;
-
 export async function createScenarioSummaries(
   repoRoot: string,
 ): Promise<readonly IngestAuditScenarioSummary[]> {
-  const liveFixturesByScenario = await loadLiveFixtureSummariesByScenario(
+  const liveCaptureScenarios = createLiveCaptureScenarioMap();
+  const liveFixturesByScenario = await loadLiveFixtureSummariesByScenario({
     repoRoot,
-  );
+    liveCaptureScenarios,
+  });
 
-  return INGEST_AUDIT_SCENARIOS.map((scenario) => ({
-    scenarioId: scenario.id,
-    title: scenario.title,
-    probeKind: scenario.probeKind,
-    baselineStatus: scenario.baselineStatus,
-    sourceFamilies: scenario.sourceFamilies,
-    dimensions: scenario.dimensions,
-    existingCoverage: scenario.existingCoverage,
-    defaultRunInclusion:
-      scenario.probeKind === "deterministic-fixture"
-        ? "executed"
-        : "not-executed",
-    liveFixtures: liveFixturesByScenario.get(scenario.id) ?? [],
-    notes: readScenarioNotes(scenario),
-  }));
+  return INGEST_AUDIT_SCENARIOS.map((scenario) => {
+    const liveFixtures = liveFixturesByScenario.get(scenario.id) ?? [];
+
+    return {
+      scenarioId: scenario.id,
+      title: scenario.title,
+      probeKind: scenario.probeKind,
+      baselineStatus: scenario.baselineStatus,
+      sourceFamilies: scenario.sourceFamilies,
+      dimensions: scenario.dimensions,
+      existingCoverage: scenario.existingCoverage,
+      defaultRunInclusion:
+        scenario.probeKind === "deterministic-fixture"
+          ? "executed"
+          : "not-executed",
+      ...createScenarioLiveParitySummary({
+        scenario,
+        liveFixtures,
+      }),
+      liveFixtures,
+      notes: readScenarioNotes(scenario),
+    };
+  });
 }
 
 export function mapCoverageFilesToScenarioIds(
@@ -190,7 +205,10 @@ export function createConfirmedRegressionFindings(params: {
   failedCoverageFiles: readonly string[];
   failedCommandIds: readonly string[];
 }): readonly IngestAuditFinding[] {
-  if (params.failedCoverageFiles.length === 0 && params.failedCommandIds.length === 0) {
+  if (
+    params.failedCoverageFiles.length === 0 &&
+    params.failedCommandIds.length === 0
+  ) {
     return [];
   }
 
@@ -204,8 +222,12 @@ export function createConfirmedRegressionFindings(params: {
     ),
   ];
   const details = [
-    ...params.failedCoverageFiles.map((filePath) => `Failed coverage file: ${filePath}`),
-    ...scenarioDetails.map((scenario) => `Mapped scenario: ${scenario.id} (${scenario.title})`),
+    ...params.failedCoverageFiles.map(
+      (filePath) => `Failed coverage file: ${filePath}`,
+    ),
+    ...scenarioDetails.map(
+      (scenario) => `Mapped scenario: ${scenario.id} (${scenario.title})`,
+    ),
   ];
 
   return [
@@ -216,7 +238,10 @@ export function createConfirmedRegressionFindings(params: {
           ? "Deterministic audit commands failed before a matrix scenario could be mapped."
           : "Deterministic audit command failures mapped back to named audit-matrix scenarios.",
       scenarioIds,
-      coveragePaths: coveragePaths.length === 0 ? params.failedCoverageFiles : coveragePaths,
+      coveragePaths:
+        coveragePaths.length === 0
+          ? params.failedCoverageFiles
+          : coveragePaths,
       details,
       commandIds: params.failedCommandIds,
     },
@@ -229,16 +254,18 @@ export function createUnsupportedObservedFindings(
   return scenarios
     .flatMap((scenario) =>
       scenario.liveFixtures.flatMap((fixture) =>
-        fixture.unsupportedObserved.map((item) => ({
-          category: "unsupported-but-observed" as const,
-          summary: `${scenario.scenarioId} documents an unsupported-but-observed artifact.`,
-          scenarioIds: [scenario.scenarioId],
-          coveragePaths: [fixture.fixturePath],
-          details: [
-            `Observed unsupported artifact: ${item}`,
-            `Fixture provenance: ${fixture.providerVersion} / ${fixture.artifactVersion}`,
-          ],
-        })),
+        fixture.isCurrentHead
+          ? fixture.unsupportedObserved.map((item) => ({
+              category: "unsupported-but-observed" as const,
+              summary: `${scenario.scenarioId} documents an unsupported-but-observed artifact.`,
+              scenarioIds: [scenario.scenarioId],
+              coveragePaths: [fixture.fixturePath],
+              details: [
+                `Observed unsupported artifact: ${item}`,
+                `Fixture provenance: ${fixture.providerVersion} / ${fixture.artifactVersion}`,
+              ],
+            }))
+          : [],
       ),
     )
     .sort((left, right) => left.summary.localeCompare(right.summary));
@@ -277,8 +304,19 @@ export function createAuditReport(params: {
   const deterministicScenarioCount = params.scenarios.filter(
     (scenario) => scenario.probeKind === "deterministic-fixture",
   ).length;
-  const liveScenarioCount = params.scenarios.length - deterministicScenarioCount;
-  const status = params.commands.every((command) => command.status === "passed")
+  const liveScenarioCount =
+    params.scenarios.length - deterministicScenarioCount;
+  const liveReadyScenarioCount = params.scenarios.filter(
+    (scenario) => scenario.liveParityStatus === "ready",
+  ).length;
+  const livePartialScenarioCount = params.scenarios.filter(
+    (scenario) =>
+      scenario.liveParityStatus === "missing-fixtures" ||
+      scenario.liveParityStatus === "partial",
+  ).length;
+  const status = params.commands.every(
+    (command) => command.status === "passed",
+  )
     ? "passed"
     : "failed";
 
@@ -298,6 +336,8 @@ export function createAuditReport(params: {
       status,
       deterministicScenarioCount,
       liveScenarioCount,
+      liveReadyScenarioCount,
+      livePartialScenarioCount,
       confirmedRegressionCount: params.confirmedRegressions.length,
       unsupportedObservedCount: params.unsupportedButObserved.length,
       intentionallyUnassertedCount: params.intentionallyUnasserted.length,
@@ -313,20 +353,9 @@ export function createAuditReport(params: {
   };
 }
 
-async function loadLiveFixtureSummariesByScenario(
-  repoRoot: string,
-): Promise<LiveFixtureSummariesByScenario> {
-  const liveCaptureScenarios = createLiveCaptureScenarioMap();
-  const fixturePaths = await listLiveFixtureSidecars(repoRoot);
-  const summaries = await Promise.all(
-    fixturePaths.map((fixturePath) => loadLiveFixtureSummary(repoRoot, fixturePath)),
-  );
-
-  validateLiveFixtureSummaries(summaries, liveCaptureScenarios);
-  return groupLiveFixtureSummariesByScenario(summaries);
-}
-
-function shouldSurfaceAsUnasserted(scenario: IngestAuditScenarioSummary): boolean {
+function shouldSurfaceAsUnasserted(
+  scenario: IngestAuditScenarioSummary,
+): boolean {
   return (
     scenario.probeKind === "live-capture" ||
     scenario.baselineStatus === "partial" ||
@@ -348,15 +377,33 @@ function createUnassertedDetails(
     details.push(`Notes: ${scenario.notes}`);
   }
 
+  if (scenario.probeKind === "live-capture") {
+    details.push(`Live parity status: ${scenario.liveParityStatus}`);
+    details.push(
+      scenario.currentHeadFixturePaths.length === 0
+        ? "Current live fixture heads: none"
+        : `Current live fixture heads: ${scenario.currentHeadFixturePaths.join(", ")}`,
+    );
+    details.push(
+      scenario.supersededFixturePaths.length === 0
+        ? "Superseded live fixtures: none"
+        : `Superseded live fixtures: ${scenario.supersededFixturePaths.join(", ")}`,
+    );
+  }
+
   return details;
 }
 
 function getScenarioById(scenarioId: string): IngestAuditScenario | null {
-  return INGEST_AUDIT_SCENARIOS.find((scenario) => scenario.id === scenarioId) ?? null;
+  return (
+    INGEST_AUDIT_SCENARIOS.find((scenario) => scenario.id === scenarioId) ??
+    null
+  );
 }
 
 function matchesPath(expectedPath: string, actualPath: string): boolean {
   const normalizedExpected = normalizeComparablePath(expectedPath);
+
   return (
     actualPath === normalizedExpected ||
     actualPath.endsWith(`/${normalizedExpected}`) ||
@@ -366,92 +413,6 @@ function matchesPath(expectedPath: string, actualPath: string): boolean {
 
 function normalizeComparablePath(filePath: string): string {
   return filePath.replaceAll("\\", "/").replace(/^\.?\//u, "");
-}
-
-function normalizeUnsupportedObserved(
-  metadata: UnsupportedObservedContainer,
-): readonly string[] {
-  const topLevel = normalizeStringList(metadata.unsupportedObserved);
-  if (topLevel.length > 0) {
-    return topLevel;
-  }
-
-  return normalizeStringList(metadata.expected?.unsupportedObserved);
-}
-
-function normalizeStringList(value: unknown): readonly string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.filter((item): item is string => typeof item === "string" && item.length > 0);
-}
-
-async function loadLiveFixtureSummary(
-  repoRoot: string,
-  fixturePath: string,
-): Promise<IngestAuditLiveFixtureSummary> {
-  const absoluteFixturePath = resolve(repoRoot, fixturePath);
-  const metadata = await Bun.file(absoluteFixturePath).json();
-  const normalized = normalizeLiveFixtureSidecar(metadata);
-
-  if (normalized === null) {
-    throw new Error(`Live fixture sidecar is malformed at ${fixturePath}.`);
-  }
-
-  const unsupportedObserved = normalizeUnsupportedObserved(metadata);
-
-  return {
-    fixturePath: relative(repoRoot, absoluteFixturePath).replaceAll("\\", "/"),
-    scenarioId: normalized.scenarioId,
-    provider: normalized.provider,
-    sourceFamilies: normalized.sourceFamilies,
-    captureKind: normalized.captureKind,
-    capturedAt: normalized.capturedAt,
-    artifactVersion: normalized.artifactVersion,
-    providerVersion: normalized.providerVersion,
-    sdkVersion: normalized.sdkVersion,
-    sanitizerVersion: normalized.sanitizerVersion,
-    sanitizedBy: normalized.sanitizedBy,
-    provenanceHistoryLength: normalized.provenanceHistory?.length ?? 0,
-    unsupportedObserved,
-  };
-}
-
-async function listLiveFixtureSidecars(
-  repoRoot: string,
-): Promise<readonly string[]> {
-  const fixturePaths: string[] = [];
-  const fixtureGlob = new Bun.Glob("test/fixtures/**/*.fixture.json");
-
-  for await (const fixturePath of fixtureGlob.scan({
-    cwd: repoRoot,
-    absolute: false,
-    onlyFiles: true,
-  })) {
-    fixturePaths.push(fixturePath);
-  }
-
-  return fixturePaths.sort();
-}
-
-function groupLiveFixtureSummariesByScenario(
-  summaries: readonly IngestAuditLiveFixtureSummary[],
-): LiveFixtureSummariesByScenario {
-  const grouped = new Map<string, IngestAuditLiveFixtureSummary[]>();
-
-  for (const summary of summaries) {
-    const scenarioSummaries = grouped.get(summary.scenarioId);
-
-    if (scenarioSummaries === undefined) {
-      grouped.set(summary.scenarioId, [summary]);
-      continue;
-    }
-
-    scenarioSummaries.push(summary);
-  }
-
-  return grouped;
 }
 
 function createLiveCaptureScenarioMap(): ReadonlyMap<string, IngestAuditScenario> {
@@ -466,73 +427,6 @@ function createLiveCaptureScenarioMap(): ReadonlyMap<string, IngestAuditScenario
   }
 
   return liveCaptureScenarios;
-}
-
-function validateLiveFixtureSummaries(
-  summaries: readonly IngestAuditLiveFixtureSummary[],
-  liveCaptureScenarios: ReadonlyMap<string, IngestAuditScenario>,
-): void {
-  for (const summary of summaries) {
-    const scenario = liveCaptureScenarios.get(summary.scenarioId);
-
-    if (scenario === undefined) {
-      throw new Error(
-        `Live fixture sidecar ${summary.fixturePath} declares unknown audit scenario ${summary.scenarioId}.`,
-      );
-    }
-
-    validateLiveFixtureSummary(summary, scenario);
-  }
-}
-
-function validateLiveFixtureSummary(
-  summary: IngestAuditLiveFixtureSummary,
-  scenario: IngestAuditScenario,
-): void {
-  const expectedProvider = getScenarioProvider(scenario);
-  const allowedSourceFamilies = new Set<string>(scenario.sourceFamilies);
-
-  if (summary.provider !== expectedProvider) {
-    throw new Error(
-      `Live fixture sidecar ${summary.fixturePath} declares provider ${summary.provider}, expected ${expectedProvider} for ${scenario.id}.`,
-    );
-  }
-
-  const invalidSourceFamily = summary.sourceFamilies.find(
-    (sourceFamily) => !allowedSourceFamilies.has(sourceFamily),
-  );
-
-  if (invalidSourceFamily !== undefined) {
-    throw new Error(
-      `Live fixture sidecar ${summary.fixturePath} declares unsupported source family ${invalidSourceFamily} for ${scenario.id}.`,
-    );
-  }
-}
-
-function getScenarioProvider(scenario: IngestAuditScenario): string {
-  const providerPrefixes = new Set(
-    scenario.sourceFamilies.map((sourceFamily) => getSourceFamilyProvider(sourceFamily)),
-  );
-
-  if (providerPrefixes.size !== 1) {
-    throw new Error(
-      `Audit matrix scenario ${scenario.id} does not resolve to a single provider namespace.`,
-    );
-  }
-
-  const [provider] = providerPrefixes;
-
-  if (provider === undefined) {
-    throw new Error(
-      `Audit matrix scenario ${scenario.id} does not declare any source families.`,
-    );
-  }
-
-  return provider;
-}
-
-function getSourceFamilyProvider(sourceFamily: IngestAuditSourceFamily): string {
-  return sourceFamily.split("-", 1)[0] ?? sourceFamily;
 }
 
 function readScenarioNotes(scenario: IngestAuditScenario): string | undefined {

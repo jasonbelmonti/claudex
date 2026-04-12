@@ -12,26 +12,42 @@
   "sanitizerVersion": "bel-631-manual-v1",
   "sanitizedBy": "Codex BEL-631",
   "expected": {
-    "eventTypes": [
-      "turn.started",
-      "tool.started",
-      "tool.updated",
-      "tool.completed",
-      "message.completed",
-      "turn.completed"
-    ],
-    "completeness": [
-      "complete",
-      "complete",
-      "complete",
-      "complete",
-      "complete",
-      "complete"
-    ],
-    "warningCodes": [],
-    "sessionId": "live-claude-bel-631",
-    "workingDirectory": "/sanitized/worktree",
-    "resultText": "<sanitized assistant reply>",
-    "stopReason": "end_turn"
+    "events": {
+      "eventTypes": [
+        "turn.started",
+        "tool.started",
+        "tool.updated",
+        "tool.completed",
+        "message.completed",
+        "turn.completed"
+      ],
+      "completeness": [
+        "complete",
+        "complete",
+        "complete",
+        "complete",
+        "complete",
+        "complete"
+      ],
+      "observedSession": {
+        "sessionId": "live-claude-bel-631",
+        "state": "canonical",
+        "workingDirectory": "/sanitized/worktree"
+      }
+    },
+    "sessions": [],
+    "warnings": {
+      "codes": []
+    },
+    "terminalResult": {
+      "text": "<sanitized assistant reply>",
+      "stopReason": "end_turn",
+      "usage": {
+        "tokens": {
+          "input": 12,
+          "output": 7
+        }
+      }
+    }
   }
 }

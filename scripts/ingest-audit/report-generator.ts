@@ -125,6 +125,7 @@ export function renderTextReport(report: IngestAuditReport): string {
     `Dependencies: Claude SDK ${report.dependencies.claudeAgentSdk ?? "unknown"}, Codex SDK ${report.dependencies.codexSdk ?? "unknown"}`,
     `Commands: ${report.commands.filter((command) => command.status === "passed").length}/${report.commands.length} passed`,
     `Scenarios: ${report.summary.deterministicScenarioCount} deterministic, ${report.summary.liveScenarioCount} live`,
+    `Live parity: ${report.summary.liveReadyScenarioCount} ready, ${report.summary.livePartialScenarioCount} partial or missing`,
     `Findings: ${report.summary.confirmedRegressionCount} confirmed regressions, ${report.summary.unsupportedObservedCount} unsupported-but-observed, ${report.summary.intentionallyUnassertedCount} intentionally unasserted`,
   ];
 
@@ -145,6 +146,7 @@ export function renderTextReport(report: IngestAuditReport): string {
     "Intentionally Unasserted",
     report.findings.intentionallyUnasserted,
   );
+  appendLiveParitySection(lines, report.scenarios);
 
   return `${lines.join("\n")}\n`;
 }
@@ -207,6 +209,33 @@ function appendFindingSection(
     for (const detail of finding.details) {
       lines.push(`  detail: ${detail}`);
     }
+  }
+}
+
+function appendLiveParitySection(
+  lines: string[],
+  scenarios: readonly IngestAuditScenarioSummary[],
+): void {
+  const liveScenarios = scenarios.filter(
+    (scenario) => scenario.probeKind === "live-capture",
+  );
+
+  lines.push("");
+  lines.push("Live Parity:");
+
+  if (liveScenarios.length === 0) {
+    lines.push("- none");
+    return;
+  }
+
+  for (const scenario of liveScenarios) {
+    lines.push(`- ${scenario.scenarioId}: ${scenario.liveParityStatus}`);
+    lines.push(
+      `  current heads: ${scenario.currentHeadFixturePaths.length === 0 ? "none" : scenario.currentHeadFixturePaths.join(", ")}`,
+    );
+    lines.push(
+      `  superseded: ${scenario.supersededFixturePaths.length === 0 ? "none" : scenario.supersededFixturePaths.join(", ")}`,
+    );
   }
 }
 

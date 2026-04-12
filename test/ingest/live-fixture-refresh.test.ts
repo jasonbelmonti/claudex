@@ -204,7 +204,11 @@ test("sidecar helpers preserve scenario-specific payloads and provenance history
     provider: "codex",
     sourceFamilies: ["codex-transcript"],
     expected: {
-      sessionId: "live-codex-bel-632",
+      events: {
+        observedSession: {
+          sessionId: "live-codex-bel-632",
+        },
+      },
     },
   });
   expect(normalized.provenanceHistory).toBeUndefined();
@@ -220,7 +224,11 @@ test("sidecar helpers preserve scenario-specific payloads and provenance history
   });
 
   expect(rebuilt.expected).toMatchObject({
-    sessionId: "live-codex-bel-632",
+    events: {
+      observedSession: {
+        sessionId: "live-codex-bel-632",
+      },
+    },
     note: "scenario-specific payload survives normalization",
   });
   expect(rebuilt.provenanceHistory).toEqual([
