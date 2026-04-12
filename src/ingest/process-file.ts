@@ -6,7 +6,7 @@ import { readSourceFileState, type SourceFileState } from "./file-state";
 import { consumeParsedRecords } from "./record-consumption";
 import { dispatchObservedRecord } from "./record-dispatch";
 import type { RegistrySelection } from "./registry-selection";
-import type { DiscoveryPhase } from "./source";
+import type { DiscoveryPhase, ObservedEventSource } from "./source";
 import { buildObservedEventSource } from "./source-builder";
 import type { SessionIngestServiceOptions } from "./service";
 
