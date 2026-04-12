@@ -134,3 +134,37 @@ test("mergeClaudeProviderOptions preserves cycles when both Claude records recur
   expect(pluginConfig.beta).toBe(true);
   expect(pluginConfig.self).toBe(pluginConfig);
 });
+
+test("mergeClaudeProviderOptions treats __proto__ as data instead of mutating prototypes", () => {
+  const overridePluginConfig = JSON.parse(
+    '{"safe":true,"__proto__":{"polluted":true}}',
+  ) as Record<string, unknown>;
+
+  const merged = mergeClaudeProviderOptions(
+    {
+      claude: {
+        pluginConfig: {
+          alpha: true,
+        },
+      },
+    },
+    {
+      claude: {
+        pluginConfig: overridePluginConfig,
+      },
+    },
+  );
+
+  const pluginConfig = (merged?.claude as Record<string, unknown>)
+    .pluginConfig as Record<string, unknown>;
+
+  expect(pluginConfig.alpha).toBe(true);
+  expect(pluginConfig.safe).toBe(true);
+  expect(Object.getPrototypeOf(pluginConfig)).toBe(Object.prototype);
+  expect(
+    Object.getOwnPropertyDescriptor(pluginConfig, "__proto__")?.value,
+  ).toEqual({
+    polluted: true,
+  });
+  expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
+});

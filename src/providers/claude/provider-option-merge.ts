@@ -27,11 +27,11 @@ function mergePlainRecords(
   seenPairs?: WeakMap<object, WeakMap<object, Record<string, unknown>>>,
 ): Record<string, unknown> | undefined {
   if (!base) {
-    return override ? { ...override } : undefined;
+    return override ? copyPlainRecord(override) : undefined;
   }
 
   if (!override) {
-    return { ...base };
+    return copyPlainRecord(base);
   }
 
   const seenOverrides = seenPairs?.get(base);
@@ -41,7 +41,7 @@ function mergePlainRecords(
     return seenMerged;
   }
 
-  const merged: Record<string, unknown> = { ...base };
+  const merged = copyPlainRecord(base);
   const pairs = seenPairs ?? new WeakMap<object, WeakMap<object, Record<string, unknown>>>();
 
   if (seenOverrides) {
@@ -55,9 +55,9 @@ function mergePlainRecords(
     const overrideRecord = asPlainRecord(overrideValue);
 
     if (baseRecord && overrideRecord) {
-      merged[key] = mergePlainRecords(baseRecord, overrideRecord, pairs);
+      setRecordValue(merged, key, mergePlainRecords(baseRecord, overrideRecord, pairs));
     } else {
-      merged[key] = overrideValue;
+      setRecordValue(merged, key, overrideValue);
     }
   }
 
@@ -74,4 +74,29 @@ function asPlainRecord(value: unknown): Record<string, unknown> | undefined {
   return prototype === Object.prototype || prototype === null
     ? (value as Record<string, unknown>)
     : undefined;
+}
+
+function copyPlainRecord(source: Record<string, unknown>): Record<string, unknown> {
+  const copy = Object.create(
+    Object.getPrototypeOf(source) === null ? null : Object.prototype,
+  ) as Record<string, unknown>;
+
+  for (const [key, value] of Object.entries(source)) {
+    setRecordValue(copy, key, value);
+  }
+
+  return copy;
+}
+
+function setRecordValue(
+  target: Record<string, unknown>,
+  key: string,
+  value: unknown,
+): void {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    writable: true,
+    configurable: true,
+  });
 }
