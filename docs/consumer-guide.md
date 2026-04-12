@@ -1,6 +1,6 @@
 # Consumer Guide
 
-This guide is for orchestration and agent-console consumers that want one surface over Claude and Codex without pretending the providers are identical. It covers both the live SDK adapters and the passive `claudex/ingest` observation surface.
+This guide is for orchestration and agent-console consumers that want one surface over Claude and Codex without pretending the providers are identical. It covers both the live SDK adapters and the passive `@jasonbelmonti/claudex/ingest` observation surface.
 
 ## 1. Default To ClaudexAdapter
 
@@ -163,14 +163,14 @@ If you need those advanced surfaces:
 
 ## 8. Passive Ingest Is Observation, Not Control
 
-`claudex/ingest` is the read-only companion surface for replaying local Claude and Codex artifacts after the fact. It emits `ObservedIngestRecord` envelopes and does not create sessions, resume sessions, send turns, or represent authoritative live control state.
+`@jasonbelmonti/claudex/ingest` is the read-only companion surface for replaying local Claude and Codex artifacts after the fact. It emits `ObservedIngestRecord` envelopes and does not create sessions, resume sessions, send turns, or represent authoritative live control state.
 
 ```ts
 import {
   createClaudeIngestRegistries,
   createCodexIngestRegistries,
   createSessionIngestService,
-} from "claudex/ingest";
+} from "@jasonbelmonti/claudex/ingest";
 
 const service = createSessionIngestService({
   roots: [
@@ -243,7 +243,7 @@ Use passive ingest when:
 Practical rule:
 
 - if your code needs to change provider state, use the live SDK
-- if your code only needs to observe local artifacts, use `claudex/ingest`
+- if your code only needs to observe local artifacts, use `@jasonbelmonti/claudex/ingest`
 
 ## 11. Suggested Console UX
 

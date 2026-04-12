@@ -1,6 +1,6 @@
 # claudex
 
-`claudex` is a Bun-hosted TypeScript library that exposes one normalized API over the CLI-authenticated Claude and Codex SDKs, plus a passive `claudex/ingest` surface for replaying local provider artifacts.
+`claudex` is a Bun-hosted TypeScript library that exposes one normalized API over the CLI-authenticated Claude and Codex SDKs, plus a passive `@jasonbelmonti/claudex/ingest` surface for replaying local provider artifacts.
 
 The goal is provider-agnostic orchestration, not fake parity. The stable contract covers readiness, session lifecycle, buffered and streamed turns, structured output, and normalized event/result/error shapes. Anything that does not normalize cleanly stays capability-gated or provider-specific.
 
@@ -91,7 +91,7 @@ See [docs/capability-matrix.md](./docs/capability-matrix.md) for the full matrix
 
 ## Passive Ingest
 
-`claudex/ingest` is the read-only companion surface for best-effort observation of local provider artifacts. It does not create sessions, resume sessions, or represent authoritative live control state.
+`@jasonbelmonti/claudex/ingest` is the read-only companion surface for best-effort observation of local provider artifacts. It does not create sessions, resume sessions, or represent authoritative live control state.
 
 Supported passive sources in the current contract:
 
@@ -106,7 +106,7 @@ Outside the current ingest contract:
 - live approvals, hooks, plugins, MCP state, and other control-plane behavior
 - authoritative live session status
 
-Use the live adapter surface when you need to start or resume sessions, or when terminal turn state must be authoritative. Use `claudex/ingest` when you need best-effort history backfill, watch/reconcile over local artifacts, or a read-only observability view. See [docs/consumer-guide.md](./docs/consumer-guide.md) for examples and boundary guidance.
+Use the live adapter surface when you need to start or resume sessions, or when terminal turn state must be authoritative. Use `@jasonbelmonti/claudex/ingest` when you need best-effort history backfill, watch/reconcile over local artifacts, or a read-only observability view. See [docs/consumer-guide.md](./docs/consumer-guide.md) for examples and boundary guidance.
 
 ## Development
 
