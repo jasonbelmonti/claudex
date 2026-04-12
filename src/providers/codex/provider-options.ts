@@ -6,29 +6,31 @@ import type {
   SessionOptions,
 } from "../../core/session";
 import { applyPlanModeThreadOptions } from "./plan-mode";
+import { omitSessionOwnedThreadOptions } from "./session-thread-contract";
 import type { CodexThreadProviderOptions } from "./types";
 
 export function mapSessionOptionsToThreadOptions(
   options: SessionOptions = {},
 ): ThreadOptions {
   const extensionOptions = getCodexThreadProviderOptions(options.providerOptions);
+  const providerThreadOptions = extensionOptions.threadOptions;
   const coreOptions: ThreadOptions = {
     model: options.model,
     workingDirectory: options.workingDirectory,
     additionalDirectories: mergeDirectories(
       options.additionalDirectories,
-      extensionOptions.threadOptions?.additionalDirectories,
+      providerThreadOptions?.additionalDirectories,
     ),
     sandboxMode: mapSandboxProfile(options.sandboxProfile),
     approvalPolicy: mapApprovalMode(options.approvalMode),
   };
 
   const mergedOptions: ThreadOptions = {
+    ...omitSessionOwnedThreadOptions(providerThreadOptions),
     ...coreOptions,
-    ...extensionOptions.threadOptions,
     additionalDirectories: mergeDirectories(
       coreOptions.additionalDirectories,
-      extensionOptions.threadOptions?.additionalDirectories,
+      providerThreadOptions?.additionalDirectories,
     ),
   };
 

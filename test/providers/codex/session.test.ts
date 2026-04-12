@@ -105,6 +105,46 @@ test("createSession maps core session options into Codex thread options", async 
   });
 });
 
+test("createSession keeps normalized session options authoritative over conflicting Codex thread options", async () => {
+  const startThread = new FakeCodexThread([]);
+  const client = new FakeCodexClient([startThread]);
+  const adapter = new CodexAdapter({ client });
+
+  await adapter.createSession({
+    model: "o3",
+    workingDirectory: "/tmp/repo",
+    additionalDirectories: ["/tmp/repo/docs"],
+    sandboxProfile: "workspace-write",
+    approvalMode: "interactive",
+    providerOptions: {
+      codex: {
+        threadOptions: {
+          model: "gpt-5",
+          workingDirectory: "/tmp/provider-override",
+          additionalDirectories: ["/tmp/shared", "/tmp/repo/docs"],
+          sandboxMode: "danger-full-access",
+          approvalPolicy: "never",
+          skipGitRepoCheck: true,
+          networkAccessEnabled: true,
+        },
+      },
+    },
+  });
+
+  expect(client.lastStartThreadOptions).toMatchObject({
+    model: "o3",
+    workingDirectory: "/tmp/repo",
+    sandboxMode: "workspace-write",
+    approvalPolicy: "on-request",
+    skipGitRepoCheck: true,
+    networkAccessEnabled: true,
+  });
+  expect(client.lastStartThreadOptions?.additionalDirectories).toEqual([
+    "/tmp/repo/docs",
+    "/tmp/shared",
+  ]);
+});
+
 test("resumeSession uses the provided reference immediately", async () => {
   const resumedThread = new FakeCodexThread(
     [
