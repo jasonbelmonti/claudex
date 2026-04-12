@@ -60,3 +60,45 @@ test("mergeClaudeProviderOptions recursively merges sibling Claude namespaces", 
     },
   });
 });
+
+test("mergeClaudeProviderOptions preserves object instances as leaf overrides", () => {
+  const baseController = new AbortController();
+  const overrideController = new AbortController();
+
+  const merged = mergeClaudeProviderOptions(
+    {
+      claude: {
+        options: {
+          abortController: baseController,
+          hooks: {
+            pre: ["base"],
+          },
+        },
+      },
+    },
+    {
+      claude: {
+        options: {
+          abortController: overrideController,
+          hooks: {
+            post: ["override"],
+          },
+        },
+      },
+    },
+  );
+
+  expect(merged?.claude).toEqual({
+    options: {
+      abortController: overrideController,
+      hooks: {
+        pre: ["base"],
+        post: ["override"],
+      },
+    },
+  });
+  expect(
+    ((merged?.claude as Record<string, unknown>).options as Record<string, unknown>)
+      .abortController,
+  ).toBe(overrideController);
+});

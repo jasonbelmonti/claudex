@@ -46,7 +46,13 @@ function mergePlainRecords(
 }
 
 function asPlainRecord(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+
+  return prototype === Object.prototype || prototype === null
     ? (value as Record<string, unknown>)
     : undefined;
 }
