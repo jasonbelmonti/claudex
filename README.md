@@ -26,8 +26,9 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 bun add @jasonbelmonti/claudex
 ```
 
-`@jasonbelmonti/claudex` 1.0 is Bun-first and source-published. Bun is the
-supported consumer runtime for this release.
+`@jasonbelmonti/claudex` 1.0 is Bun-first. The published package ships built ESM
+entrypoints for install-time and packed-artifact import checks, while Bun
+remains the supported consumer runtime for this release.
 
 ## Quick Start
 
@@ -142,6 +143,7 @@ Pull requests and pushes to `main` run the repository CI contract from
 - `bun run lint`
 - `bun run typecheck`
 - `bun run test:coverage`
+- `bun run package:check`
 
 To run the same checks locally:
 
@@ -153,4 +155,10 @@ To run the exact CI command, including LCOV coverage output in `coverage/lcov.in
 
 ```bash
 bun run ci
+```
+
+To verify the packed artifact import surface before publish:
+
+```bash
+bun run package:check
 ```

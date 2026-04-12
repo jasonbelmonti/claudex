@@ -2,7 +2,9 @@
   "name": "@jasonbelmonti/claudex",
   "version": "1.0.1",
   "description": "Provider-agnostic normalized TypeScript interface over CLI-authenticated Claude and Codex SDKs.",
-  "module": "./src/index.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./src/index.ts",
   "packageManager": "bun@1.3.0",
   "type": "module",
   "private": false,
@@ -24,11 +26,22 @@
     "typescript"
   ],
   "files": [
+    "dist",
     "src"
   ],
   "exports": {
-    ".": "./src/index.ts",
-    "./ingest": "./src/ingest/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./ingest": {
+      "types": "./src/ingest/index.ts",
+      "bun": "./src/ingest/index.ts",
+      "import": "./dist/ingest/index.js",
+      "default": "./dist/ingest/index.js"
+    }
   },
   "publishConfig": {
     "access": "public"
@@ -37,14 +50,16 @@
     "audit:ingest": "bun run ./scripts/ingest-audit/run-audit.ts",
     "audit:ingest:live:claude": "CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/claude-live-parity.test.ts",
     "audit:ingest:live:codex": "CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/codex-live-parity.test.ts",
+    "build:dist": "rm -rf dist && bun build ./src/index.ts ./src/ingest/index.ts --outdir ./dist --format esm --target node --packages external",
     "lint": "biome lint .",
+    "prepack": "bun run build:dist",
     "test": "bun test",
     "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov",
     "test:smoke": "CLAUDEX_SMOKE=1 bun test ./test/smoke/codex.smoke.ts ./test/smoke/claude.smoke.ts",
     "typecheck": "tsc --noEmit",
     "check": "bun run lint && bun run typecheck && bun run test",
     "ci": "bun run lint && bun run typecheck && bun run test:coverage",
-    "package:check": "npm pack --dry-run"
+    "package:check": "bun run ./scripts/package-check.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",
