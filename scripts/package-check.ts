@@ -76,6 +76,35 @@ try {
     ],
     consumerDir,
   );
+  smokeImport(
+    "node",
+    [
+      "--input-type=module",
+      "-e",
+      [
+        `const { AgentError, ClaudexAdapter, isAgentError } = await import(${JSON.stringify(packageJson.name)});`,
+        "const adapter = new ClaudexAdapter({ preferredProviders: ['codex'] });",
+        "try {",
+        "  await adapter.resumeSession(",
+        "    { provider: 'codex', sessionId: 'smoke-session' },",
+        "    { instructions: 'unsupported smoke instructions' },",
+        "  );",
+        "  throw new Error('Expected ClaudexAdapter.resumeSession to throw.');",
+        "} catch (error) {",
+        "  if (!(error instanceof AgentError)) {",
+        "    throw new Error(`Expected instanceof AgentError, got ${String(error)}`);",
+        "  }",
+        "  if (!isAgentError(error)) {",
+        "    throw new Error('Expected isAgentError(error) to return true.');",
+        "  }",
+        "  if (error.code !== 'unsupported_feature' || error.provider !== 'codex') {",
+        "    throw new Error(`Unexpected AgentError payload: ${JSON.stringify({ code: error.code, provider: error.provider })}`);",
+        "  }",
+        "}",
+      ].join("\n"),
+    ],
+    consumerDir,
+  );
 
   console.log(`Packed artifact smoke passed for ${packageJson.name}.`);
 } finally {
