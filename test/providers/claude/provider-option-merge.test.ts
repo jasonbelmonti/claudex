@@ -102,3 +102,35 @@ test("mergeClaudeProviderOptions preserves object instances as leaf overrides", 
       .abortController,
   ).toBe(overrideController);
 });
+
+test("mergeClaudeProviderOptions preserves cycles when both Claude records recurse into themselves", () => {
+  const basePluginConfig: Record<string, unknown> = {
+    alpha: true,
+  };
+  basePluginConfig.self = basePluginConfig;
+
+  const overridePluginConfig: Record<string, unknown> = {
+    beta: true,
+  };
+  overridePluginConfig.self = overridePluginConfig;
+
+  const merged = mergeClaudeProviderOptions(
+    {
+      claude: {
+        pluginConfig: basePluginConfig,
+      },
+    },
+    {
+      claude: {
+        pluginConfig: overridePluginConfig,
+      },
+    },
+  );
+
+  const pluginConfig = (merged?.claude as Record<string, unknown>)
+    .pluginConfig as Record<string, unknown>;
+
+  expect(pluginConfig.alpha).toBe(true);
+  expect(pluginConfig.beta).toBe(true);
+  expect(pluginConfig.self).toBe(pluginConfig);
+});

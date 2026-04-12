@@ -8,7 +8,11 @@ export function mergeClaudeProviderOptions(
 
   const baseClaude = asPlainRecord(base?.claude);
   const overrideClaude = asPlainRecord(override?.claude);
-  const mergedClaude = mergePlainRecords(baseClaude, overrideClaude);
+  const mergedClaude = mergePlainRecords(
+    baseClaude,
+    overrideClaude,
+    new WeakMap<object, WeakMap<object, Record<string, unknown>>>(),
+  );
 
   return {
     ...(base ?? {}),
@@ -20,6 +24,7 @@ export function mergeClaudeProviderOptions(
 function mergePlainRecords(
   base?: Record<string, unknown>,
   override?: Record<string, unknown>,
+  seenPairs?: WeakMap<object, WeakMap<object, Record<string, unknown>>>,
 ): Record<string, unknown> | undefined {
   if (!base) {
     return override ? { ...override } : undefined;
@@ -29,14 +34,28 @@ function mergePlainRecords(
     return { ...base };
   }
 
+  const seenOverrides = seenPairs?.get(base);
+  const seenMerged = seenOverrides?.get(override);
+
+  if (seenMerged) {
+    return seenMerged;
+  }
+
   const merged: Record<string, unknown> = { ...base };
+  const pairs = seenPairs ?? new WeakMap<object, WeakMap<object, Record<string, unknown>>>();
+
+  if (seenOverrides) {
+    seenOverrides.set(override, merged);
+  } else {
+    pairs.set(base, new WeakMap([[override, merged]]));
+  }
 
   for (const [key, overrideValue] of Object.entries(override)) {
     const baseRecord = asPlainRecord(base[key]);
     const overrideRecord = asPlainRecord(overrideValue);
 
     if (baseRecord && overrideRecord) {
-      merged[key] = mergePlainRecords(baseRecord, overrideRecord);
+      merged[key] = mergePlainRecords(baseRecord, overrideRecord, pairs);
     } else {
       merged[key] = overrideValue;
     }
