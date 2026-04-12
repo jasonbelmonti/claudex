@@ -64,9 +64,22 @@ test("scenario summaries surface live provenance and intentionally unasserted ro
 
   expect(liveCodexScenario).toMatchObject({
     defaultRunInclusion: "not-executed",
+    liveParityStatus: "ready",
+    currentHeadFixturePaths: [
+      "test/fixtures/codex/live-session-index-excerpt.jsonl",
+      "test/fixtures/codex/live-transcript-excerpt.jsonl",
+    ],
     liveFixtures: [
       {
-        fixturePath: "test/fixtures/codex/live-transcript-excerpt.fixture.json",
+        fixturePath: "test/fixtures/codex/live-session-index-excerpt.jsonl",
+        manifestPath: "test/fixtures/codex/refresh-manifest.json",
+        isCurrentHead: true,
+        providerVersion: "Codex Desktop 0.103.0",
+      },
+      {
+        fixturePath: "test/fixtures/codex/live-transcript-excerpt.jsonl",
+        manifestPath: "test/fixtures/codex/refresh-manifest.json",
+        isCurrentHead: true,
         providerVersion: "Codex Desktop 0.103.0",
       },
     ],
@@ -80,7 +93,7 @@ test("scenario summaries surface live provenance and intentionally unasserted ro
   expect(unsupportedButObserved).toEqual([]);
 });
 
-test("scenario summaries reject live sidecars with unknown audit scenario ids", async () => {
+test("scenario summaries reject live sidecars that are not declared in any refresh manifest", async () => {
   const repoRoot = createTempRepoRoot();
 
   try {
@@ -95,6 +108,39 @@ test("scenario summaries reject live sidecars with unknown audit scenario ids", 
     );
 
     await expect(createScenarioSummaries(repoRoot)).rejects.toThrow(
+      "is not declared in any refresh manifest",
+    );
+  } finally {
+    rmSync(repoRoot, { force: true, recursive: true });
+  }
+});
+
+test("scenario summaries reject live sidecars with unknown audit scenario ids", async () => {
+  const repoRoot = createTempRepoRoot();
+
+  try {
+    writeFixtureArtifact(
+      repoRoot,
+      "test/fixtures/codex/unknown-scenario.jsonl",
+      "{}\n",
+    );
+    writeLiveFixtureSidecar(
+      repoRoot,
+      "test/fixtures/codex/unknown-scenario.fixture.json",
+      {
+        scenarioId: "live-codex-replay-parity-typo",
+        provider: "codex",
+        sourceFamilies: ["codex-transcript"],
+      },
+    );
+    writeRefreshManifest(repoRoot, "test/fixtures/codex/refresh-manifest.json", [
+      createRefreshManifestRecord({
+        scenarioId: "live-codex-replay-parity-typo",
+        fixturePath: "test/fixtures/codex/unknown-scenario.jsonl",
+      }),
+    ]);
+
+    await expect(createScenarioSummaries(repoRoot)).rejects.toThrow(
       "unknown audit scenario",
     );
   } finally {
@@ -106,6 +152,11 @@ test("scenario summaries reject live sidecars with provider or source-family dri
   const repoRoot = createTempRepoRoot();
 
   try {
+    writeFixtureArtifact(
+      repoRoot,
+      "test/fixtures/codex/provider-drift.jsonl",
+      "{}\n",
+    );
     writeLiveFixtureSidecar(
       repoRoot,
       "test/fixtures/codex/provider-drift.fixture.json",
@@ -115,9 +166,43 @@ test("scenario summaries reject live sidecars with provider or source-family dri
         sourceFamilies: ["claude-transcript"],
       },
     );
+    writeRefreshManifest(repoRoot, "test/fixtures/codex/refresh-manifest.json", [
+      createRefreshManifestRecord({
+        provider: "claude",
+        sourceFamilies: ["claude-transcript"],
+        fixturePath: "test/fixtures/codex/provider-drift.jsonl",
+      }),
+    ]);
 
     await expect(createScenarioSummaries(repoRoot)).rejects.toThrow(
       "declares provider",
+    );
+  } finally {
+    rmSync(repoRoot, { force: true, recursive: true });
+  }
+});
+
+test("scenario summaries reject manifest records whose fixture artifact is missing", async () => {
+  const repoRoot = createTempRepoRoot();
+
+  try {
+    writeLiveFixtureSidecar(
+      repoRoot,
+      "test/fixtures/codex/missing-artifact.fixture.json",
+      {
+        scenarioId: "live-codex-replay-parity",
+        provider: "codex",
+        sourceFamilies: ["codex-transcript"],
+      },
+    );
+    writeRefreshManifest(repoRoot, "test/fixtures/codex/refresh-manifest.json", [
+      createRefreshManifestRecord({
+        fixturePath: "test/fixtures/codex/missing-artifact.jsonl",
+      }),
+    ]);
+
+    await expect(createScenarioSummaries(repoRoot)).rejects.toThrow(
+      "references missing live fixture artifact",
     );
   } finally {
     rmSync(repoRoot, { force: true, recursive: true });
@@ -281,6 +366,8 @@ test("text report renders the finding buckets and artifact paths", async () => {
 
   expect(rendered).toContain("Ingest Audit: PASSED");
   expect(rendered).toContain("JSON report: /tmp/report.json");
+  expect(rendered).toContain("Live Parity:");
+  expect(rendered).toContain("live-codex-replay-parity: ready");
   expect(rendered).toContain("Intentionally Unasserted:");
   expect(rendered).toContain("live-codex-replay-parity");
 });
@@ -319,4 +406,48 @@ function writeLiveFixtureSidecar(
   };
 
   writeFileSync(filePath, JSON.stringify(sidecar, null, 2));
+}
+
+function writeFixtureArtifact(
+  repoRoot: string,
+  relativePath: string,
+  contents: string,
+): void {
+  const filePath = join(repoRoot, relativePath);
+  writeFileSync(filePath, contents);
+}
+
+function writeRefreshManifest(
+  repoRoot: string,
+  relativePath: string,
+  manifest: Array<Record<string, unknown>>,
+): void {
+  const filePath = join(repoRoot, relativePath);
+  writeFileSync(filePath, JSON.stringify(manifest, null, 2));
+}
+
+function createRefreshManifestRecord(
+  overrides: Partial<{
+    scenarioId: string;
+    provider: string;
+    sourceFamilies: string[];
+    fixturePath: string;
+  }> = {},
+): Record<string, unknown> {
+  return {
+    scenarioId: overrides.scenarioId ?? "live-codex-replay-parity",
+    provider: overrides.provider ?? "codex",
+    sourceFamilies: overrides.sourceFamilies ?? ["codex-transcript"],
+    capturedAt: "2026-04-11T11:02:03.000Z",
+    captureKind: "sanitized-live-transcript-excerpt",
+    artifactVersion: "fixture-artifact",
+    providerVersion: "fixture-provider-version",
+    sdkVersion: "not-recorded",
+    sanitizerVersion: "test-sanitizer",
+    sanitizedBy: "audit-report-test",
+    fixturePath:
+      overrides.fixturePath ?? "test/fixtures/codex/unknown-scenario.jsonl",
+    supersedesFixturePath: null,
+    provenanceHistory: [],
+  };
 }

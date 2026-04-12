@@ -44,6 +44,13 @@ The sidecar should carry the provenance fields defined in
 Sidecars may add scenario-specific expectation summaries when a live parity
 probe compares replay output against declared event or warning expectations.
 
+Every checked-in live sidecar must also be declared in a provider-local
+`refresh-manifest.json`. The manifest is the authoritative lineage record for:
+
+- which fixture is the current head for a scenario/source-family slice
+- which prior fixture revision it supersedes
+- the append-only provenance history carried forward across refreshes
+
 The deterministic `bun run audit:ingest` entrypoint also reads these sidecars
 as upgrade-readiness metadata. That means malformed or mismatched sidecars are
 not just a live-test problem; they break the reporting contract for future
@@ -59,6 +66,7 @@ history.
 - preserve provenance history so the new capture can be compared to the prior
   one
 - record which artifact supersedes which earlier fixture
+- keep the refresh manifest aligned with the sidecar metadata and current head
 - keep the workflow opt-in; deterministic fixtures remain the default oracle
 
 That rule is shared by Claude and Codex live fixtures. BEL-633 owns the common

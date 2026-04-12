@@ -1,0 +1,43 @@
+{
+  "scenarioId": "live-claude-replay-parity",
+  "provider": "claude",
+  "sourceFamilies": [
+    "claude-snapshot-task"
+  ],
+  "capturedAt": "2026-04-11T12:48:00.000Z",
+  "captureKind": "sanitized-live-snapshot-task-excerpt",
+  "artifactVersion": "claude-live-2026-04-11-snapshot-task-excerpt#sanitized",
+  "providerVersion": "Claude Code 1.0.0-sanitized",
+  "sdkVersion": "not-recorded",
+  "sanitizerVersion": "drift-proof-foundation-manual-v1",
+  "sanitizedBy": "Codex drift-proof-foundation",
+  "expected": {
+    "events": {
+      "eventTypes": [
+        "message.completed",
+        "message.delta"
+      ],
+      "completeness": [
+        "complete",
+        "complete"
+      ],
+      "observedSession": {
+        "sessionId": "snapshot-session-1",
+        "state": "canonical"
+      }
+    },
+    "sessions": [
+      {
+        "reason": "snapshot",
+        "completeness": "partial",
+        "sessionIdStartsWith": "file:",
+        "state": "provisional"
+      }
+    ],
+    "warnings": {
+      "codes": [
+        "unsupported-record"
+      ]
+    }
+  }
+}
