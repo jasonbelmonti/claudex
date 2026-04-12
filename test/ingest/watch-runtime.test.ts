@@ -736,6 +736,96 @@ test("watch tick failures stop the watcher instead of retrying forever", async (
   expect(warnings.filter((warning) => warning.code === "watch-failed")).toHaveLength(1);
 });
 
+test("watch tick failures emit earlier watch.stopped events before a later warning callback fails", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude-first/first.jsonl": "one\n",
+    "claude-second/second.jsonl": "two\n",
+  });
+  workspaces.push(workspace);
+
+  const firstRoot = {
+    provider: "claude" as const,
+    path: join(workspace, "claude-first"),
+    watch: true,
+    metadata: { lane: "first" },
+  };
+  const secondRoot = {
+    provider: "claude" as const,
+    path: join(workspace, "claude-second"),
+    watch: true,
+    metadata: { lane: "second" },
+  };
+  const firstFilePath = join(firstRoot.path, "first.jsonl");
+  const secondFilePath = join(secondRoot.path, "second.jsonl");
+  const discoveryEvents: DiscoveryEvent[] = [];
+  const warnings: IngestWarning[] = [];
+  let warningCount = 0;
+
+  const service = createSessionIngestService({
+    roots: [firstRoot, secondRoot],
+    registries: [
+      createRegistry({
+        provider: "claude",
+        matchExtension: ".jsonl",
+        recordFactory(context) {
+          return [
+            createObservedEventRecord({
+              provider: "claude",
+              filePath: context.filePath,
+              root: context.root,
+              sessionId: `session:${context.root.metadata?.lane}:${context.filePath}`,
+              discoveryPhase: context.discoveryPhase,
+              cursor: {
+                provider: "claude",
+                rootPath: context.root.path,
+                filePath: context.filePath,
+                byteOffset: Number(Bun.file(context.filePath).size),
+                line: 1,
+              },
+            }),
+          ];
+        },
+      }),
+    ],
+    watchIntervalMs: 25,
+    onObservedEvent(record) {
+      if (record.source.discoveryPhase === "watch") {
+        throw new Error("watch consumer failed");
+      }
+    },
+    onWarning(warning) {
+      warnings.push(warning);
+      warningCount += 1;
+
+      if (warningCount === 2) {
+        throw new Error("second warning failed");
+      }
+    },
+    onDiscoveryEvent(event) {
+      discoveryEvents.push(event);
+    },
+  });
+
+  await service.start();
+  await waitForCondition(() =>
+    discoveryEvents.filter((event) => event.type === "watch.started").length === 2,
+  );
+
+  await Bun.write(firstFilePath, "one\nnext\n");
+  await Bun.write(secondFilePath, "two\nnext\n");
+
+  await waitForCondition(() => warningCount === 2);
+  await Bun.sleep(50);
+
+  expect(warnings.filter((warning) => warning.code === "watch-failed")).toHaveLength(2);
+  expect(
+    discoveryEvents.map((event) => `${event.type}:${event.rootPath}`),
+  ).toContain(`watch.stopped:${firstRoot.path}`);
+  expect(
+    discoveryEvents.filter((event) => event.type === "watch.stopped" && event.rootPath === secondRoot.path),
+  ).toHaveLength(0);
+});
+
 function createDeferredPromise<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: unknown) => void;

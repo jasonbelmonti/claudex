@@ -410,9 +410,9 @@ class DefaultSessionIngestService implements SessionIngestService {
         raw: error,
         cause: error,
       });
-    }
 
-    await this.emitWatchStopped(roots, error);
+      await this.emitWatchStopped([root], error);
+    }
   }
 
   private async emitWatchStopped(
