@@ -327,7 +327,7 @@ test("text report renders the finding buckets and artifact paths", async () => {
     repository: {
       root: REPO_ROOT,
       packageName: "@jasonbelmonti/claudex",
-      packageVersion: "1.0.1",
+      packageVersion: "1.0.2",
       git: {
         branch: "codex/bel-634",
         commitSha: "423d602",
