@@ -327,7 +327,7 @@ test("text report renders the finding buckets and artifact paths", async () => {
     repository: {
       root: REPO_ROOT,
       packageName: "@jasonbelmonti/claudex",
-      packageVersion: "1.0.1",
+      packageVersion: "1.0.3",
       git: {
         branch: "codex/bel-634",
         commitSha: "423d602",
@@ -339,8 +339,8 @@ test("text report renders the finding buckets and artifact paths", async () => {
       packageManager: "bun@1.3.0",
     },
     dependencies: {
-      claudeAgentSdk: "^0.2.71",
-      codexSdk: "^0.112.0",
+      claudeAgentSdk: "0.2.114",
+      codexSdk: "0.121.0",
     },
     commands: [
       {
