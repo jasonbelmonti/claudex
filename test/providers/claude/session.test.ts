@@ -1422,6 +1422,7 @@ function createNonTextStreamEvent(sessionId: string): SDKMessage {
         role: "assistant",
         model: "claude-sonnet-4-6",
         content: [],
+        container: null,
         stop_reason: null,
         stop_sequence: null,
         usage: {
@@ -1430,9 +1431,10 @@ function createNonTextStreamEvent(sessionId: string): SDKMessage {
           cache_read_input_tokens: 0,
           output_tokens: 0,
         },
+        context_management: null,
       },
     },
-  } as SDKMessage;
+  } as unknown as SDKMessage;
 }
 
 function getBaseProviderOptions(
