@@ -2,19 +2,19 @@ import type {
   SDKMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 
-import type { AgentEvent } from "../../core/events";
-import type { SessionReference } from "../../core/session";
+import type { AgentEvent } from "../../core/events.js";
+import type { SessionReference } from "../../core/session.js";
 import {
   mapClaudeAuthStatusEvent,
   mapClaudeSystemMessageEvents,
   mapClaudeToolProgressEvent,
-} from "./lifecycle-events";
+} from "./lifecycle-events.js";
 import {
   mapClaudeAssistantMessageEvent,
   mapClaudePartialMessageEvent,
   mapClaudeResultMessageEvent,
-} from "./message-events";
-import type { ClaudeTurnState } from "./state";
+} from "./message-events.js";
+import type { ClaudeTurnState } from "./state.js";
 
 export function mapClaudeMessageEvent(params: {
   message: SDKMessage;

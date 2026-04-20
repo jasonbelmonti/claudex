@@ -1,6 +1,6 @@
 import { AbortError } from "@anthropic-ai/claude-agent-sdk";
 
-import { AgentError, isAgentError } from "../../core/errors";
+import { AgentError, isAgentError } from "../../core/errors.js";
 
 export function normalizeClaudeError(
   error: unknown,

@@ -1,9 +1,9 @@
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 
-import type { AgentEvent } from "../../core/events";
-import type { SessionReference } from "../../core/session";
-import type { ClaudeTurnState } from "./state";
-import type { ClaudeSessionMessagesLoader } from "./types";
+import type { AgentEvent } from "../../core/events.js";
+import type { SessionReference } from "../../core/session.js";
+import type { ClaudeTurnState } from "./state.js";
+import type { ClaudeSessionMessagesLoader } from "./types.js";
 
 export const DEFAULT_CLAUDE_TRANSCRIPT_POLL_INTERVAL_MS = 100;
 

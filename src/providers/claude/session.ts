@@ -1,28 +1,28 @@
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
-import type { AgentEvent } from "../../core/events";
-import { AgentError } from "../../core/errors";
-import type { TurnInput, TurnOptions } from "../../core/input";
-import type { ProviderCapabilities } from "../../core/capabilities";
-import type { AgentSession, SessionOptions } from "../../core/session";
-import type { TurnResult } from "../../core/results";
-import { mapTurnInputToClaudePrompt } from "./input";
+import type { AgentEvent } from "../../core/events.js";
+import { AgentError } from "../../core/errors.js";
+import type { TurnInput, TurnOptions } from "../../core/input.js";
+import type { ProviderCapabilities } from "../../core/capabilities.js";
+import type { AgentSession, SessionOptions } from "../../core/session.js";
+import type { TurnResult } from "../../core/results.js";
+import { mapTurnInputToClaudePrompt } from "./input.js";
 import {
   buildClaudeBaseQueryOptions,
   buildClaudeTurnQueryOptions,
-} from "./provider-options";
-import { createClaudeSessionReference } from "./references";
-import { createClaudeTurnState } from "./state";
+} from "./provider-options.js";
+import { createClaudeSessionReference } from "./references.js";
+import { createClaudeTurnState } from "./state.js";
 import type {
   ClaudeQueryFactory,
   ClaudeQueryLike,
   ClaudeSessionState,
-} from "./types";
-import { mapClaudeMessageEvent } from "./events";
-import { normalizeClaudeError } from "./errors";
-import { mergeClaudeProviderOptions } from "./provider-option-merge";
-import { createClaudeTranscriptStreamingFallback } from "./transcript-fallback";
-import { validateClaudeSessionOptions } from "./validation";
+} from "./types.js";
+import { mapClaudeMessageEvent } from "./events.js";
+import { normalizeClaudeError } from "./errors.js";
+import { mergeClaudeProviderOptions } from "./provider-option-merge.js";
+import { createClaudeTranscriptStreamingFallback } from "./transcript-fallback.js";
+import { validateClaudeSessionOptions } from "./validation.js";
 
 export class ClaudeSession implements AgentSession {
   readonly provider = "claude" as const;

@@ -9,8 +9,8 @@ import type {
   SDKToolProgressMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 
-import type { AgentEvent } from "../../core/events";
-import type { SessionReference } from "../../core/session";
+import type { AgentEvent } from "../../core/events.js";
+import type { SessionReference } from "../../core/session.js";
 
 export function mapClaudeAuthStatusEvent(
   message: SDKAuthStatusMessage,

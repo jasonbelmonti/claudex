@@ -3,12 +3,12 @@ import type {
   PermissionMode,
 } from "@anthropic-ai/claude-agent-sdk";
 
-import type { TurnOptions } from "../../core/input";
-import type { SessionOptions } from "../../core/session";
+import type { TurnOptions } from "../../core/input.js";
+import type { SessionOptions } from "../../core/session.js";
 import type {
   ClaudeSessionProviderOptions,
   ClaudeTurnProviderOptions,
-} from "./types";
+} from "./types.js";
 
 const RESERVED_SESSION_OPTION_KEYS = new Set<keyof ClaudeSdkOptions>([
   "abortController",

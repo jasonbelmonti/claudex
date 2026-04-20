@@ -4,16 +4,16 @@ import type {
   SDKResultMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 
-import type { AgentEvent } from "../../core/events";
-import type { SessionReference } from "../../core/session";
+import type { AgentEvent } from "../../core/events.js";
+import type { SessionReference } from "../../core/session.js";
 import {
   buildClaudeTurnResult,
   captureClaudeAssistantMessage,
   captureClaudeResultMessage,
   createClaudeResultError,
   createClaudeStructuredOutputError,
-} from "./results";
-import type { ClaudeTurnState } from "./state";
+} from "./results.js";
+import type { ClaudeTurnState } from "./state.js";
 
 export function mapClaudePartialMessageEvent(
   message: SDKPartialAssistantMessage,

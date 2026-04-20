@@ -1,13 +1,13 @@
 import type { Options as ClaudeSdkOptions } from "@anthropic-ai/claude-agent-sdk";
 
-import type { ProviderReadiness } from "../../core/readiness";
-import { createClaudeCapabilities } from "./capabilities";
+import type { ProviderReadiness } from "../../core/readiness.js";
+import { createClaudeCapabilities } from "./capabilities.js";
 import {
   classifyClaudeErrorCode,
   looksLikeClaudeNeedsAuth,
   looksLikeMissingClaudeCli,
-} from "./errors";
-import type { ClaudeQueryFactory, ClaudeQueryLike } from "./types";
+} from "./errors.js";
+import type { ClaudeQueryFactory, ClaudeQueryLike } from "./types.js";
 
 export async function checkClaudeReadiness(params: {
   queryFactory: ClaudeQueryFactory;
