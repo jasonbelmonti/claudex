@@ -2,14 +2,14 @@ import { isAbsolute } from "node:path";
 
 import type { CodexOptions } from "@openai/codex-sdk";
 
-import type { ProviderReadiness } from "../../core/readiness";
-import { createCodexCapabilities } from "./capabilities";
-import { runCodexCommand } from "./command-runner";
+import type { ProviderReadiness } from "../../core/readiness.js";
+import { createCodexCapabilities } from "./capabilities.js";
+import { runCodexCommand } from "./command-runner.js";
 import type {
   CodexBinaryResolver,
   CodexCommandRunner,
   CodexCommandResult,
-} from "./types";
+} from "./types.js";
 
 export const resolveCodexBinary: CodexBinaryResolver = async (
   options,

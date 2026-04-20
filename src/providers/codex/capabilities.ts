@@ -1,4 +1,4 @@
-import type { ProviderCapabilities } from "../../core/capabilities";
+import type { ProviderCapabilities } from "../../core/capabilities.js";
 
 export function createCodexCapabilities(
   overrides: Partial<ProviderCapabilities> = {},

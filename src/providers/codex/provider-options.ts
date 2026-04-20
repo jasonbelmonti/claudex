@@ -4,10 +4,10 @@ import type {
   ApprovalMode,
   SandboxProfile,
   SessionOptions,
-} from "../../core/session";
-import { applyPlanModeThreadOptions } from "./plan-mode";
-import { omitSessionOwnedThreadOptions } from "./session-thread-contract";
-import type { CodexThreadProviderOptions } from "./types";
+} from "../../core/session.js";
+import { applyPlanModeThreadOptions } from "./plan-mode.js";
+import { omitSessionOwnedThreadOptions } from "./session-thread-contract.js";
+import type { CodexThreadProviderOptions } from "./types.js";
 
 export function mapSessionOptionsToThreadOptions(
   options: SessionOptions = {},

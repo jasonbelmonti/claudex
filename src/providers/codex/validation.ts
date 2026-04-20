@@ -1,5 +1,5 @@
-import { AgentError } from "../../core/errors";
-import type { SessionOptions } from "../../core/session";
+import { AgentError } from "../../core/errors.js";
+import type { SessionOptions } from "../../core/session.js";
 
 export function validateCodexSessionOptions(
   options: SessionOptions,

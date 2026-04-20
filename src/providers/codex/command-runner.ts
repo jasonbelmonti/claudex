@@ -1,4 +1,4 @@
-import type { CodexCommandResult, CodexCommandRunner } from "./types";
+import type { CodexCommandResult, CodexCommandRunner } from "./types.js";
 
 export const runCodexCommand: CodexCommandRunner = async (
   command,
