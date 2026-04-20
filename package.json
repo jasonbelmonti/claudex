@@ -5,10 +5,12 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./src/index.ts",
-  "packageManager": "bun@1.3.0",
   "type": "module",
   "private": false,
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "homepage": "https://github.com/jasonbelmonti/claudex#readme",
   "bugs": {
     "url": "https://github.com/jasonbelmonti/claudex/issues"
@@ -19,7 +21,6 @@
   },
   "keywords": [
     "agents",
-    "bun",
     "claude",
     "codex",
     "sdk",
@@ -50,20 +51,22 @@
     "audit:ingest": "bun run ./scripts/ingest-audit/run-audit.ts",
     "audit:ingest:live:claude": "CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/claude-live-parity.test.ts",
     "audit:ingest:live:codex": "CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/codex-live-parity.test.ts",
-    "build:dist": "rm -rf dist && bun build ./src/index.ts ./src/ingest/index.ts ./src/providers/claude/adapter.ts ./src/providers/codex/adapter.ts --outdir ./dist --format esm --target node --packages external --root ./src --splitting",
+    "build": "npm run build:dist",
+    "build:dist": "tsup --config tsup.config.ts",
     "lint": "biome lint .",
-    "prepack": "bun run build:dist",
+    "prepack": "npm run build",
     "test": "bun test",
     "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov",
     "test:smoke": "CLAUDEX_SMOKE=1 bun test ./test/smoke/codex.smoke.ts ./test/smoke/claude.smoke.ts",
     "typecheck": "tsc --noEmit",
-    "check": "bun run lint && bun run typecheck && bun run test",
-    "ci": "bun run lint && bun run typecheck && bun run test:coverage",
+    "check": "npm run lint && npm run typecheck && npm run build",
+    "ci": "npm run lint && npm run typecheck && npm run test:coverage",
     "package:check": "bun run ./scripts/package-check.ts && bun test ./test/package/root-import-typecheck.test.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.12",
     "@types/bun": "1.3.12",
+    "tsup": "^8.5.0",
     "typescript": "^5.8.2"
   },
   "dependencies": {
