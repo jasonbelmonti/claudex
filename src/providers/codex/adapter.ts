@@ -1,17 +1,17 @@
-import type { AgentProviderAdapter } from "../../core/provider";
+import type { AgentProviderAdapter } from "../../core/provider.js";
 import type {
   AgentSession,
   SessionOptions,
   SessionReference,
-} from "../../core/session";
-import { AgentError } from "../../core/errors";
-import { createCodexCapabilities } from "./capabilities";
-import { mapSessionOptionsToThreadOptions } from "./provider-options";
-import { checkCodexReadiness } from "./readiness";
-import { CodexSession } from "./session";
-import { createCodexClient } from "./sdk";
-import type { CodexAdapterOptions, CodexClientLike } from "./types";
-import { validateCodexSessionOptions } from "./validation";
+} from "../../core/session.js";
+import { AgentError } from "../../core/errors.js";
+import { createCodexCapabilities } from "./capabilities.js";
+import { mapSessionOptionsToThreadOptions } from "./provider-options.js";
+import { checkCodexReadiness } from "./readiness.js";
+import { CodexSession } from "./session.js";
+import { createCodexClient } from "./sdk.js";
+import type { CodexAdapterOptions, CodexClientLike } from "./types.js";
+import { validateCodexSessionOptions } from "./validation.js";
 
 export class CodexAdapter implements AgentProviderAdapter {
   readonly provider = "codex" as const;

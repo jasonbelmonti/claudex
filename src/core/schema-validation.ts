@@ -1,4 +1,4 @@
-import Ajv, { type ErrorObject, type ValidateFunction } from "ajv";
+import { Ajv, type ErrorObject, type ValidateFunction } from "ajv";
 
 import { AgentError } from "./errors.js";
 import type { JsonSchema } from "./input.js";
