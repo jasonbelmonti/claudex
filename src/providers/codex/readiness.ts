@@ -1,31 +1,15 @@
-import { isAbsolute } from "node:path";
-
 import type { CodexOptions } from "@openai/codex-sdk";
 
-import type { ProviderReadiness } from "../../core/readiness";
-import { createCodexCapabilities } from "./capabilities";
-import { runCodexCommand } from "./command-runner";
+import type { ProviderReadiness } from "../../core/readiness.js";
+import { resolveCodexBinary } from "./binary-resolution.js";
+import { createCodexCapabilities } from "./capabilities.js";
+import { runCodexCommand } from "./command-runner.js";
 import type {
   CodexBinaryResolver,
   CodexCommandRunner,
   CodexCommandResult,
-} from "./types";
-
-export const resolveCodexBinary: CodexBinaryResolver = async (
-  options,
-) => {
-  const override = options?.codexPathOverride;
-
-  if (override) {
-    if (isCodexPathOverride(override)) {
-      return (await Bun.file(override).exists()) ? override : null;
-    }
-
-    return Bun.which(override) ?? null;
-  }
-
-  return Bun.which("codex") ?? null;
-};
+} from "./types.js";
+export { isCodexPathOverride, resolveCodexBinary } from "./binary-resolution.js";
 
 export async function checkCodexReadiness(options: {
   sdkOptions?: CodexOptions;
@@ -94,9 +78,14 @@ export async function checkCodexReadiness(options: {
     };
   }
 
-  const providerVersion = parseCodexVersion(
-    versionResult.stdout || versionResult.stderr,
-  );
+  const versionOutput = versionResult.stdout || versionResult.stderr;
+  const cliDetectedCheck = {
+    kind: "cli" as const,
+    status: "pass" as const,
+    summary: "Codex CLI detected",
+    detail: versionResult.stdout,
+  };
+  const providerVersion = parseCodexVersion(versionOutput);
   const capabilities = createCodexCapabilities({
     providerVersion,
   });
@@ -107,12 +96,7 @@ export async function checkCodexReadiness(options: {
   } catch (error) {
     return createCodexReadinessResult({
       checks: [
-        {
-          kind: "cli",
-          status: "pass",
-          summary: "Codex CLI detected",
-          detail: versionResult.stdout,
-        },
+        cliDetectedCheck,
         {
           kind: "auth",
           status: "fail",
@@ -136,12 +120,7 @@ export async function checkCodexReadiness(options: {
       provider: "codex",
       status: "needs_auth",
       checks: [
-        {
-          kind: "cli",
-          status: "pass",
-          summary: "Codex CLI detected",
-          detail: versionResult.stdout,
-        },
+        cliDetectedCheck,
         {
           kind: "auth",
           status: "fail",
@@ -187,12 +166,7 @@ export async function checkCodexReadiness(options: {
     provider: "codex",
     status: authResult.exitCode === 0 ? "degraded" : "error",
     checks: [
-      {
-        kind: "cli",
-        status: "pass",
-        summary: "Codex CLI detected",
-        detail: versionResult.stdout,
-      },
+      cliDetectedCheck,
       {
         kind: "auth",
         status: authResult.exitCode === 0 ? "warn" : "fail",
@@ -215,10 +189,6 @@ function parseCodexVersion(output: string): string | undefined {
 
 function looksLikeNeedsAuth(output: string): boolean {
   return /not logged in|sign in|login required|authenticate/i.test(output);
-}
-
-export function isCodexPathOverride(value: string): boolean {
-  return isAbsolute(value) || value.includes("/") || value.includes("\\");
 }
 
 function createCodexReadinessError(params: {

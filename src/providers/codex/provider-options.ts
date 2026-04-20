@@ -4,23 +4,24 @@ import type {
   ApprovalMode,
   SandboxProfile,
   SessionOptions,
-} from "../../core/session";
-import { applyPlanModeThreadOptions } from "./plan-mode";
-import { omitSessionOwnedThreadOptions } from "./session-thread-contract";
-import type { CodexThreadProviderOptions } from "./types";
+} from "../../core/session.js";
+import { applyPlanModeThreadOptions } from "./plan-mode.js";
+import { omitSessionOwnedThreadOptions } from "./session-thread-contract.js";
+import type { CodexThreadProviderOptions } from "./types.js";
 
 export function mapSessionOptionsToThreadOptions(
   options: SessionOptions = {},
 ): ThreadOptions {
   const extensionOptions = getCodexThreadProviderOptions(options.providerOptions);
   const providerThreadOptions = extensionOptions.threadOptions;
+  const additionalDirectories = mergeDirectories(
+    options.additionalDirectories,
+    providerThreadOptions?.additionalDirectories,
+  );
   const coreOptions: ThreadOptions = {
     model: options.model,
     workingDirectory: options.workingDirectory,
-    additionalDirectories: mergeDirectories(
-      options.additionalDirectories,
-      providerThreadOptions?.additionalDirectories,
-    ),
+    additionalDirectories,
     sandboxMode: mapSandboxProfile(options.sandboxProfile),
     approvalPolicy: mapApprovalMode(options.approvalMode),
   };
@@ -28,10 +29,7 @@ export function mapSessionOptionsToThreadOptions(
   const mergedOptions: ThreadOptions = {
     ...omitSessionOwnedThreadOptions(providerThreadOptions),
     ...coreOptions,
-    additionalDirectories: mergeDirectories(
-      coreOptions.additionalDirectories,
-      providerThreadOptions?.additionalDirectories,
-    ),
+    additionalDirectories,
   };
 
   if (options.executionMode === "plan") {

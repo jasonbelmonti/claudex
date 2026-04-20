@@ -1,4 +1,4 @@
-import { AgentError, isAgentError } from "../../core/errors";
+import { AgentError, isAgentError } from "../../core/errors.js";
 
 export function normalizeCodexRunError(
   error: unknown,
