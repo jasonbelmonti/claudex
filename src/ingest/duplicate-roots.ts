@@ -1,10 +1,10 @@
 import { sep } from "node:path";
 
-import type { DiscoveryRootConfig } from "./discovery";
+import type { DiscoveryRootConfig } from "./discovery.js";
 import {
   haveEquivalentDiscoveryRootSemantics,
   normalizeDiscoveryRootPath,
-} from "./root-identity";
+} from "./root-identity.js";
 
 export type SkippedDiscoveryRoot = {
   root: DiscoveryRootConfig;

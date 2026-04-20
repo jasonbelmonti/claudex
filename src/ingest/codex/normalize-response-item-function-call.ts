@@ -1,14 +1,14 @@
-import { createCodexSessionReference } from "../../providers/codex/references";
+import { createCodexSessionReference } from "../../providers/codex/references.js";
 import {
   createToolDescriptor,
   inferToolOutcome,
-} from "./normalize-tool-helpers";
-import { unsupportedRecord } from "./normalize-result";
+} from "./normalize-tool-helpers.js";
+import { unsupportedRecord } from "./normalize-result.js";
 import type {
   CodexTranscriptNormalizationContext,
   ParsedArtifact,
-} from "./normalize-types";
-import { getString, parseMaybeJson } from "./normalize-values";
+} from "./normalize-types.js";
+import { getString, parseMaybeJson } from "./normalize-values.js";
 
 export function normalizeFunctionCallRecord(
   payload: Record<string, unknown>,

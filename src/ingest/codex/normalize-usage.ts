@@ -1,10 +1,10 @@
-import type { AgentUsage } from "../../core/results";
-import type { CodexUsageSnapshot } from "./normalize-types";
+import type { AgentUsage } from "../../core/results.js";
+import type { CodexUsageSnapshot } from "./normalize-types.js";
 import {
   asRecord,
   getNumber,
   isRecord,
-} from "./normalize-values";
+} from "./normalize-values.js";
 
 export function extractUsageSnapshot(info: unknown): CodexUsageSnapshot | null {
   if (!isRecord(info)) {

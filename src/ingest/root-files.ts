@@ -1,8 +1,8 @@
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { DiscoveryRootConfig } from "./discovery";
-import { matchesDiscoveryRootFilters } from "./file-matching";
+import type { DiscoveryRootConfig } from "./discovery.js";
+import { matchesDiscoveryRootFilters } from "./file-matching.js";
 
 export async function listDiscoveryRootFiles(
   root: DiscoveryRootConfig,

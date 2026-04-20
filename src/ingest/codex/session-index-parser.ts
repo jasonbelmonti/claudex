@@ -1,11 +1,11 @@
-import type { ObservedIngestRecord, ObservedSessionRecord } from "../events";
-import type { IngestParseContext, IngestProviderRegistry } from "../registry";
-import type { IngestWarning } from "../warnings";
+import type { ObservedIngestRecord, ObservedSessionRecord } from "../events.js";
+import type { IngestParseContext, IngestProviderRegistry } from "../registry.js";
+import type { IngestWarning } from "../warnings.js";
 import {
   createCodexIngestSource,
   createCodexObservedSessionRecord,
   withCodexIngestWarnings,
-} from "./parser-core";
+} from "./parser-core.js";
 
 const NEWLINE = 10;
 const CARRIAGE_RETURN = 13;

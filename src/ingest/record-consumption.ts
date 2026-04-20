@@ -1,5 +1,5 @@
-import type { IngestCursor } from "./cursor";
-import type { ObservedIngestRecord } from "./events";
+import type { IngestCursor } from "./cursor.js";
+import type { ObservedIngestRecord } from "./events.js";
 
 export type RecordConsumptionResult = {
   latestCursor: IngestCursor | null;

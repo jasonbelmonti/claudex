@@ -1,8 +1,8 @@
-import type { DiscoveryRootConfig } from "./discovery";
-import { readSourceFileState, type SourceFileState } from "./file-state";
-import { listDiscoveryRootFiles } from "./root-files";
-import { selectRegistryForFile, type RegistrySelection } from "./registry-selection";
-import type { IngestProviderRegistry } from "./registry";
+import type { DiscoveryRootConfig } from "./discovery.js";
+import { readSourceFileState, type SourceFileState } from "./file-state.js";
+import { listDiscoveryRootFiles } from "./root-files.js";
+import { selectRegistryForFile, type RegistrySelection } from "./registry-selection.js";
+import type { IngestProviderRegistry } from "./registry.js";
 
 export type MatchedRootFile = {
   filePath: string;

@@ -1,2 +1,2 @@
-export * from "./core";
-export * from "./providers/claudex";
+export * from "./core/index.js";
+export * from "./providers/claudex/index.js";

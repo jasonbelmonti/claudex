@@ -1,30 +1,30 @@
-import type { AgentEvent } from "../../core/events";
+import type { AgentEvent } from "../../core/events.js";
 import {
   OBSERVED_EVENT_COMPLETENESS,
   type ObservedEventCompleteness,
-} from "../completeness";
-import type { IngestCursor } from "../cursor";
+} from "../completeness.js";
+import type { IngestCursor } from "../cursor.js";
 import type {
   IngestParseContext,
   IngestProviderRegistry,
-} from "../registry";
+} from "../registry.js";
 import type {
   ObservedIngestRecord,
   ObservedSessionRecord,
-} from "../events";
-import type { ObservedEventSource } from "../source";
-import type { IngestWarning } from "../warnings";
+} from "../events.js";
+import type { ObservedEventSource } from "../source.js";
+import type { IngestWarning } from "../warnings.js";
 import {
   createIngestSource,
   withIngestWarnings,
-} from "./parser-core";
+} from "./parser-core.js";
 import {
   createClaudeArtifactNormalizationMetadata,
   createClaudeArtifactNormalizationContext,
   getClaudeArtifactWorkingDirectory,
   type ClaudeArtifactNormalizationContext,
   normalizeClaudeArtifactRecord,
-} from "./normalize";
+} from "./normalize.js";
 
 const NEWLINE = 10;
 const CARRIAGE_RETURN = 13;

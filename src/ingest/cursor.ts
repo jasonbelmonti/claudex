@@ -1,4 +1,4 @@
-import type { ProviderId } from "../core/provider";
+import type { ProviderId } from "../core/provider.js";
 
 export type IngestCursorKey = {
   provider: ProviderId;

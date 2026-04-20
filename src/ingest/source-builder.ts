@@ -1,10 +1,10 @@
-import type { ProviderId } from "../core/provider";
+import type { ProviderId } from "../core/provider.js";
 import type {
   DiscoveryPhase,
   ObservedEventLocation,
   ObservedEventSource,
   ObservedEventSourceKind,
-} from "./source";
+} from "./source.js";
 
 type SourceMetadata = Record<string, unknown>;
 

@@ -1,19 +1,19 @@
-import { createCodexSessionReference } from "../../providers/codex/references";
+import { createCodexSessionReference } from "../../providers/codex/references.js";
 import {
   createCodexTranscriptNormalizationContext,
   createCodexTranscriptNormalizationMetadata,
   ensureActiveTurn,
-} from "./normalize-context";
-import { normalizeEventMessageRecord } from "./normalize-event-msg";
-import { emptyResult, unsupportedRecord } from "./normalize-helpers";
-import { normalizeResponseItemRecord } from "./normalize-response-item";
+} from "./normalize-context.js";
+import { normalizeEventMessageRecord } from "./normalize-event-msg.js";
+import { emptyResult, unsupportedRecord } from "./normalize-helpers.js";
+import { normalizeResponseItemRecord } from "./normalize-response-item.js";
 import type {
   CodexTranscriptNormalizationContext,
   ParsedArtifact,
-} from "./normalize-types";
-import { asRecord, getString, isRecord, isString } from "./normalize-values";
+} from "./normalize-types.js";
+import { asRecord, getString, isRecord, isString } from "./normalize-values.js";
 
-export type { CodexTranscriptNormalizationContext } from "./normalize-types";
+export type { CodexTranscriptNormalizationContext } from "./normalize-types.js";
 export {
   createCodexTranscriptNormalizationContext,
   createCodexTranscriptNormalizationMetadata,

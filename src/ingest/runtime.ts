@@ -1,19 +1,19 @@
-import type { IngestCursorKey } from "./cursor";
-import type { DiscoveryEvent, DiscoveryRootConfig } from "./discovery";
-import { resolveActiveDiscoveryRoots, type SkippedDiscoveryRoot } from "./duplicate-roots";
-import { listMatchedRootFiles, type UnavailableRootFile } from "./matched-root-files";
-import { processMatchedFile } from "./process-file";
+import type { IngestCursorKey } from "./cursor.js";
+import type { DiscoveryEvent, DiscoveryRootConfig } from "./discovery.js";
+import { resolveActiveDiscoveryRoots, type SkippedDiscoveryRoot } from "./duplicate-roots.js";
+import { listMatchedRootFiles, type UnavailableRootFile } from "./matched-root-files.js";
+import { processMatchedFile } from "./process-file.js";
 import {
   createRootSnapshot,
   reconcileRootSnapshot,
   type RootSnapshot,
-} from "./reconcile";
-import { getDiscoveryRootIdentityKey } from "./root-identity";
-import type { DiscoveryPhase } from "./source";
-import { buildObservedEventSource } from "./source-builder";
-import type { SessionIngestService, SessionIngestServiceOptions } from "./service";
-import type { IngestWarning } from "./warnings";
-import { createIngestWatchLoop, type IngestWatchLoop } from "./watch-loop";
+} from "./reconcile.js";
+import { getDiscoveryRootIdentityKey } from "./root-identity.js";
+import type { DiscoveryPhase } from "./source.js";
+import { buildObservedEventSource } from "./source-builder.js";
+import type { SessionIngestService, SessionIngestServiceOptions } from "./service.js";
+import type { IngestWarning } from "./warnings.js";
+import { createIngestWatchLoop, type IngestWatchLoop } from "./watch-loop.js";
 
 const DEFAULT_WATCH_INTERVAL_MS = 250;
 

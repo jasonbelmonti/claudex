@@ -1,20 +1,20 @@
-import { AgentError } from "../../core/errors";
-import { createCodexSessionReference } from "../../providers/codex/references";
+import { AgentError } from "../../core/errors.js";
+import { createCodexSessionReference } from "../../providers/codex/references.js";
 import {
   emitTurnStarted,
   ensureActiveTurn,
-} from "./normalize-context";
+} from "./normalize-context.js";
 import {
   emptyResult,
   extractUsageSnapshot,
   mapUsageSnapshot,
   unsupportedRecord,
-} from "./normalize-helpers";
+} from "./normalize-helpers.js";
 import type {
   CodexTranscriptNormalizationContext,
   ParsedArtifact,
-} from "./normalize-types";
-import { getString } from "./normalize-values";
+} from "./normalize-types.js";
+import { getString } from "./normalize-values.js";
 
 export function normalizeEventMessageRecord(
   payload: Record<string, unknown>,

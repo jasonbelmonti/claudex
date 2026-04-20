@@ -1,15 +1,15 @@
-import { createCodexSessionReference } from "../../providers/codex/references";
+import { createCodexSessionReference } from "../../providers/codex/references.js";
 import {
   createSyntheticToolCallId,
   inferToolOutcome,
-} from "./normalize-tool-helpers";
-import { unsupportedRecord } from "./normalize-result";
+} from "./normalize-tool-helpers.js";
+import { unsupportedRecord } from "./normalize-result.js";
 import type {
   CodexTranscriptNormalizationContext,
   ParsedArtifact,
   PendingToolCall,
-} from "./normalize-types";
-import { getString, parseMaybeJson } from "./normalize-values";
+} from "./normalize-types.js";
+import { getString, parseMaybeJson } from "./normalize-values.js";
 
 export function normalizeCustomToolCallRecord(
   payload: Record<string, unknown>,

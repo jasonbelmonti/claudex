@@ -1,10 +1,10 @@
-import type { TurnInput } from "../../core/input";
-import { createCodexSessionReference } from "../../providers/codex/references";
+import type { TurnInput } from "../../core/input.js";
+import { createCodexSessionReference } from "../../providers/codex/references.js";
 import type {
   CodexTranscriptNormalizationContext,
   CodexTranscriptTurnState,
   ParsedArtifact,
-} from "./normalize-types";
+} from "./normalize-types.js";
 
 export function emitTurnStarted(
   prompt: string,

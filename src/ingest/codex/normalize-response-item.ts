@@ -1,20 +1,20 @@
-import { unsupportedRecord } from "./normalize-helpers";
+import { unsupportedRecord } from "./normalize-helpers.js";
 import {
   normalizeResponseMessageRecord,
   normalizeResponseReasoningRecord,
-} from "./normalize-response-item-message";
+} from "./normalize-response-item-message.js";
 import {
   normalizeCustomToolCallOutputRecord,
   normalizeCustomToolCallRecord,
   normalizeFunctionCallOutputRecord,
   normalizeFunctionCallRecord,
   normalizeWebSearchRecord,
-} from "./normalize-response-item-tool";
+} from "./normalize-response-item-tool.js";
 import type {
   CodexTranscriptNormalizationContext,
   ParsedArtifact,
-} from "./normalize-types";
-import { getString } from "./normalize-values";
+} from "./normalize-types.js";
+import { getString } from "./normalize-values.js";
 
 export function normalizeResponseItemRecord(
   payload: Record<string, unknown>,

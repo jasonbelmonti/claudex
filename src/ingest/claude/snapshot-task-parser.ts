@@ -1,28 +1,28 @@
-import type { AgentEvent } from "../../core/events";
+import type { AgentEvent } from "../../core/events.js";
 import {
   OBSERVED_EVENT_COMPLETENESS,
   type ObservedEventCompleteness,
-} from "../completeness";
-import type { IngestCursor } from "../cursor";
+} from "../completeness.js";
+import type { IngestCursor } from "../cursor.js";
 import type {
   IngestParseContext,
   IngestProviderRegistry,
-} from "../registry";
-import type { ObservedIngestRecord } from "../events";
+} from "../registry.js";
+import type { ObservedIngestRecord } from "../events.js";
 import {
   createIngestCursor,
   createIngestSource,
   createObservedEventRecord,
   createObservedSessionRecord,
   withIngestWarnings,
-} from "./parser-core";
-import type { ObservedEventSource } from "../source";
-import type { IngestWarning } from "../warnings";
+} from "./parser-core.js";
+import type { ObservedEventSource } from "../source.js";
+import type { IngestWarning } from "../warnings.js";
 import {
   createClaudeArtifactNormalizationContext,
   getClaudeArtifactWorkingDirectory,
   normalizeClaudeArtifactRecord,
-} from "./normalize";
+} from "./normalize.js";
 
 const SNAPSHOT_REPLAY_INDEX_METADATA_KEY = "claudeSnapshotReplayIndex";
 

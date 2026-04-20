@@ -1,27 +1,27 @@
-import { AgentError } from "../../core/errors";
-import type { ProviderCapabilities } from "../../core/capabilities";
+import { AgentError } from "../../core/errors.js";
+import type { ProviderCapabilities } from "../../core/capabilities.js";
 import {
   PROVIDER_IDS,
   type AgentProviderAdapter,
   type ProviderId,
-} from "../../core/provider";
-import type { ProviderReadiness } from "../../core/readiness";
+} from "../../core/provider.js";
+import type { ProviderReadiness } from "../../core/readiness.js";
 import type {
   AgentSession,
   SessionOptions,
   SessionReference,
-} from "../../core/session";
-import { createNoRunnableProviderError } from "./errors";
+} from "../../core/session.js";
+import { createNoRunnableProviderError } from "./errors.js";
 import {
   createProviderAdapterLoaders,
   type ProviderAdapterLoader,
-} from "./factory";
+} from "./factory.js";
 import {
   type ClaudexResolutionStrategy,
   extendReadinessWithResolution,
   probeProvidersInOrder,
-} from "./resolution";
-import type { ClaudexAdapterOptions } from "./types";
+} from "./resolution.js";
+import type { ClaudexAdapterOptions } from "./types.js";
 
 export const DEFAULT_CLAUDEX_PROVIDER_ORDER = [
   "codex",

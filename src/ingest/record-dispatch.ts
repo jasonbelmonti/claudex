@@ -2,8 +2,8 @@ import type {
   ObservedAgentEvent,
   ObservedIngestRecord,
   ObservedSessionRecord,
-} from "./events";
-import type { SessionIngestServiceOptions } from "./service";
+} from "./events.js";
+import type { SessionIngestServiceOptions } from "./service.js";
 
 export async function dispatchObservedRecord(
   options: SessionIngestServiceOptions,

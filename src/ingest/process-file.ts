@@ -1,14 +1,14 @@
-import type { IngestCursor, IngestCursorKey } from "./cursor";
-import { resolveCursorRecovery } from "./cursor-recovery";
-import type { DiscoveryEventType, DiscoveryRootConfig } from "./discovery";
-import type { ObservedIngestRecord } from "./events";
-import { readSourceFileState, type SourceFileState } from "./file-state";
-import { consumeParsedRecords } from "./record-consumption";
-import { dispatchObservedRecord } from "./record-dispatch";
-import type { RegistrySelection } from "./registry-selection";
-import type { DiscoveryPhase, ObservedEventSource } from "./source";
-import { buildObservedEventSource } from "./source-builder";
-import type { SessionIngestServiceOptions } from "./service";
+import type { IngestCursor, IngestCursorKey } from "./cursor.js";
+import { resolveCursorRecovery } from "./cursor-recovery.js";
+import type { DiscoveryEventType, DiscoveryRootConfig } from "./discovery.js";
+import type { ObservedIngestRecord } from "./events.js";
+import { readSourceFileState, type SourceFileState } from "./file-state.js";
+import { consumeParsedRecords } from "./record-consumption.js";
+import { dispatchObservedRecord } from "./record-dispatch.js";
+import type { RegistrySelection } from "./registry-selection.js";
+import type { DiscoveryPhase, ObservedEventSource } from "./source.js";
+import { buildObservedEventSource } from "./source-builder.js";
+import type { SessionIngestServiceOptions } from "./service.js";
 
 type ContinuityCheckpoint = {
   byteOffset: number;

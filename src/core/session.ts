@@ -1,8 +1,8 @@
-import type { ProviderCapabilities } from "./capabilities";
-import type { AgentEvent } from "./events";
-import type { TurnInput, TurnOptions } from "./input";
-import type { ProviderId } from "./provider";
-import type { TurnResult } from "./results";
+import type { ProviderCapabilities } from "./capabilities.js";
+import type { AgentEvent } from "./events.js";
+import type { TurnInput, TurnOptions } from "./input.js";
+import type { ProviderId } from "./provider.js";
+import type { TurnResult } from "./results.js";
 
 export type SessionReference = {
   provider: ProviderId;

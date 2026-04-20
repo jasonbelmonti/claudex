@@ -1,8 +1,8 @@
 import Ajv, { type ErrorObject, type ValidateFunction } from "ajv";
 
-import { AgentError } from "./errors";
-import type { JsonSchema } from "./input";
-import type { ProviderId } from "./provider";
+import { AgentError } from "./errors.js";
+import type { JsonSchema } from "./input.js";
+import type { ProviderId } from "./provider.js";
 
 const ajv = new Ajv({
   allErrors: true,

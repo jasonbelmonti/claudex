@@ -1,4 +1,4 @@
-import { getString, isRecord } from "./normalize-values";
+import { getString, isRecord } from "./normalize-values.js";
 
 export function extractResponseMessageText(content: unknown): string | null {
   if (!Array.isArray(content)) {

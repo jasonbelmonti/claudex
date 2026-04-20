@@ -1,8 +1,8 @@
-import type { ToolKind } from "../../core/events";
-import type { IngestWarning } from "../warnings";
+import type { ToolKind } from "../../core/events.js";
+import type { IngestWarning } from "../warnings.js";
 
 export type ParsedArtifact = {
-  events: import("../../core/events").AgentEvent[];
+  events: import("../../core/events.js").AgentEvent[];
   warnings: IngestWarning[];
   sessionId?: string;
 };

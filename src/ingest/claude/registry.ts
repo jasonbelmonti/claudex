@@ -1,6 +1,6 @@
-import { createClaudeSnapshotTaskIngestRegistry } from "./snapshot-task-parser";
-import { createClaudeTranscriptIngestRegistry } from "./transcript-parser";
-import type { IngestProviderRegistry } from "../registry";
+import { createClaudeSnapshotTaskIngestRegistry } from "./snapshot-task-parser.js";
+import { createClaudeTranscriptIngestRegistry } from "./transcript-parser.js";
+import type { IngestProviderRegistry } from "../registry.js";
 
 export { createClaudeSnapshotTaskIngestRegistry };
 export { createClaudeTranscriptIngestRegistry };

@@ -1,5 +1,5 @@
-import type { ProviderId } from "../core/provider";
-import type { ObservedEventSource } from "./source";
+import type { ProviderId } from "../core/provider.js";
+import type { ObservedEventSource } from "./source.js";
 
 export const INGEST_WARNING_CODES = [
   "watch-failed",

@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 
-import type { DiscoveryRootConfig } from "./discovery";
+import type { DiscoveryRootConfig } from "./discovery.js";
 
 export function getDiscoveryRootIdentityKey(root: DiscoveryRootConfig): string {
   return stableSerializeValue({

@@ -1,5 +1,5 @@
-import type { ProviderId } from "./provider";
-import type { SessionReference } from "./session";
+import type { ProviderId } from "./provider.js";
+import type { SessionReference } from "./session.js";
 
 export type TokenUsage = {
   input: number;

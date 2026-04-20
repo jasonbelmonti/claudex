@@ -1,5 +1,5 @@
-import type { AgentProviderAdapter, ProviderId } from "./core/provider";
-import type { ClaudexAdapterOptions } from "./providers/claudex/types";
+import type { AgentProviderAdapter, ProviderId } from "./core/provider.js";
+import type { ClaudexAdapterOptions } from "./providers/claudex/types.js";
 
 export type ProviderAdapterLoader = () => Promise<AgentProviderAdapter>;
 

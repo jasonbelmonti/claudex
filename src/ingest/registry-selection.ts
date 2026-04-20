@@ -1,5 +1,5 @@
-import type { DiscoveryRootConfig } from "./discovery";
-import type { IngestFileMatch, IngestProviderRegistry } from "./registry";
+import type { DiscoveryRootConfig } from "./discovery.js";
+import type { IngestFileMatch, IngestProviderRegistry } from "./registry.js";
 
 export type RegistrySelection = {
   registry: IngestProviderRegistry;

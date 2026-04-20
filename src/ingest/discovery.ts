@@ -1,5 +1,5 @@
-import type { ProviderId } from "../core/provider";
-import type { DiscoveryPhase } from "./source";
+import type { ProviderId } from "../core/provider.js";
+import type { DiscoveryPhase } from "./source.js";
 
 export const DISCOVERY_EVENT_TYPES = [
   "scan.started",

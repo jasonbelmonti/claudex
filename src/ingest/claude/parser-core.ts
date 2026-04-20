@@ -1,12 +1,12 @@
-import type { ObservedEventCompleteness } from "../completeness";
-import type { IngestCursor } from "../cursor";
-import type { IngestParseContext } from "../registry";
-import type { AgentEvent } from "../../core/events";
-import type { ObservedSessionIdentity, ObservedSessionIdentityState } from "../session-identity";
-import type { ObservedEventSource, ObservedEventSourceKind } from "../source";
-import { buildObservedEventSource } from "../source-builder";
-import type { ObservedAgentEvent, ObservedIngestRecord, ObservedSessionRecord, ObservedSessionReason } from "../events";
-import type { IngestWarning } from "../warnings";
+import type { ObservedEventCompleteness } from "../completeness.js";
+import type { IngestCursor } from "../cursor.js";
+import type { IngestParseContext } from "../registry.js";
+import type { AgentEvent } from "../../core/events.js";
+import type { ObservedSessionIdentity, ObservedSessionIdentityState } from "../session-identity.js";
+import type { ObservedEventSource, ObservedEventSourceKind } from "../source.js";
+import { buildObservedEventSource } from "../source-builder.js";
+import type { ObservedAgentEvent, ObservedIngestRecord, ObservedSessionRecord, ObservedSessionReason } from "../events.js";
+import type { IngestWarning } from "../warnings.js";
 
 export const CLAUDE_INGEST_COMPLETENESS: ObservedEventCompleteness = "best-effort";
 

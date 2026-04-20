@@ -1,17 +1,17 @@
-import type { ObservedEventCompleteness } from "../completeness";
-import type { ObservedIngestRecord } from "../events";
-import type { IngestParseContext } from "../registry";
+import type { ObservedEventCompleteness } from "../completeness.js";
+import type { ObservedIngestRecord } from "../events.js";
+import type { IngestParseContext } from "../registry.js";
 import {
   createCodexIngestSource,
   createCodexObservedEventRecord,
   createCodexObservedSessionRecord,
   withCodexIngestWarnings,
-} from "./parser-core";
+} from "./parser-core.js";
 import {
   createCodexTranscriptNormalizationContext,
   createCodexTranscriptNormalizationMetadata,
   normalizeCodexTranscriptRecord,
-} from "./normalize";
+} from "./normalize.js";
 
 const NEWLINE = 10;
 const CARRIAGE_RETURN = 13;
