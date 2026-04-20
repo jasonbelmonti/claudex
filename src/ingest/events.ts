@@ -1,9 +1,9 @@
-import type { AgentEvent } from "../core/events";
-import type { IngestCursor } from "./cursor";
-import type { ObservedEventCompleteness } from "./completeness";
-import type { ObservedSessionIdentity } from "./session-identity";
-import type { ObservedEventSource } from "./source";
-import type { IngestWarning } from "./warnings";
+import type { AgentEvent } from "../core/events.js";
+import type { IngestCursor } from "./cursor.js";
+import type { ObservedEventCompleteness } from "./completeness.js";
+import type { ObservedSessionIdentity } from "./session-identity.js";
+import type { ObservedEventSource } from "./source.js";
+import type { IngestWarning } from "./warnings.js";
 
 export type ObservedAgentEvent = {
   kind: "event";

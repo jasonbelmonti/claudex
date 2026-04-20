@@ -1,9 +1,9 @@
-import { AgentError } from "../../core/errors";
-import type { ProviderId } from "../../core/provider";
+import { AgentError } from "../../core/errors.js";
+import type { ProviderId } from "../../core/provider.js";
 import type {
   ProviderReadiness,
   ProviderReadinessStatus,
-} from "../../core/readiness";
+} from "../../core/readiness.js";
 
 type ReadinessProbeSummary = {
   provider: ProviderId;

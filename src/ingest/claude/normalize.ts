@@ -1,8 +1,8 @@
-import type { AgentEvent } from "../../core/events";
-import type { AgentUsage } from "../../core/results";
-import { AgentError } from "../../core/errors";
-import { createClaudeSessionReference } from "../../providers/claude/references";
-import type { IngestWarning } from "../warnings";
+import type { AgentEvent } from "../../core/events.js";
+import type { AgentUsage } from "../../core/results.js";
+import { AgentError } from "../../core/errors.js";
+import { createClaudeSessionReference } from "../../providers/claude/references.js";
+import type { IngestWarning } from "../warnings.js";
 
 type ParsedArtifact = {
   events: AgentEvent[];

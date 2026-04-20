@@ -1,15 +1,15 @@
-import type { ToolKind } from "../../core/events";
+import type { ToolKind } from "../../core/events.js";
 import type {
   CodexTranscriptNormalizationContext,
   CodexTranscriptTurnState,
   CodexUsageSnapshot,
-} from "./normalize-types";
+} from "./normalize-types.js";
 import {
   asRecordOfRecords,
   getNumber,
   getString,
   isRecord,
-} from "./normalize-values";
+} from "./normalize-values.js";
 
 const CODEX_TRANSCRIPT_METADATA_KEY = "codexTranscriptNormalizationState";
 

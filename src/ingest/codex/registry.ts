@@ -1,6 +1,6 @@
-import type { IngestProviderRegistry } from "../registry";
-import { createCodexSessionIndexIngestRegistry } from "./session-index-parser";
-import { parseCodexTranscriptFile } from "./transcript-parser";
+import type { IngestProviderRegistry } from "../registry.js";
+import { createCodexSessionIndexIngestRegistry } from "./session-index-parser.js";
+import { parseCodexTranscriptFile } from "./transcript-parser.js";
 
 export { createCodexSessionIndexIngestRegistry };
 

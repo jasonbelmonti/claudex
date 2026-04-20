@@ -1,5 +1,5 @@
-import type { ProviderCapabilities } from "./capabilities";
-import type { ProviderId } from "./provider";
+import type { ProviderCapabilities } from "./capabilities.js";
+import type { ProviderId } from "./provider.js";
 
 export type ProviderReadinessStatus =
   | "ready"

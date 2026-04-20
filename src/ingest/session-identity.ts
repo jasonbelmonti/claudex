@@ -1,4 +1,4 @@
-import type { ProviderId } from "../core/provider";
+import type { ProviderId } from "../core/provider.js";
 
 export const OBSERVED_SESSION_IDENTITY_STATES = [
   "canonical",

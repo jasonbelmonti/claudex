@@ -1,8 +1,8 @@
-import type { AgentError } from "./errors";
-import type { TurnInput } from "./input";
-import type { ProviderId } from "./provider";
-import type { TurnResult } from "./results";
-import type { SessionReference } from "./session";
+import type { AgentError } from "./errors.js";
+import type { TurnInput } from "./input.js";
+import type { ProviderId } from "./provider.js";
+import type { TurnResult } from "./results.js";
+import type { SessionReference } from "./session.js";
 
 export const AGENT_EVENT_TYPES = [
   "session.started",

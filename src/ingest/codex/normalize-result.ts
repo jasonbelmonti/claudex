@@ -1,7 +1,7 @@
 import type {
   CodexTranscriptNormalizationContext,
   ParsedArtifact,
-} from "./normalize-types";
+} from "./normalize-types.js";
 
 export function emptyResult(
   context: CodexTranscriptNormalizationContext,

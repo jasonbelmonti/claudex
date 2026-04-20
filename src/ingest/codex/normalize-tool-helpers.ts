@@ -1,14 +1,14 @@
 import type {
   CodexTranscriptNormalizationContext,
   PendingToolCall,
-} from "./normalize-types";
+} from "./normalize-types.js";
 import {
   asRecord,
   getNumber,
   getString,
   isRecord,
   isString,
-} from "./normalize-values";
+} from "./normalize-values.js";
 
 export function createToolDescriptor(params: {
   name: string;

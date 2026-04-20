@@ -1,5 +1,5 @@
-import type { ProviderCapabilities } from "../../core/capabilities";
-import type { AgentProviderAdapter, ProviderId } from "../../core/provider";
+import type { ProviderCapabilities } from "../../core/capabilities.js";
+import type { AgentProviderAdapter, ProviderId } from "../../core/provider.js";
 
 // Keep nested provider configuration opaque on the root surface so strict
 // consumers can import ClaudexAdapter without inheriting provider SDK types.

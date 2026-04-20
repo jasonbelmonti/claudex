@@ -1,4 +1,4 @@
-import type { CursorStore, IngestCursor, IngestCursorKey } from "./cursor";
+import type { CursorStore, IngestCursor, IngestCursorKey } from "./cursor.js";
 
 export function createInMemoryCursorStore(
   initialCursors: IngestCursor[] = [],

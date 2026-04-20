@@ -1,8 +1,8 @@
-import type { ProviderId } from "../core/provider";
-import type { IngestCursor } from "./cursor";
-import type { DiscoveryRootConfig } from "./discovery";
-import type { ObservedIngestRecord } from "./events";
-import type { DiscoveryPhase, ObservedEventSourceKind } from "./source";
+import type { ProviderId } from "../core/provider.js";
+import type { IngestCursor } from "./cursor.js";
+import type { DiscoveryRootConfig } from "./discovery.js";
+import type { ObservedIngestRecord } from "./events.js";
+import type { DiscoveryPhase, ObservedEventSourceKind } from "./source.js";
 
 export type IngestFileMatch = {
   kind: ObservedEventSourceKind;

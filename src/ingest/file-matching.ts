@@ -1,6 +1,6 @@
 import { basename, relative } from "node:path";
 
-import type { DiscoveryRootConfig } from "./discovery";
+import type { DiscoveryRootConfig } from "./discovery.js";
 
 function normalizeRelativePath(rootPath: string, filePath: string): string {
   const normalized = relative(rootPath, filePath).replaceAll("\\", "/");

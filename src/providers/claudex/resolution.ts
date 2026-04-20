@@ -1,5 +1,5 @@
-import type { AgentProviderAdapter, ProviderId } from "../../core/provider";
-import type { ProviderReadiness } from "../../core/readiness";
+import type { AgentProviderAdapter, ProviderId } from "../../core/provider.js";
+import type { ProviderReadiness } from "../../core/readiness.js";
 
 export type ClaudexResolutionStrategy =
   | "ready"

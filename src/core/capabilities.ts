@@ -1,4 +1,4 @@
-import type { ProviderId } from "./provider";
+import type { ProviderId } from "./provider.js";
 
 export type NormalizationLevel =
   | "normalized"

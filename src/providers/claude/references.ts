@@ -1,4 +1,4 @@
-import type { SessionReference } from "../../core/session";
+import type { SessionReference } from "../../core/session.js";
 
 export function createClaudeSessionReference(
   sessionId: string | null | undefined,

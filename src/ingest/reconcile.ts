@@ -1,6 +1,6 @@
-import type { SourceFileState } from "./file-state";
-import type { MatchedRootFile } from "./matched-root-files";
-import type { RegistrySelection } from "./registry-selection";
+import type { SourceFileState } from "./file-state.js";
+import type { MatchedRootFile } from "./matched-root-files.js";
+import type { RegistrySelection } from "./registry-selection.js";
 
 export type RootSnapshotEntry = {
   filePath: string;

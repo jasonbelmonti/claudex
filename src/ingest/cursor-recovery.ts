@@ -1,7 +1,7 @@
-import type { IngestCursor } from "./cursor";
-import type { SourceFileState } from "./file-state";
-import type { ObservedEventSource } from "./source";
-import type { IngestWarning } from "./warnings";
+import type { IngestCursor } from "./cursor.js";
+import type { SourceFileState } from "./file-state.js";
+import type { ObservedEventSource } from "./source.js";
+import type { IngestWarning } from "./warnings.js";
 
 const SNAPSHOT_REPLAY_INDEX_METADATA_KEY = "claudeSnapshotReplayIndex";
 

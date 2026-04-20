@@ -1,4 +1,4 @@
 export {
   createProviderAdapterLoaders,
   type ProviderAdapterLoader,
-} from "../../provider-adapter-loaders";
+} from "../../provider-adapter-loaders.js";

@@ -1,7 +1,7 @@
 import { stat } from "node:fs/promises";
 
-import type { IngestCursor } from "./cursor";
-import { readCursorContinuityToken } from "./cursor-continuity";
+import type { IngestCursor } from "./cursor.js";
+import { readCursorContinuityToken } from "./cursor-continuity.js";
 
 export type SourceFileState = {
   size: number;

@@ -1,19 +1,19 @@
-import type { AgentEvent } from "../../core/events";
-import type { ObservedEventCompleteness } from "../completeness";
-import type { IngestCursor } from "../cursor";
+import type { AgentEvent } from "../../core/events.js";
+import type { ObservedEventCompleteness } from "../completeness.js";
+import type { IngestCursor } from "../cursor.js";
 import type {
   ObservedAgentEvent,
   ObservedSessionReason,
   ObservedSessionRecord,
-} from "../events";
-import type { IngestParseContext } from "../registry";
+} from "../events.js";
+import type { IngestParseContext } from "../registry.js";
 import type {
   ObservedSessionIdentity,
   ObservedSessionIdentityState,
-} from "../session-identity";
-import type { ObservedEventSource } from "../source";
-import { buildObservedEventSource } from "../source-builder";
-import type { IngestWarning } from "../warnings";
+} from "../session-identity.js";
+import type { ObservedEventSource } from "../source.js";
+import { buildObservedEventSource } from "../source-builder.js";
+import type { IngestWarning } from "../warnings.js";
 
 export function createCodexIngestCursor(params: {
   context: IngestParseContext;

@@ -1,12 +1,12 @@
-import type { DiscoveryEvent, DiscoveryRootConfig } from "./discovery";
-import type { CursorStore } from "./cursor";
+import type { DiscoveryEvent, DiscoveryRootConfig } from "./discovery.js";
+import type { CursorStore } from "./cursor.js";
 import type {
   ObservedAgentEvent,
   ObservedIngestRecord,
   ObservedSessionRecord,
-} from "./events";
-import type { IngestProviderRegistry } from "./registry";
-import type { IngestWarning } from "./warnings";
+} from "./events.js";
+import type { IngestProviderRegistry } from "./registry.js";
+import type { IngestWarning } from "./warnings.js";
 
 export type IngestRecordHandler = (
   record: ObservedIngestRecord,

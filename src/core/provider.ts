@@ -1,6 +1,6 @@
-import type { ProviderCapabilities } from "./capabilities";
-import type { ProviderReadiness } from "./readiness";
-import type { AgentSession, SessionOptions, SessionReference } from "./session";
+import type { ProviderCapabilities } from "./capabilities.js";
+import type { ProviderReadiness } from "./readiness.js";
+import type { AgentSession, SessionOptions, SessionReference } from "./session.js";
 
 export const PROVIDER_IDS = ["claude", "codex"] as const;
 

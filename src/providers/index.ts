@@ -1,3 +1,3 @@
-export * from "./claudex";
-export * from "./claude";
-export * from "./codex";
+export * from "./claudex/index.js";
+export * from "./claude/index.js";
+export * from "./codex/index.js";
