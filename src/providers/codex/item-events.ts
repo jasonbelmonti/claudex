@@ -8,10 +8,10 @@ import type {
   WebSearchItem,
 } from "@openai/codex-sdk";
 
-import type { AgentEvent } from "../../core/events";
-import type { SessionReference } from "../../core/session";
-import { captureStructuredOutput } from "./results";
-import type { CodexTurnState } from "./state";
+import type { AgentEvent } from "../../core/events.js";
+import type { SessionReference } from "../../core/session.js";
+import { captureStructuredOutput } from "./results.js";
+import type { CodexTurnState } from "./state.js";
 
 type CodexItemEvent = ItemStartedEvent | ItemUpdatedEvent | ItemCompletedEvent;
 

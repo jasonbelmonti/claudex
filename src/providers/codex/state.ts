@@ -1,7 +1,7 @@
 import type { ThreadItem } from "@openai/codex-sdk";
 
-import type { AgentError } from "../../core/errors";
-import type { JsonSchema, TurnInput } from "../../core/input";
+import type { AgentError } from "../../core/errors.js";
+import type { JsonSchema, TurnInput } from "../../core/input.js";
 
 export type CodexTurnState = {
   input: TurnInput;

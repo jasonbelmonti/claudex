@@ -1,9 +1,9 @@
 import type { Usage } from "@openai/codex-sdk";
 
-import { parseStructuredOutputText } from "../../core/schema-validation";
-import type { AgentUsage, TurnResult } from "../../core/results";
-import type { SessionReference } from "../../core/session";
-import type { CodexTurnState } from "./state";
+import { parseStructuredOutputText } from "../../core/schema-validation.js";
+import type { AgentUsage, TurnResult } from "../../core/results.js";
+import type { SessionReference } from "../../core/session.js";
+import type { CodexTurnState } from "./state.js";
 
 export function mapCodexUsage(usage: Usage | null): AgentUsage | null {
   if (!usage) {
