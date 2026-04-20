@@ -5,12 +5,12 @@ import type {
   TurnFailedEvent as CodexTurnFailedEvent,
 } from "@openai/codex-sdk";
 
-import { AgentError } from "../../core/errors";
-import type { AgentEvent } from "../../core/events";
-import type { SessionReference } from "../../core/session";
-import { mapCodexItemEvent } from "./item-events";
-import { buildCodexTurnResult } from "./results";
-import type { CodexTurnState } from "./state";
+import { AgentError } from "../../core/errors.js";
+import type { AgentEvent } from "../../core/events.js";
+import type { SessionReference } from "../../core/session.js";
+import { mapCodexItemEvent } from "./item-events.js";
+import { buildCodexTurnResult } from "./results.js";
+import type { CodexTurnState } from "./state.js";
 
 type GetSessionReference = () => SessionReference | null;
 
