@@ -1,8 +1,7 @@
-import { isAbsolute } from "node:path";
-
 import type { CodexOptions } from "@openai/codex-sdk";
 
 import type { ProviderReadiness } from "../../core/readiness.js";
+import { resolveCodexBinary } from "./binary-resolution.js";
 import { createCodexCapabilities } from "./capabilities.js";
 import { runCodexCommand } from "./command-runner.js";
 import type {
@@ -10,22 +9,7 @@ import type {
   CodexCommandRunner,
   CodexCommandResult,
 } from "./types.js";
-
-export const resolveCodexBinary: CodexBinaryResolver = async (
-  options,
-) => {
-  const override = options?.codexPathOverride;
-
-  if (!override) {
-    return Bun.which("codex") ?? null;
-  }
-
-  if (isCodexPathOverride(override)) {
-    return (await Bun.file(override).exists()) ? override : null;
-  }
-
-  return Bun.which(override) ?? null;
-};
+export { isCodexPathOverride, resolveCodexBinary } from "./binary-resolution.js";
 
 export async function checkCodexReadiness(options: {
   sdkOptions?: CodexOptions;
@@ -205,10 +189,6 @@ function parseCodexVersion(output: string): string | undefined {
 
 function looksLikeNeedsAuth(output: string): boolean {
   return /not logged in|sign in|login required|authenticate/i.test(output);
-}
-
-export function isCodexPathOverride(value: string): boolean {
-  return isAbsolute(value) || value.includes("/") || value.includes("\\");
 }
 
 function createCodexReadinessError(params: {
