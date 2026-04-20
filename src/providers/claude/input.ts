@@ -1,5 +1,5 @@
-import { AgentError } from "../../core/errors";
-import type { TurnInput } from "../../core/input";
+import { AgentError } from "../../core/errors.js";
+import type { TurnInput } from "../../core/input.js";
 
 export function mapTurnInputToClaudePrompt(input: TurnInput): string {
   if (input.attachments?.length) {

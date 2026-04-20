@@ -1,25 +1,25 @@
-import type { AgentProviderAdapter } from "../../core/provider";
+import type { AgentProviderAdapter } from "../../core/provider.js";
 import type {
   AgentSession,
   SessionOptions,
   SessionReference,
-} from "../../core/session";
-import { AgentError } from "../../core/errors";
-import { createClaudeCapabilities } from "./capabilities";
-import { buildClaudeBaseQueryOptions } from "./provider-options";
-import { checkClaudeReadiness } from "./readiness";
-import { createClaudeSessionReference } from "./references";
-import { ClaudeSession } from "./session";
+} from "../../core/session.js";
+import { AgentError } from "../../core/errors.js";
+import { createClaudeCapabilities } from "./capabilities.js";
+import { buildClaudeBaseQueryOptions } from "./provider-options.js";
+import { checkClaudeReadiness } from "./readiness.js";
+import { createClaudeSessionReference } from "./references.js";
+import { ClaudeSession } from "./session.js";
 import {
   createClaudeQuery,
   createClaudeSessionMessagesLoader,
-} from "./sdk";
+} from "./sdk.js";
 import type {
   ClaudeAdapterOptions,
   ClaudeSessionState,
-} from "./types";
-import { validateClaudeSessionOptions } from "./validation";
-import { DEFAULT_CLAUDE_TRANSCRIPT_POLL_INTERVAL_MS } from "./transcript-fallback";
+} from "./types.js";
+import { validateClaudeSessionOptions } from "./validation.js";
+import { DEFAULT_CLAUDE_TRANSCRIPT_POLL_INTERVAL_MS } from "./transcript-fallback.js";
 
 export class ClaudeAdapter implements AgentProviderAdapter {
   readonly provider = "claude" as const;

@@ -8,11 +8,11 @@ import type {
 import {
   parseStructuredOutputText,
   validateStructuredOutputValue,
-} from "../../core/schema-validation";
-import { AgentError } from "../../core/errors";
-import type { AgentUsage, TurnResult } from "../../core/results";
-import type { SessionReference } from "../../core/session";
-import type { ClaudeTurnState } from "./state";
+} from "../../core/schema-validation.js";
+import { AgentError } from "../../core/errors.js";
+import type { AgentUsage, TurnResult } from "../../core/results.js";
+import type { SessionReference } from "../../core/session.js";
+import type { ClaudeTurnState } from "./state.js";
 
 export function captureClaudeAssistantMessage(
   state: ClaudeTurnState,

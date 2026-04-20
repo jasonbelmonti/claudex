@@ -5,7 +5,7 @@ import type {
   SessionMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 
-import type { SessionReference, SessionOptions } from "../../core/session";
+import type { SessionReference, SessionOptions } from "../../core/session.js";
 
 export type ClaudeQueryLike = AsyncIterable<SDKMessage> & {
   close(): void;

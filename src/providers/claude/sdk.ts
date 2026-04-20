@@ -7,7 +7,7 @@ import {
 import type {
   ClaudeQueryFactory,
   ClaudeSessionMessagesLoader,
-} from "./types";
+} from "./types.js";
 
 export const createClaudeQuery: ClaudeQueryFactory = (params: {
   prompt: string;

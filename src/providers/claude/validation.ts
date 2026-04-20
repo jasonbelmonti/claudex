@@ -1,5 +1,5 @@
-import { AgentError } from "../../core/errors";
-import type { SessionOptions } from "../../core/session";
+import { AgentError } from "../../core/errors.js";
+import type { SessionOptions } from "../../core/session.js";
 
 export function validateClaudeSessionOptions(options: SessionOptions): void {
   if (options.executionMode !== "plan" && options.sandboxProfile) {
