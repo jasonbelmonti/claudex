@@ -5,8 +5,13 @@
     "target": "ESNext",
     "module": "Preserve",
     "moduleDetection": "force",
+    "baseUrl": ".",
     "jsx": "react-jsx",
     "allowJs": true,
+    "paths": {
+      "@jasonbelmonti/claudex": ["./src/index.ts"],
+      "@jasonbelmonti/claudex/ingest": ["./src/ingest/index.ts"]
+    },
 
     // Bundler mode
     "moduleResolution": "bundler",
