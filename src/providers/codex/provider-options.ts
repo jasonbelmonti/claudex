@@ -14,13 +14,14 @@ export function mapSessionOptionsToThreadOptions(
 ): ThreadOptions {
   const extensionOptions = getCodexThreadProviderOptions(options.providerOptions);
   const providerThreadOptions = extensionOptions.threadOptions;
+  const additionalDirectories = mergeDirectories(
+    options.additionalDirectories,
+    providerThreadOptions?.additionalDirectories,
+  );
   const coreOptions: ThreadOptions = {
     model: options.model,
     workingDirectory: options.workingDirectory,
-    additionalDirectories: mergeDirectories(
-      options.additionalDirectories,
-      providerThreadOptions?.additionalDirectories,
-    ),
+    additionalDirectories,
     sandboxMode: mapSandboxProfile(options.sandboxProfile),
     approvalPolicy: mapApprovalMode(options.approvalMode),
   };
@@ -28,10 +29,7 @@ export function mapSessionOptionsToThreadOptions(
   const mergedOptions: ThreadOptions = {
     ...omitSessionOwnedThreadOptions(providerThreadOptions),
     ...coreOptions,
-    additionalDirectories: mergeDirectories(
-      coreOptions.additionalDirectories,
-      providerThreadOptions?.additionalDirectories,
-    ),
+    additionalDirectories,
   };
 
   if (options.executionMode === "plan") {

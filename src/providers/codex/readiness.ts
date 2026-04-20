@@ -16,15 +16,15 @@ export const resolveCodexBinary: CodexBinaryResolver = async (
 ) => {
   const override = options?.codexPathOverride;
 
-  if (override) {
-    if (isCodexPathOverride(override)) {
-      return (await Bun.file(override).exists()) ? override : null;
-    }
-
-    return Bun.which(override) ?? null;
+  if (!override) {
+    return Bun.which("codex") ?? null;
   }
 
-  return Bun.which("codex") ?? null;
+  if (isCodexPathOverride(override)) {
+    return (await Bun.file(override).exists()) ? override : null;
+  }
+
+  return Bun.which(override) ?? null;
 };
 
 export async function checkCodexReadiness(options: {
@@ -94,9 +94,14 @@ export async function checkCodexReadiness(options: {
     };
   }
 
-  const providerVersion = parseCodexVersion(
-    versionResult.stdout || versionResult.stderr,
-  );
+  const versionOutput = versionResult.stdout || versionResult.stderr;
+  const cliDetectedCheck = {
+    kind: "cli" as const,
+    status: "pass" as const,
+    summary: "Codex CLI detected",
+    detail: versionResult.stdout,
+  };
+  const providerVersion = parseCodexVersion(versionOutput);
   const capabilities = createCodexCapabilities({
     providerVersion,
   });
@@ -107,12 +112,7 @@ export async function checkCodexReadiness(options: {
   } catch (error) {
     return createCodexReadinessResult({
       checks: [
-        {
-          kind: "cli",
-          status: "pass",
-          summary: "Codex CLI detected",
-          detail: versionResult.stdout,
-        },
+        cliDetectedCheck,
         {
           kind: "auth",
           status: "fail",
@@ -136,12 +136,7 @@ export async function checkCodexReadiness(options: {
       provider: "codex",
       status: "needs_auth",
       checks: [
-        {
-          kind: "cli",
-          status: "pass",
-          summary: "Codex CLI detected",
-          detail: versionResult.stdout,
-        },
+        cliDetectedCheck,
         {
           kind: "auth",
           status: "fail",
@@ -187,12 +182,7 @@ export async function checkCodexReadiness(options: {
     provider: "codex",
     status: authResult.exitCode === 0 ? "degraded" : "error",
     checks: [
-      {
-        kind: "cli",
-        status: "pass",
-        summary: "Codex CLI detected",
-        detail: versionResult.stdout,
-      },
+      cliDetectedCheck,
       {
         kind: "auth",
         status: authResult.exitCode === 0 ? "warn" : "fail",
