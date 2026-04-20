@@ -4,7 +4,7 @@
   "description": "Provider-agnostic normalized TypeScript interface over CLI-authenticated Claude and Codex SDKs.",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
-  "types": "./src/index.ts",
+  "types": "./dist/index.d.ts",
   "type": "module",
   "private": false,
   "license": "MIT",
@@ -32,14 +32,12 @@
   ],
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
     "./ingest": {
-      "types": "./src/ingest/index.ts",
-      "bun": "./src/ingest/index.ts",
+      "types": "./dist/ingest/index.d.ts",
       "import": "./dist/ingest/index.js",
       "default": "./dist/ingest/index.js"
     }
@@ -51,8 +49,9 @@
     "audit:ingest": "bun run ./scripts/ingest-audit/run-audit.ts",
     "audit:ingest:live:claude": "CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/claude-live-parity.test.ts",
     "audit:ingest:live:codex": "CLAUDEX_AUDIT_LIVE=1 bun test test/ingest/codex-live-parity.test.ts",
-    "build": "npm run build:dist",
+    "build": "npm run build:dist && npm run build:types",
     "build:dist": "tsup --config tsup.config.ts",
+    "build:types": "tsc --project tsconfig.build.json",
     "lint": "biome lint .",
     "prepack": "npm run build",
     "test": "bun test",
