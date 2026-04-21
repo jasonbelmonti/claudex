@@ -1,6 +1,10 @@
 import { isAbsolute } from "node:path";
 
 import type { CodexBinaryResolver } from "./types.js";
+import {
+  findExecutableOnPath,
+  pathIsFile,
+} from "./executable-path-resolution.js";
 
 export const resolveCodexBinary: CodexBinaryResolver = async (
   options,
@@ -8,14 +12,14 @@ export const resolveCodexBinary: CodexBinaryResolver = async (
   const override = options?.codexPathOverride;
 
   if (!override) {
-    return Bun.which("codex") ?? null;
+    return findExecutableOnPath("codex");
   }
 
   if (isCodexPathOverride(override)) {
-    return (await Bun.file(override).exists()) ? override : null;
+    return (await pathIsFile(override)) ? override : null;
   }
 
-  return Bun.which(override) ?? null;
+  return findExecutableOnPath(override);
 };
 
 export function isCodexPathOverride(value: string): boolean {

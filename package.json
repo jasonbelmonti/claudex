@@ -70,6 +70,7 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.2.114",
     "@openai/codex-sdk": "0.121.0",
-    "ajv": "^8.18.0"
+    "ajv": "^8.18.0",
+    "minimatch": "^10.2.5"
   }
 }

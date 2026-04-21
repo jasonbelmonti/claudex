@@ -9,16 +9,17 @@ export function verifyCodexReadinessFallback(consumerDir, packageName) {
     consumerDir,
     [
       ...createPackageImportLines(packageName, "const { ClaudexAdapter } ="),
-      "const readiness = await new ClaudexAdapter({ preferredProviders: ['codex'] }).checkReadiness();",
+      "const readiness = await new ClaudexAdapter({",
+      "  preferredProviders: ['codex'],",
+      "  codex: {",
+      "    sdkOptions: {",
+      "      codexPathOverride: '/definitely-missing/claudex-codex',",
+      "    },",
+      "  },",
+      "}).checkReadiness();",
       "if (readiness.provider !== 'codex' || readiness.status !== 'missing_cli') {",
       "  throw new Error('Unexpected readiness result: ' + JSON.stringify(readiness));",
       "}",
-    ],
-    [
-      "globalThis.Bun ??= {",
-      "  which: () => null,",
-      "  file: () => ({ exists: async () => false }),",
-      "};",
     ],
   );
 }
