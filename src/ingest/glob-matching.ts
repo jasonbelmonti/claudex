@@ -1,108 +1,146 @@
-const GLOB_REGEX_CACHE = new Map<string, RegExp>();
-const NEVER_MATCH_REGEX = /$./;
-const REGEX_SPECIAL_CHARACTERS = /[|\\{}()[\]^$+?.]/g;
+import picomatch from "picomatch";
+
+const GLOB_MATCHER_CACHE = new Map<string, (value: string) => boolean>();
+const MATCHER_OPTIONS = {
+  dot: true,
+} as const;
 
 export function matchesGlobPattern(pattern: string, value: string): boolean {
   const normalizedValue = value.replaceAll("\\", "/");
-  return getGlobRegex(pattern).test(normalizedValue);
+  return getGlobMatcher(pattern)(normalizedValue);
 }
 
-function getGlobRegex(pattern: string): RegExp {
-  const cached = GLOB_REGEX_CACHE.get(pattern);
+function getGlobMatcher(pattern: string): (value: string) => boolean {
+  const cached = GLOB_MATCHER_CACHE.get(pattern);
 
   if (cached) {
     return cached;
   }
 
-  const regex = compileGlobRegex(pattern);
-  GLOB_REGEX_CACHE.set(pattern, regex);
-  return regex;
+  const matcher = createGlobMatcher(pattern);
+  GLOB_MATCHER_CACHE.set(pattern, matcher);
+  return matcher;
 }
 
-function compileGlobRegex(pattern: string): RegExp {
+function createGlobMatcher(pattern: string): (value: string) => boolean {
   try {
-    return new RegExp(`^${compilePattern(pattern)}$`);
+    return picomatch(normalizeSingleItemBraceGroups(pattern), MATCHER_OPTIONS);
   } catch {
-    return NEVER_MATCH_REGEX;
+    return () => false;
   }
 }
 
-function compilePattern(pattern: string): string {
-  const normalizedPattern = pattern.replaceAll("\\", "/");
-  let compiled = "";
+function normalizeSingleItemBraceGroups(pattern: string): string {
+  let normalized = "";
 
-  for (let index = 0; index < normalizedPattern.length; index += 1) {
-    if (normalizedPattern.startsWith("**/", index)) {
-      compiled += "(?:.*/)?";
-      index += 2;
-      continue;
-    }
-
-    if (normalizedPattern.startsWith("**", index)) {
-      compiled += ".*";
-      index += 1;
-      continue;
-    }
-
-    if (normalizedPattern[index] === "{") {
-      const braceExpression = readBraceExpression(normalizedPattern, index);
-
-      if (!braceExpression) {
-        compiled += escapeRegexCharacter("{");
-        continue;
-      }
-
-      compiled += braceExpression.compiled;
-      index = braceExpression.endIndex;
-      continue;
-    }
-
-    if (normalizedPattern[index] === "[") {
-      const characterClass = readCharacterClass(normalizedPattern, index);
-
-      if (!characterClass) {
-        compiled += escapeRegexCharacter("[");
-        continue;
-      }
-
-      compiled += characterClass.compiled;
-      index = characterClass.endIndex;
-      continue;
-    }
-
-    const character = normalizedPattern[index];
+  for (let index = 0; index < pattern.length; index += 1) {
+    const character = pattern[index];
 
     if (!character) {
       continue;
     }
 
-    if (character === "*") {
-      compiled += "[^/]*";
+    if (character === "\\") {
+      normalized += character;
+      const nextCharacter = pattern[index + 1];
+
+      if (nextCharacter) {
+        normalized += nextCharacter;
+        index += 1;
+      }
+
       continue;
     }
 
-    if (character === "?") {
-      compiled += "[^/]";
-      continue;
+    if (character === "[") {
+      const characterClass = readCharacterClass(pattern, index);
+
+      if (characterClass) {
+        normalized += characterClass.segment;
+        index = characterClass.endIndex;
+        continue;
+      }
     }
 
-    compiled += escapeRegexCharacter(character);
+    if (character === "{") {
+      const braceExpression = readSingleItemBraceGroup(pattern, index);
+
+      if (braceExpression) {
+        normalized += normalizeSingleItemBraceGroups(braceExpression.body);
+        index = braceExpression.endIndex;
+        continue;
+      }
+    }
+
+    normalized += character;
   }
 
-  return compiled;
+  return normalized;
 }
 
-function readBraceExpression(
+function readCharacterClass(
   pattern: string,
   startIndex: number,
-): { compiled: string; endIndex: number } | null {
-  let depth = 0;
+): { endIndex: number; segment: string } | null {
+  for (let index = startIndex + 1; index < pattern.length; index += 1) {
+    const character = pattern[index];
+
+    if (!character) {
+      continue;
+    }
+
+    if (character === "\\") {
+      index += 1;
+      continue;
+    }
+
+    if (character === "]") {
+      return {
+        endIndex: index,
+        segment: pattern.slice(startIndex, index + 1),
+      };
+    }
+  }
+
+  return null;
+}
+
+function readSingleItemBraceGroup(
+  pattern: string,
+  startIndex: number,
+): { body: string; endIndex: number } | null {
   let body = "";
+  let depth = 0;
+  let hasTopLevelComma = false;
 
   for (let index = startIndex + 1; index < pattern.length; index += 1) {
     const character = pattern[index];
 
     if (!character) {
+      continue;
+    }
+
+    if (character === "\\") {
+      body += character;
+      const nextCharacter = pattern[index + 1];
+
+      if (nextCharacter) {
+        body += nextCharacter;
+        index += 1;
+      }
+
+      continue;
+    }
+
+    if (character === "[") {
+      const characterClass = readCharacterClass(pattern, index);
+
+      if (!characterClass) {
+        return null;
+      }
+
+      body += characterClass.segment;
+      index = characterClass.endIndex;
       continue;
     }
 
@@ -114,14 +152,12 @@ function readBraceExpression(
 
     if (character === "}") {
       if (depth === 0) {
-        const parts = splitBraceAlternatives(body);
-
-        return parts.length > 0 && parts.every((part) => part.length > 0)
-          ? {
-              compiled: `(?:${parts.map((part) => compilePattern(part)).join("|")})`,
+        return hasTopLevelComma || body.length === 0
+          ? null
+          : {
+              body,
               endIndex: index,
-            }
-          : null;
+            };
       }
 
       depth -= 1;
@@ -129,100 +165,12 @@ function readBraceExpression(
       continue;
     }
 
-    body += character;
-  }
-
-  return null;
-}
-
-function splitBraceAlternatives(body: string): string[] {
-  const parts: string[] = [];
-  let depth = 0;
-  let current = "";
-
-  for (let index = 0; index < body.length; index += 1) {
-    const character = body[index];
-
-    if (!character) {
-      continue;
-    }
-
     if (character === "," && depth === 0) {
-      parts.push(current);
-      current = "";
-      continue;
-    }
-
-    if (character === "{") {
-      depth += 1;
-    } else if (character === "}") {
-      depth -= 1;
-    }
-
-    current += character;
-  }
-
-  parts.push(current);
-  return parts;
-}
-
-function readCharacterClass(
-  pattern: string,
-  startIndex: number,
-): { compiled: string; endIndex: number } | null {
-  let body = "";
-
-  for (let index = startIndex + 1; index < pattern.length; index += 1) {
-    const character = pattern[index];
-
-    if (!character) {
-      continue;
-    }
-
-    if (character === "]") {
-      if (body.length === 0) {
-        return null;
-      }
-
-      const compiled = compileCharacterClass(body);
-
-      if (!compiled) {
-        return null;
-      }
-
-      return {
-        compiled,
-        endIndex: index,
-      };
+      hasTopLevelComma = true;
     }
 
     body += character;
   }
 
   return null;
-}
-
-function compileCharacterClass(body: string): string | null {
-  const prefix =
-    body[0] === "!"
-      ? "^"
-      : body[0] === "^"
-        ? "^"
-        : "";
-  const rawBody = prefix.length > 0 ? body.slice(1) : body;
-
-  if (rawBody.length === 0) {
-    return null;
-  }
-
-  const escapedBody = rawBody
-    .replaceAll("\\", "\\\\")
-    .replaceAll("]", "\\]")
-    .replaceAll("/", "\\/");
-
-  return `[${prefix}${escapedBody}]`;
-}
-
-function escapeRegexCharacter(character: string): string {
-  return character.replace(REGEX_SPECIAL_CHARACTERS, "\\$&");
 }

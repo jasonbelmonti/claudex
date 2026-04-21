@@ -54,6 +54,27 @@ test("matchesDiscoveryRootFilters supports recursive glob excludes", () => {
   ).toBe(true);
 });
 
+test("matchesDiscoveryRootFilters preserves escaped literal metacharacters", () => {
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["report\\[2026\\].jsonl"],
+      },
+      "/tmp/root/nested/report[2026].jsonl",
+    ),
+  ).toBe(true);
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["report\\[2026\\].jsonl"],
+      },
+      "/tmp/root/nested/reportx2026x.jsonl",
+    ),
+  ).toBe(false);
+});
+
 test("matchesDiscoveryRootFilters supports single-character wildcards", () => {
   expect(
     matchesDiscoveryRootFilters(
@@ -83,6 +104,27 @@ test("matchesDiscoveryRootFilters supports character classes", () => {
         include: ["file-[ab].jsonl"],
       },
       "/tmp/root/nested/file-c.jsonl",
+    ),
+  ).toBe(false);
+});
+
+test("matchesDiscoveryRootFilters preserves literal closing brackets in character classes", () => {
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["file-[]].jsonl"],
+      },
+      "/tmp/root/nested/file-].jsonl",
+    ),
+  ).toBe(true);
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["file-[]].jsonl"],
+      },
+      "/tmp/root/nested/file-a.jsonl",
     ),
   ).toBe(false);
 });
@@ -128,6 +170,27 @@ test("matchesDiscoveryRootFilters treats malformed character class ranges as non
       "/tmp/root/nested/file-c.jsonl",
     ),
   ).toBe(true);
+});
+
+test("matchesDiscoveryRootFilters keeps embedded double-stars within one segment", () => {
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["foo/**.jsonl"],
+      },
+      "/tmp/root/foo/bar.jsonl",
+    ),
+  ).toBe(true);
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["foo/**.jsonl"],
+      },
+      "/tmp/root/foo/x/bar.jsonl",
+    ),
+  ).toBe(false);
 });
 
 test("matchesDiscoveryRootFilters supports brace alternation", () => {

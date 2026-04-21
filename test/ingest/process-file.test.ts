@@ -9,6 +9,7 @@ import type {
   SessionIngestServiceOptions,
 } from "@jasonbelmonti/claudex/ingest";
 
+import { parseTranscriptFile } from "../../src/ingest/claude/transcript-parser.js";
 import { __internal, processMatchedFile } from "../../src/ingest/process-file.js";
 import type { RegistrySelection } from "../../src/ingest/registry-selection.js";
 import {
@@ -222,6 +223,55 @@ test("processMatchedFile preserves root-only, match-only, and merged metadata in
         },
       });
     }
+  } finally {
+    await removeFixtureWorkspace(workspace);
+  }
+});
+
+test("processMatchedFile treats files deleted immediately before parser reads as EOF", async () => {
+  const workspace = await createFixtureWorkspace({
+    "claude/deleted-before-parse.jsonl": "{\"type\":\"user\"}\n",
+  });
+
+  try {
+    const root = {
+      provider: "claude" as const,
+      path: join(workspace, "claude"),
+    };
+    const filePath = join(root.path, "deleted-before-parse.jsonl");
+    const warnings: IngestWarning[] = [];
+    const selection = {
+      match: {
+        kind: "transcript",
+      },
+      registry: {
+        provider: "claude",
+        matchFile() {
+          return { kind: "transcript" };
+        },
+        async parseFile(context) {
+          await deleteFile(filePath);
+          return parseTranscriptFile(context);
+        },
+      },
+    } satisfies RegistrySelection;
+
+    await processMatchedFile({
+      root,
+      filePath,
+      selection,
+      discoveryPhase: "initial_scan",
+      discoveryEventType: "file.discovered",
+      serviceOptions: {
+        roots: [root],
+        registries: [selection.registry],
+        onWarning(warning) {
+          warnings.push(warning);
+        },
+      },
+    });
+
+    expect(warnings).toEqual([]);
   } finally {
     await removeFixtureWorkspace(workspace);
   }

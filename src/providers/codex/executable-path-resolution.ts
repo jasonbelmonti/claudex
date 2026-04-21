@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access } from "node:fs/promises";
+import { access, stat } from "node:fs/promises";
 import { delimiter, join } from "node:path";
 
 export async function findExecutableOnPath(
@@ -13,7 +13,7 @@ export async function findExecutableOnPath(
 
   for (const directory of pathValue.split(delimiter)) {
     for (const candidate of getPathCandidates(directory || ".", command)) {
-      if (await pathExists(candidate, constants.X_OK)) {
+      if (await isExecutableFile(candidate)) {
         return candidate;
       }
     }
@@ -50,4 +50,13 @@ function getExecutableExtensions(command: string): string[] {
   return (pathExt ? pathExt.split(";") : [".EXE", ".CMD", ".BAT", ".COM"])
     .filter(Boolean)
     .map((extension) => extension.toLowerCase());
+}
+
+async function isExecutableFile(path: string): Promise<boolean> {
+  try {
+    await access(path, constants.X_OK);
+    return (await stat(path)).isFile();
+  } catch {
+    return false;
+  }
 }

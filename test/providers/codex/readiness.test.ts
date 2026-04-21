@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 
@@ -141,6 +141,25 @@ test("resolveCodexBinary resolves named overrides from PATH", async () => {
     await expect(
       resolveCodexBinary({ codexPathOverride: binaryName }),
     ).resolves.toBe(binaryPath);
+  } finally {
+    process.env.PATH = previousPath;
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("resolveCodexBinary ignores PATH directories that share the command name", async () => {
+  const tempDir = mkdtempSync(join(tmpdir(), "claudex-codex-dir-"));
+  const binaryName = "mock-codex";
+  const binaryPath = join(tempDir, binaryName);
+  const previousPath = process.env.PATH;
+
+  try {
+    mkdirSync(binaryPath);
+    process.env.PATH = [tempDir, previousPath].filter(Boolean).join(delimiter);
+
+    await expect(
+      resolveCodexBinary({ codexPathOverride: binaryName }),
+    ).resolves.toBeNull();
   } finally {
     process.env.PATH = previousPath;
     rmSync(tempDir, { recursive: true, force: true });

@@ -9,7 +9,17 @@ export async function readFileSlice(
   filePath: string,
   byteOffset = 0,
 ): Promise<FileSlice> {
-  const fileHandle = await open(filePath, "r");
+  let fileHandle;
+
+  try {
+    fileHandle = await open(filePath, "r");
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return createEmptyFileSlice();
+    }
+
+    throw error;
+  }
 
   try {
     const { size } = await fileHandle.stat();
@@ -47,4 +57,21 @@ export async function readFileSlice(
   } finally {
     await fileHandle.close();
   }
+}
+
+function createEmptyFileSlice(): FileSlice {
+  return {
+    size: 0,
+    bytes: new Uint8Array(),
+  };
+}
+
+function isMissingFileError(error: unknown): boolean {
+  if (!error || typeof error !== "object" || !("code" in error)) {
+    return false;
+  }
+
+  return error.code === "ENOENT"
+    || error.code === "ENOTDIR"
+    || error.code === "EISDIR";
 }

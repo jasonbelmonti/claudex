@@ -1,13 +1,24 @@
 import { access } from "node:fs/promises";
 
 export async function loadAdapterEntry(params) {
-  const { distAdapterUrl, sourceAdapterUrl } = params;
+  const {
+    distAdapterUrl,
+    preferSource = typeof Bun !== "undefined",
+    sourceAdapterUrl,
+  } = params;
+  const candidateUrls = preferSource
+    ? [sourceAdapterUrl, distAdapterUrl]
+    : [distAdapterUrl, sourceAdapterUrl];
 
-  if (await canAccess(sourceAdapterUrl)) {
-    return import(sourceAdapterUrl);
+  for (const candidateUrl of candidateUrls) {
+    if (!candidateUrl || !(await canAccess(candidateUrl))) {
+      continue;
+    }
+
+    return import(candidateUrl);
   }
 
-  return import(distAdapterUrl);
+  throw new Error("Could not load adapter entry from source or dist.");
 }
 
 async function canAccess(path) {
