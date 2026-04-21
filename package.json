@@ -27,8 +27,7 @@
     "typescript"
   ],
   "files": [
-    "dist",
-    "src"
+    "dist"
   ],
   "exports": {
     ".": {

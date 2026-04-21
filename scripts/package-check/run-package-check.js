@@ -7,10 +7,10 @@ import { readJson } from "./command-runner.js";
 import {
   createConsumerWorkspace,
   installPackedArtifact,
-  packArtifact,
   verifyStrictConsumerTypecheck,
 } from "./consumer-workspace.js";
 import { writeConsumerProject } from "./consumer-project.js";
+import { packArtifact, verifyArtifactHasNoSourceFiles } from "./packed-artifact.js";
 import {
   verifyCodexReadinessFallback,
   verifyPackageImports,
@@ -26,9 +26,10 @@ export async function runPackageCheck() {
 
   try {
     const { consumerDir, packDir } = createConsumerWorkspace(tempRoot);
-    const tarballPath = packArtifact(packDir, repoRoot);
+    const { tarballPath, artifactFiles } = packArtifact(packDir, repoRoot);
 
     writeConsumerProject(consumerDir, packageName);
+    verifyArtifactHasNoSourceFiles(artifactFiles);
     installPackedArtifact(tarballPath, consumerDir);
 
     verifyPackageImports(consumerDir, packageName);
