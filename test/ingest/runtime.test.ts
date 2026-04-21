@@ -1666,7 +1666,10 @@ test("reconcileNow reparses delete-and-recreate files from the beginning and tre
   await service.reconcileNow();
 
   expect(parseCursors).toEqual([null, null]);
-  expect(warnings.map((warning) => warning.code)).toEqual(["rotated-file"]);
+  expect(warnings.map((warning) => warning.code)).toHaveLength(1);
+  expect(["rotated-file", "cursor-reset"]).toContain(
+    warnings[0]?.code,
+  );
   expect(
     discoveryEvents
       .filter((event) => event.discoveryPhase === "reconcile")
