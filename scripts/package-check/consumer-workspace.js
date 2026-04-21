@@ -51,6 +51,10 @@ export function verifyStrictConsumerTypecheck(consumerDir, repoRoot) {
 }
 
 function resolveTypeScriptInstallRoot(repoRoot) {
+  if (hasPinnedTypeScript(repoRoot)) {
+    return repoRoot;
+  }
+
   const commonRoot = resolveCommonRoot(repoRoot);
 
   if (commonRoot && hasPinnedTypeScript(commonRoot)) {
