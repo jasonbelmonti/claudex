@@ -6,7 +6,7 @@ export const runCodexCommand: CodexCommandRunner = async (
   command,
   args,
 ): Promise<CodexCommandResult> => {
-  const child = spawn(command, args, {
+  const child = spawn(formatSpawnCommand(command), args, {
     shell: requiresShell(command),
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -42,4 +42,11 @@ export function requiresShell(
   platform = process.platform,
 ): boolean {
   return platform === "win32" && /\.(cmd|bat)$/i.test(command);
+}
+
+export function formatSpawnCommand(
+  command: string,
+  platform = process.platform,
+): string {
+  return requiresShell(command, platform) ? `"${command}"` : command;
 }
