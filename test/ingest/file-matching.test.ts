@@ -150,3 +150,55 @@ test("matchesDiscoveryRootFilters supports brace alternation", () => {
     ),
   ).toBe(false);
 });
+
+test("matchesDiscoveryRootFilters supports single-item brace groups", () => {
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["*.{jsonl}"],
+      },
+      "/tmp/root/nested/transcript.jsonl",
+    ),
+  ).toBe(true);
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["*.{jsonl}"],
+      },
+      "/tmp/root/nested/transcript.txt",
+    ),
+  ).toBe(false);
+});
+
+test("matchesDiscoveryRootFilters treats empty negated character classes as non-matches", () => {
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["file-[!].jsonl"],
+      },
+      "/tmp/root/nested/file-a.jsonl",
+    ),
+  ).toBe(false);
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["file-[^].jsonl"],
+      },
+      "/tmp/root/nested/file-a.jsonl",
+    ),
+  ).toBe(false);
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["**/*.jsonl"],
+        exclude: ["file-[!].jsonl"],
+      },
+      "/tmp/root/nested/file-a.jsonl",
+    ),
+  ).toBe(true);
+});

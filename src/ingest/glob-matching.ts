@@ -116,7 +116,7 @@ function readBraceExpression(
       if (depth === 0) {
         const parts = splitBraceAlternatives(body);
 
-        return parts.length > 1
+        return parts.length > 0 && parts.every((part) => part.length > 0)
           ? {
               compiled: `(?:${parts.map((part) => compilePattern(part)).join("|")})`,
               endIndex: index,
@@ -184,8 +184,14 @@ function readCharacterClass(
         return null;
       }
 
+      const compiled = compileCharacterClass(body);
+
+      if (!compiled) {
+        return null;
+      }
+
       return {
-        compiled: compileCharacterClass(body),
+        compiled,
         endIndex: index,
       };
     }
@@ -196,7 +202,7 @@ function readCharacterClass(
   return null;
 }
 
-function compileCharacterClass(body: string): string {
+function compileCharacterClass(body: string): string | null {
   const prefix =
     body[0] === "!"
       ? "^"
@@ -204,6 +210,11 @@ function compileCharacterClass(body: string): string {
         ? "^"
         : "";
   const rawBody = prefix.length > 0 ? body.slice(1) : body;
+
+  if (rawBody.length === 0) {
+    return null;
+  }
+
   const escapedBody = rawBody
     .replaceAll("\\", "\\\\")
     .replaceAll("]", "\\]")
