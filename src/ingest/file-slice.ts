@@ -1,4 +1,4 @@
-import { open } from "node:fs/promises";
+import { open, type FileHandle } from "node:fs/promises";
 
 export type FileSlice = {
   size: number;
@@ -9,7 +9,7 @@ export async function readFileSlice(
   filePath: string,
   byteOffset = 0,
 ): Promise<FileSlice> {
-  let fileHandle;
+  let fileHandle: FileHandle | undefined;
 
   try {
     fileHandle = await open(filePath, "r");
