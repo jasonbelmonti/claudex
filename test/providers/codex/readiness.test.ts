@@ -127,6 +127,18 @@ test("resolveCodexBinary accepts existing override paths", async () => {
   }
 });
 
+test("resolveCodexBinary rejects directory override paths", async () => {
+  const tempDir = mkdtempSync(join(tmpdir(), "claudex-codex-dir-override-"));
+
+  try {
+    await expect(
+      resolveCodexBinary({ codexPathOverride: tempDir }),
+    ).resolves.toBeNull();
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test("resolveCodexBinary resolves named overrides from PATH", async () => {
   const tempDir = mkdtempSync(join(tmpdir(), "claudex-codex-path-"));
   const binaryName = "mock-codex";

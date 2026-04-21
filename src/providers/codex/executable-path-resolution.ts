@@ -22,13 +22,11 @@ export async function findExecutableOnPath(
   return null;
 }
 
-export async function pathExists(
+export async function pathIsFile(
   path: string,
-  mode?: number,
 ): Promise<boolean> {
   try {
-    await access(path, mode);
-    return true;
+    return (await stat(path)).isFile();
   } catch {
     return false;
   }

@@ -1,4 +1,4 @@
-import picomatch from "picomatch";
+import { minimatch } from "minimatch";
 
 const GLOB_MATCHER_CACHE = new Map<string, (value: string) => boolean>();
 const MATCHER_OPTIONS = {
@@ -24,7 +24,8 @@ function getGlobMatcher(pattern: string): (value: string) => boolean {
 
 function createGlobMatcher(pattern: string): (value: string) => boolean {
   try {
-    return picomatch(normalizeSingleItemBraceGroups(pattern), MATCHER_OPTIONS);
+    const normalizedPattern = normalizeSingleItemBraceGroups(pattern);
+    return (value: string) => minimatch(value, normalizedPattern, MATCHER_OPTIONS);
   } catch {
     return () => false;
   }

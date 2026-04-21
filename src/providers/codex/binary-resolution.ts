@@ -3,7 +3,7 @@ import { isAbsolute } from "node:path";
 import type { CodexBinaryResolver } from "./types.js";
 import {
   findExecutableOnPath,
-  pathExists,
+  pathIsFile,
 } from "./executable-path-resolution.js";
 
 export const resolveCodexBinary: CodexBinaryResolver = async (
@@ -16,7 +16,7 @@ export const resolveCodexBinary: CodexBinaryResolver = async (
   }
 
   if (isCodexPathOverride(override)) {
-    return (await pathExists(override)) ? override : null;
+    return (await pathIsFile(override)) ? override : null;
   }
 
   return findExecutableOnPath(override);

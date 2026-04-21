@@ -129,6 +129,27 @@ test("matchesDiscoveryRootFilters preserves literal closing brackets in characte
   ).toBe(false);
 });
 
+test("matchesDiscoveryRootFilters supports bang-negated character classes", () => {
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["file-[!ab].jsonl"],
+      },
+      "/tmp/root/nested/file-c.jsonl",
+    ),
+  ).toBe(true);
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["file-[!ab].jsonl"],
+      },
+      "/tmp/root/nested/file-a.jsonl",
+    ),
+  ).toBe(false);
+});
+
 test("matchesDiscoveryRootFilters supports caret-negated character classes", () => {
   expect(
     matchesDiscoveryRootFilters(
@@ -189,6 +210,27 @@ test("matchesDiscoveryRootFilters keeps embedded double-stars within one segment
         include: ["foo/**.jsonl"],
       },
       "/tmp/root/foo/x/bar.jsonl",
+    ),
+  ).toBe(false);
+});
+
+test("matchesDiscoveryRootFilters does not treat character-class patterns as literal bracket filenames", () => {
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["[ab].jsonl"],
+      },
+      "/tmp/root/nested/a.jsonl",
+    ),
+  ).toBe(true);
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["[ab].jsonl"],
+      },
+      "/tmp/root/nested/[ab].jsonl",
     ),
   ).toBe(false);
 });
