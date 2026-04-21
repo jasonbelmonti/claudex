@@ -292,7 +292,7 @@ export const INGEST_AUDIT_SCENARIOS = [
     title: "Shared runtime tolerates mutation timelines without drifting cursors or ordering",
     sourceFamilies: INGEST_AUDIT_SOURCE_FAMILIES,
     probeKind: "deterministic-fixture",
-    baselineStatus: "partial",
+    baselineStatus: "covered",
     dimensions: ["runtime", "warning-propagation", "completeness"],
     invariants: [
       "delete and recreate timelines do not leave stale cursors behind",
@@ -302,10 +302,9 @@ export const INGEST_AUDIT_SCENARIOS = [
     existingCoverage: [
       "test/ingest/runtime.test.ts",
       "test/ingest/watch-runtime.test.ts",
+      "test/ingest/runtime-consumer-failures.test.ts",
       "test/ingest/cursor-recovery-migration.test.ts",
     ],
-    notes:
-      "BEL-630 expands this row into reusable scenario builders instead of more bespoke one-off cases.",
   },
   {
     id: "claude-transcript-incremental-replay",

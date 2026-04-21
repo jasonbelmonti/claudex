@@ -89,7 +89,7 @@ test("scenario summaries surface live provenance and intentionally unasserted ro
   ).toContain("live-codex-replay-parity");
   expect(
     intentionallyUnasserted.map((finding) => finding.scenarioIds[0]),
-  ).toContain("shared-runtime-adversarial-timelines");
+  ).not.toContain("shared-runtime-adversarial-timelines");
   expect(unsupportedButObserved).toEqual([]);
 });
 
