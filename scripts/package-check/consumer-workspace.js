@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { run, runAndCapture } from "./command-runner.js";
@@ -11,18 +11,6 @@ export function createConsumerWorkspace(rootDir) {
   mkdirSync(consumerDir, { recursive: true });
 
   return { consumerDir, packDir };
-}
-
-export function packArtifact(packDir, repoRoot) {
-  run(["npm", "pack", "--pack-destination", packDir], repoRoot);
-
-  const [tarballName] = readdirSync(packDir).filter((entry) => entry.endsWith(".tgz"));
-
-  if (!tarballName) {
-    throw new Error("npm pack did not produce a tarball.");
-  }
-
-  return join(packDir, tarballName);
 }
 
 export function installPackedArtifact(tarballPath, consumerDir) {

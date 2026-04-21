@@ -28,8 +28,11 @@ export function writeConsumerProject(consumerDir, packageName) {
 }
 
 function createConsumerEntrypoint(packageName) {
+  const ingestPackageName = `${packageName}/ingest`;
+
   return [
     `import { ClaudexAdapter, type ClaudexAdapterOptions } from ${JSON.stringify(packageName)};`,
+    `import { createSessionIngestService, type DiscoveryRootConfig, type IngestProviderRegistry } from ${JSON.stringify(ingestPackageName)};`,
     "",
     "const options: ClaudexAdapterOptions = {",
     '  preferredProviders: ["codex", "claude"],',
@@ -37,8 +40,14 @@ function createConsumerEntrypoint(packageName) {
     "  codex: {},",
     "};",
     "",
+    "const roots: DiscoveryRootConfig[] = [];",
+    "const registries: IngestProviderRegistry[] = [];",
     "const adapter = new ClaudexAdapter(options);",
+    "const ingestService = createSessionIngestService({ roots, registries });",
     "void adapter;",
+    "void ingestService;",
+    "void roots;",
+    "void registries;",
     "",
   ].join("\n");
 }
