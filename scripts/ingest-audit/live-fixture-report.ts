@@ -1,6 +1,11 @@
 import { resolve } from "node:path";
 
 import type { IngestAuditScenario } from "../../test/ingest/audit-matrix.js";
+import {
+  fileExists,
+  listRelativeFiles,
+  readJsonFile,
+} from "./file-system.js";
 import type { LiveFixtureRefreshManifestRecord } from "./live-fixture-types.js";
 import { loadRefreshManifest } from "./refresh-manifest.js";
 import type {
@@ -82,7 +87,7 @@ async function loadLiveFixtureSummary(
   record: ManifestBackedLiveFixtureRecord,
 ): Promise<IngestAuditLiveFixtureSummary> {
   const absoluteSidecarPath = resolve(repoRoot, record.sidecarPath);
-  const metadata = await Bun.file(absoluteSidecarPath).json();
+  const metadata = await readJsonFile<unknown>(absoluteSidecarPath);
   const normalized = normalizeLiveFixtureSidecar(metadata);
 
   if (normalized === null) {
@@ -115,7 +120,9 @@ async function loadLiveFixtureSummary(
     supersededByFixturePath: record.supersededByFixturePath,
     isCurrentHead: record.isCurrentHead,
     lineageDepth: record.lineageDepth,
-    unsupportedObserved: normalizeUnsupportedObserved(metadata),
+    unsupportedObserved: normalizeUnsupportedObserved(
+      metadata as UnsupportedObservedContainer,
+    ),
   };
 }
 
@@ -176,35 +183,25 @@ async function loadManifestBackedLiveFixtureRecords(
 async function listRefreshManifestPaths(
   repoRoot: string,
 ): Promise<readonly string[]> {
-  const manifestPaths: string[] = [];
-  const manifestGlob = new Bun.Glob("test/fixtures/**/refresh-manifest.json");
-
-  for await (const manifestPath of manifestGlob.scan({
-    cwd: repoRoot,
-    absolute: false,
-    onlyFiles: true,
-  })) {
-    manifestPaths.push(manifestPath);
-  }
-
-  return manifestPaths.sort();
+  return listRelativeFiles({
+    rootDir: repoRoot,
+    startDir: "test/fixtures",
+    match(relativePath) {
+      return relativePath.endsWith("/refresh-manifest.json");
+    },
+  });
 }
 
 async function listLiveFixtureSidecars(
   repoRoot: string,
 ): Promise<readonly string[]> {
-  const sidecarPaths: string[] = [];
-  const fixtureGlob = new Bun.Glob("test/fixtures/**/*.fixture.json");
-
-  for await (const sidecarPath of fixtureGlob.scan({
-    cwd: repoRoot,
-    absolute: false,
-    onlyFiles: true,
-  })) {
-    sidecarPaths.push(sidecarPath);
-  }
-
-  return sidecarPaths.sort();
+  return listRelativeFiles({
+    rootDir: repoRoot,
+    startDir: "test/fixtures",
+    match(relativePath) {
+      return relativePath.endsWith(".fixture.json");
+    },
+  });
 }
 
 async function validateSidecarManifestCoverage(params: {
@@ -225,7 +222,7 @@ async function validateSidecarManifestCoverage(params: {
     }
 
     const absoluteFixturePath = resolve(params.repoRoot, record.fixturePath);
-    const fixtureExists = await Bun.file(absoluteFixturePath).exists();
+    const fixtureExists = await fileExists(absoluteFixturePath);
 
     if (!fixtureExists) {
       throw new Error(

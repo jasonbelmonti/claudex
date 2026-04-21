@@ -1,5 +1,5 @@
 import { rm, stat, utimes } from "node:fs/promises";
-import { expect, test } from "bun:test";
+import { expect, test, writeTextFile } from "#test-support";
 import { join } from "node:path";
 
 import type { IngestCursor, IngestWarning } from "@jasonbelmonti/claudex/ingest";
@@ -157,7 +157,7 @@ test("scanNow resets cursors when same-inode rewrites change bytes before the cu
 
     await service.scanNow();
     await truncateFile(filePath, 0);
-    await Bun.write(filePath, rewrittenContents);
+    await writeTextFile(filePath, rewrittenContents);
     await service.scanNow();
 
     expect(parseCursors).toEqual([null, null]);
@@ -296,7 +296,7 @@ test("scanNow does not persist cursors when same-inode rewrites change the pre-p
             }
 
             rewriteBeforeParse = false;
-            await Bun.write(context.filePath, rewrittenContents);
+            await writeTextFile(context.filePath, rewrittenContents);
             await utimes(context.filePath, initialStats.atime, initialStats.mtime);
           },
           recordFactory(context) {
@@ -390,7 +390,7 @@ test("scanNow does not persist initial EOF cursors when same-inode rewrites chan
             }
 
             rewriteBeforeParse = false;
-            await Bun.write(context.filePath, rewrittenContents);
+            await writeTextFile(context.filePath, rewrittenContents);
             await utimes(context.filePath, initialStats.atime, initialStats.mtime);
           },
           recordFactory(context) {

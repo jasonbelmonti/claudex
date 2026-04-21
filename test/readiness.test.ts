@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import { isProviderReady, type ProviderReadiness } from "../src/core/readiness.js";
 

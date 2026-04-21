@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, getFileSizeSync, test, writeTextFile } from "#test-support";
 import { join } from "node:path";
 
 import type {
@@ -38,7 +38,7 @@ function createSelection(
             provider: root.provider,
             rootPath: context.root.path,
             filePath: context.filePath,
-            byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
             line: 1,
           },
         }),
@@ -194,7 +194,7 @@ test("processMatchedFile preserves root-only, match-only, and merged metadata in
       const warnings: IngestWarning[] = [];
       const selection = createSelection(root, testCase.matchMetadata);
 
-      await Bun.write(filePath, "gone soon\n");
+      await writeTextFile(filePath, "gone soon\n");
       await deleteFile(filePath);
 
       await processMatchedFile({

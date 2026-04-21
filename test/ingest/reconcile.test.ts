@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import type { MatchedRootFile } from "../../src/ingest/matched-root-files.js";
 import { createRootSnapshot, reconcileRootSnapshot } from "../../src/ingest/reconcile.js";

@@ -10,7 +10,7 @@ import {
   loadLiveFixtureSummariesByScenario,
 } from "./live-fixture-report.js";
 
-export const INGEST_AUDIT_REPORT_SCHEMA_VERSION = "ingest-audit-report.v1";
+export const INGEST_AUDIT_REPORT_SCHEMA_VERSION = "ingest-audit-report.v2";
 
 export type IngestAuditCommandStatus = "passed" | "failed";
 
@@ -118,7 +118,7 @@ export type IngestAuditReport = {
     };
   };
   runtime: {
-    bunVersion: string;
+    nodeVersion: string;
     packageManager: string | null;
   };
   dependencies: {

@@ -2,7 +2,7 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:f
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import { CodexAdapter } from "../../../src/providers/codex/adapter.js";
 import {

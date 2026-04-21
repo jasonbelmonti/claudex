@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, test, writeTextFile } from "#test-support";
 import { join } from "node:path";
 
 import type {
@@ -341,7 +341,7 @@ test("transcript parser preserves mirror-collapse across cursor resumes", async 
   ]);
 
   observedEvents.length = 0;
-  await Bun.write(filePath, resumedTranscript);
+  await writeTextFile(filePath, resumedTranscript);
   await service.scanNow();
 
   expect(parseCursors).toHaveLength(2);

@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import {
   CODEX_TRANSCRIPT_BRANCH_EXPANSION_CHECKLIST,
@@ -18,7 +19,7 @@ import {
   INGEST_LIVE_FIXTURE_METADATA,
 } from "./audit-matrix.js";
 
-const REPO_ROOT = resolve(import.meta.dir, "..", "..");
+const REPO_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
 test("audit matrix covers every supported passive-ingest source family", () => {
   expect(INGEST_AUDIT_SOURCE_FAMILIES).toEqual([
@@ -48,7 +49,7 @@ test("audit scenarios use stable ids, explicit invariants, and known enums", () 
     expect(scenario.dimensions.length).toBeGreaterThan(0);
     expect(INGEST_AUDIT_PROBE_KINDS).toContain(scenario.probeKind);
     expect(INGEST_AUDIT_BASELINE_STATUSES).toContain(scenario.baselineStatus);
-    expect(scenarioIds.has(scenario.id)).toBeFalse();
+    expect(scenarioIds.has(scenario.id)).toBeFalsy();
     scenarioIds.add(scenario.id);
 
     for (const family of scenario.sourceFamilies) {
@@ -64,7 +65,7 @@ test("audit scenarios use stable ids, explicit invariants, and known enums", () 
         INGEST_LIVE_FIXTURE_REFRESH_CONTRACT,
       );
     } else {
-      expect("refreshContract" in scenario).toBeFalse();
+      expect("refreshContract" in scenario).toBeFalsy();
     }
   }
 
@@ -77,8 +78,8 @@ test("audit scenarios use stable ids, explicit invariants, and known enums", () 
 
 test("baseline commands and known blind spots stay actionable", () => {
   expect(INGEST_AUDIT_BASELINE_COMMANDS).toEqual([
-    "bun test test/ingest test/ingest-public-api.test.ts",
-    "bun test --coverage --coverage-reporter=text test/ingest test/ingest-public-api.test.ts",
+    "npm exec -- vitest run test/ingest test/ingest-public-api.test.ts",
+    "npm exec -- vitest run --coverage --coverage.reporter=text test/ingest test/ingest-public-api.test.ts",
   ]);
   expect(INGEST_AUDIT_BASELINE.commands).toEqual(INGEST_AUDIT_BASELINE_COMMANDS);
   expect(INGEST_AUDIT_BASELINE.passingTests).toBe(109);
@@ -91,7 +92,7 @@ test("baseline commands and known blind spots stay actionable", () => {
 
   for (const hotspot of INGEST_AUDIT_KNOWN_BLIND_SPOTS) {
     expect(hotspot.lineCoveragePct).toBeLessThan(90);
-    expect(existsSync(resolve(REPO_ROOT, hotspot.path))).toBeTrue();
+    expect(existsSync(resolve(REPO_ROOT, hotspot.path))).toBeTruthy();
   }
 });
 
@@ -154,12 +155,12 @@ test("codex branch-expansion checklist stays explicit and file-backed", () => {
     expect(item.family.length).toBeGreaterThan(0);
     expect(item.focus.length).toBeGreaterThan(0);
     expect(item.coverageTargets.length).toBeGreaterThan(0);
-    expect(checklistIds.has(item.id)).toBeFalse();
+    expect(checklistIds.has(item.id)).toBeFalsy();
 
     checklistIds.add(item.id);
 
     for (const target of item.coverageTargets) {
-      expect(existsSync(resolve(REPO_ROOT, target))).toBeTrue();
+      expect(existsSync(resolve(REPO_ROOT, target))).toBeTruthy();
     }
   }
 });

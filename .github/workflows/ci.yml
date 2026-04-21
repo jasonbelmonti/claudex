@@ -30,9 +30,6 @@ jobs:
           node-version: "22"
           cache: npm
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-
       - name: Install dependencies
         run: npm ci
 
@@ -40,7 +37,7 @@ jobs:
         run: npm run check
 
       - name: Run test coverage
-        run: bun run test:coverage
+        run: npm run test:coverage
 
       - name: Run package smoke check
         run: npm run package:check

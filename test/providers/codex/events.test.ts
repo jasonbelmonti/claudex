@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import { CodexAdapter } from "../../../src/providers/codex/adapter.js";
 import {

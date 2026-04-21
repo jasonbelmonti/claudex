@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import { loadAdapterEntry } from "../../src/providers/adapter-entry-loader.js";
 

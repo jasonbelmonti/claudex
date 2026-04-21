@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import { matchesDiscoveryRootFilters } from "../../src/ingest/file-matching.js";
 

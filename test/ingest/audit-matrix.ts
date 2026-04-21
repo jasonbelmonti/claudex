@@ -78,8 +78,8 @@ export type IngestLiveFixtureRefreshContract = {
 };
 
 export const INGEST_AUDIT_BASELINE_COMMANDS = [
-  "bun test test/ingest test/ingest-public-api.test.ts",
-  "bun test --coverage --coverage-reporter=text test/ingest test/ingest-public-api.test.ts",
+  "npm exec -- vitest run test/ingest test/ingest-public-api.test.ts",
+  "npm exec -- vitest run --coverage --coverage.reporter=text test/ingest test/ingest-public-api.test.ts",
 ] as const;
 
 export const INGEST_AUDIT_KNOWN_BLIND_SPOTS: readonly IngestAuditCoverageHotspot[] = [];

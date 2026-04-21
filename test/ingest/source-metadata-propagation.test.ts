@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import { createIngestSource } from "../../src/ingest/claude/parser-core.js";
 import { createCodexIngestSource } from "../../src/ingest/codex/parser-core.js";

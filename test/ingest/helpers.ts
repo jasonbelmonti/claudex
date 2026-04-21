@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rename, rm, truncate } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { sleep, writeTextFile } from "#test-support";
 
 import type {
   AgentEvent,
@@ -27,7 +28,7 @@ export async function createFixtureWorkspace(
   for (const [relativePath, contents] of Object.entries(files)) {
     const filePath = join(workspacePath, relativePath);
     await mkdir(dirname(filePath), { recursive: true });
-    await Bun.write(filePath, contents);
+    await writeTextFile(filePath, contents);
   }
 
   return workspacePath;
@@ -39,7 +40,7 @@ export async function removeFixtureWorkspace(workspacePath: string): Promise<voi
 
 export async function rotateFile(filePath: string, nextContents: string): Promise<void> {
   await rename(filePath, `${filePath}.rotated`);
-  await Bun.write(filePath, nextContents);
+  await writeTextFile(filePath, nextContents);
 }
 
 export async function truncateFile(filePath: string, size: number): Promise<void> {
@@ -66,7 +67,7 @@ export async function waitForCondition(
       throw new Error(`Timed out waiting for condition after ${timeoutMs}ms`);
     }
 
-    await Bun.sleep(pollIntervalMs);
+    await sleep(pollIntervalMs);
   }
 }
 

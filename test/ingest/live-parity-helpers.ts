@@ -1,4 +1,4 @@
-import { expect } from "bun:test";
+import { expect, readJsonFile, readTextFile } from "#test-support";
 import { join } from "node:path";
 
 import type { ProviderId } from "@jasonbelmonti/claudex";
@@ -147,7 +147,7 @@ export function assertObservedSessionParity(params: {
     if (expectedSession.sessionIdStartsWith !== undefined) {
       expect(observedSession.observedSession.sessionId.startsWith(
         expectedSession.sessionIdStartsWith,
-      )).toBeTrue();
+      )).toBeTruthy();
     }
   }
 }
@@ -288,14 +288,14 @@ async function readLiveFixtureText(
   provider: ProviderId,
   name: string,
 ): Promise<string> {
-  return Bun.file(resolveLiveFixtureUrl(provider, name)).text();
+  return readTextFile(resolveLiveFixtureUrl(provider, name));
 }
 
 async function readLiveFixtureMetadata(
   provider: ProviderId,
   name: string,
 ): Promise<LiveParityFixtureMetadata> {
-  return Bun.file(resolveLiveFixtureUrl(provider, name)).json();
+  return readJsonFile(resolveLiveFixtureUrl(provider, name));
 }
 
 function resolveLiveFixtureUrl(provider: ProviderId, name: string): URL {
