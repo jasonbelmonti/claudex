@@ -30,10 +30,6 @@ export class AgentError extends Error {
   readonly extensions?: Record<string, unknown>;
 
   static [Symbol.hasInstance](value: unknown): boolean {
-    if (this !== AgentError) {
-      return Function.prototype[Symbol.hasInstance].call(this, value);
-    }
-
     return isAgentErrorLike(value);
   }
 
