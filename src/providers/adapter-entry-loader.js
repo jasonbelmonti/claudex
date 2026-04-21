@@ -1,11 +1,13 @@
 import { access } from "node:fs/promises";
 
 export async function loadAdapterEntry(params) {
-  const { distAdapterUrl, sourceAdapterPath } = params;
+  const { distAdapterUrl, sourceAdapterUrl } = params;
 
-  return (await canAccess(distAdapterUrl))
-    ? import(distAdapterUrl)
-    : import(sourceAdapterPath);
+  if (await canAccess(sourceAdapterUrl)) {
+    return import(sourceAdapterUrl);
+  }
+
+  return import(distAdapterUrl);
 }
 
 async function canAccess(path) {
