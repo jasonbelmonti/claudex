@@ -3,7 +3,7 @@
     // Environment setup & latest features
     "lib": ["ESNext"],
     "target": "ESNext",
-    "module": "Preserve",
+    "module": "NodeNext",
     "moduleDetection": "force",
     "baseUrl": ".",
     "jsx": "react-jsx",
@@ -13,8 +13,8 @@
       "@jasonbelmonti/claudex/ingest": ["./src/ingest/index.ts"]
     },
 
-    // Bundler mode
-    "moduleResolution": "bundler",
+    // Node ESM baseline
+    "moduleResolution": "NodeNext",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
