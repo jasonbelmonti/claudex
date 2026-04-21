@@ -3,14 +3,14 @@ import { expect, test } from "bun:test";
 import {
   createCodexTranscriptNormalizationContext,
   normalizeCodexTranscriptRecord,
-} from "../../src/ingest/codex/normalize";
+} from "../../src/ingest/codex/normalize.js";
 import {
   createSyntheticToolCallId,
   createToolDescriptor,
   extractUsageSnapshot,
   inferToolOutcome,
   mapUsageSnapshot,
-} from "../../src/ingest/codex/normalize-helpers";
+} from "../../src/ingest/codex/normalize-helpers.js";
 
 test("tool helpers classify descriptors, outcomes, and usage snapshots", () => {
   expect(

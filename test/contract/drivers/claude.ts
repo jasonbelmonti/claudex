@@ -1,13 +1,13 @@
-import { ClaudeAdapter } from "../../../src/providers/claude/adapter";
-import type { ContractProviderDriver } from "../types";
-import { FakeClaudeQuery, FakeClaudeQueryFactory } from "../../providers/claude/fakes";
+import { ClaudeAdapter } from "../../../src/providers/claude/adapter.js";
+import type { ContractProviderDriver } from "../types.js";
+import { FakeClaudeQuery, FakeClaudeQueryFactory } from "../../providers/claude/fakes.js";
 import {
   createAssistantMessage,
   createAuthStatusMessage,
   createInitMessage,
   createSuccessResultMessage,
   createTextDeltaMessage,
-} from "../../providers/claude/messages";
+} from "../../providers/claude/messages.js";
 
 const NEW_SESSION_REFERENCE = {
   provider: "claude" as const,

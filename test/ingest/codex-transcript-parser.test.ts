@@ -9,11 +9,11 @@ import {
   createInMemoryCursorStore,
   createSessionIngestService,
 } from "@jasonbelmonti/claudex/ingest";
-import { createCodexTranscriptIngestRegistry } from "../../src/ingest/codex";
+import { createCodexTranscriptIngestRegistry } from "../../src/ingest/codex/index.js";
 import {
   createFixtureWorkspace,
   removeFixtureWorkspace,
-} from "./helpers";
+} from "./helpers.js";
 
 const workspaces: string[] = [];
 

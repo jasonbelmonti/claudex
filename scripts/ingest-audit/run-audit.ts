@@ -1,21 +1,21 @@
 import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-import { createDeterministicAuditEnv } from "./deterministic-env";
-import { prepareAuditOutputDir } from "./output-dir";
+import { createDeterministicAuditEnv } from "./deterministic-env.js";
+import { prepareAuditOutputDir } from "./output-dir.js";
 import {
   buildAuditReport,
   parseCoverageSummary,
   parseFailedFilesFromJunit,
   renderTextReport,
-} from "./report-generator";
+} from "./report-generator.js";
 import {
   createConfirmedRegressionFindings,
   createIntentionallyUnassertedFindings,
   createScenarioSummaries,
   createUnsupportedObservedFindings,
   type IngestAuditCommandResult,
-} from "./report-contract";
+} from "./report-contract.js";
 
 const repoRoot = resolve(import.meta.dir, "..", "..");
 

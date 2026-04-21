@@ -5,7 +5,7 @@ import {
   supportsCapability,
   type CapabilityId,
   type ProviderCapabilities,
-} from "../src/core/capabilities";
+} from "../src/core/capabilities.js";
 
 test("capability catalog ids are unique", () => {
   const ids = CAPABILITY_CATALOG.map((capability) => capability.id);

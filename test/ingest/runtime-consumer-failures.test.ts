@@ -6,14 +6,14 @@ import type {
   IngestWarning,
 } from "@jasonbelmonti/claudex/ingest";
 import { createSessionIngestService } from "@jasonbelmonti/claudex/ingest";
-import { createCodexTranscriptIngestRegistry } from "../../src/ingest/codex";
+import { createCodexTranscriptIngestRegistry } from "../../src/ingest/codex/index.js";
 
 import {
   createFixtureWorkspace,
   createObservedEventRecord,
   createRegistry,
   removeFixtureWorkspace,
-} from "./helpers";
+} from "./helpers.js";
 
 test("scanNow throws consumer callback failures without advancing the cursor", async () => {
   const workspace = await createFixtureWorkspace({

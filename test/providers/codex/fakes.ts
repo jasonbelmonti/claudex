@@ -8,7 +8,7 @@ import type {
 import type {
   CodexClientLike,
   CodexThreadLike,
-} from "../../../src/providers/codex/types";
+} from "../../../src/providers/codex/types.js";
 
 export class FakeCodexThread implements CodexThreadLike {
   id: string | null;

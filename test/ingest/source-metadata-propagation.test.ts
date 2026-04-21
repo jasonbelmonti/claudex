@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 
-import { createIngestSource } from "../../src/ingest/claude/parser-core";
-import { createCodexIngestSource } from "../../src/ingest/codex/parser-core";
-import type { IngestParseContext } from "../../src/ingest/registry";
+import { createIngestSource } from "../../src/ingest/claude/parser-core.js";
+import { createCodexIngestSource } from "../../src/ingest/codex/parser-core.js";
+import type { IngestParseContext } from "../../src/ingest/registry.js";
 
 function createParseContext(options: {
   provider: "claude" | "codex";

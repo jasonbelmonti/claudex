@@ -16,7 +16,7 @@ import {
   INGEST_LIVE_FIXTURE_REQUIRED_FIELDS,
   INGEST_LIVE_FIXTURE_REFRESH_CONTRACT,
   INGEST_LIVE_FIXTURE_METADATA,
-} from "./audit-matrix";
+} from "./audit-matrix.js";
 
 const REPO_ROOT = resolve(import.meta.dir, "..", "..");
 

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 
-import type { MatchedRootFile } from "../../src/ingest/matched-root-files";
-import { createRootSnapshot, reconcileRootSnapshot } from "../../src/ingest/reconcile";
+import type { MatchedRootFile } from "../../src/ingest/matched-root-files.js";
+import { createRootSnapshot, reconcileRootSnapshot } from "../../src/ingest/reconcile.js";
 
 test("reconcileRootSnapshot preserves prior entries for temporarily unavailable files", () => {
   const priorFile = createMatchedRootFile({

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { isProviderReady, type ProviderReadiness } from "../src/core/readiness";
+import { isProviderReady, type ProviderReadiness } from "../src/core/readiness.js";
 
 test("isProviderReady returns true only for ready providers", () => {
   const ready: ProviderReadiness = {

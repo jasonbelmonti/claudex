@@ -7,7 +7,7 @@ import {
   type IngestAuditFinding,
   type IngestAuditReport,
   type IngestAuditScenarioSummary,
-} from "./report-contract";
+} from "./report-contract.js";
 
 export function parseCoverageSummary(lcovPath: string): IngestAuditCoverageSummary | null {
   let rawCoverage: string;

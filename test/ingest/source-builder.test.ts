@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { buildObservedEventSource } from "../../src/ingest/source-builder";
+import { buildObservedEventSource } from "../../src/ingest/source-builder.js";
 
 test("buildObservedEventSource preserves metadata presence and location semantics", () => {
   const baseOptions = {

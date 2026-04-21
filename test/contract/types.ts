@@ -1,9 +1,9 @@
-import type { AgentProviderAdapter, ProviderId } from "../../src/core/provider";
-import type { ProviderReadinessStatus } from "../../src/core/readiness";
-import type { AgentErrorCode } from "../../src/core/errors";
-import type { TurnInput, TurnOptions } from "../../src/core/input";
-import type { TurnResult } from "../../src/core/results";
-import type { SessionOptions, SessionReference } from "../../src/core/session";
+import type { AgentProviderAdapter, ProviderId } from "../../src/core/provider.js";
+import type { ProviderReadinessStatus } from "../../src/core/readiness.js";
+import type { AgentErrorCode } from "../../src/core/errors.js";
+import type { TurnInput, TurnOptions } from "../../src/core/input.js";
+import type { TurnResult } from "../../src/core/results.js";
+import type { SessionOptions, SessionReference } from "../../src/core/session.js";
 
 export type ContractTurnScenario = {
   createAdapter: () => AgentProviderAdapter;

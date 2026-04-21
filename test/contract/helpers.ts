@@ -1,11 +1,11 @@
 import { isDeepStrictEqual } from "node:util";
 
-import type { AgentEvent } from "../../src/core/events";
-import type { AgentError } from "../../src/core/errors";
-import type { TurnInput } from "../../src/core/input";
-import type { ProviderId } from "../../src/core/provider";
-import type { TurnResult } from "../../src/core/results";
-import type { SessionReference } from "../../src/core/session";
+import type { AgentEvent } from "../../src/core/events.js";
+import type { AgentError } from "../../src/core/errors.js";
+import type { TurnInput } from "../../src/core/input.js";
+import type { ProviderId } from "../../src/core/provider.js";
+import type { TurnResult } from "../../src/core/results.js";
+import type { SessionReference } from "../../src/core/session.js";
 
 export async function collectEvents(
   stream: AsyncGenerator<AgentEvent>,

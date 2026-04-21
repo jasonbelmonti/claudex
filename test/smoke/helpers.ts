@@ -1,10 +1,10 @@
-import type { AgentProviderAdapter, ProviderId } from "../../src/core/provider";
-import type { ProviderReadinessStatus } from "../../src/core/readiness";
-import type { AgentSession, SessionOptions } from "../../src/core/session";
-import type { AgentEvent } from "../../src/core/events";
-import type { TurnInput } from "../../src/core/input";
-import type { TurnResult } from "../../src/core/results";
-import { supportsCapability } from "../../src/core/capabilities";
+import type { AgentProviderAdapter, ProviderId } from "../../src/core/provider.js";
+import type { ProviderReadinessStatus } from "../../src/core/readiness.js";
+import type { AgentSession, SessionOptions } from "../../src/core/session.js";
+import type { AgentEvent } from "../../src/core/events.js";
+import type { TurnInput } from "../../src/core/input.js";
+import type { TurnResult } from "../../src/core/results.js";
+import { supportsCapability } from "../../src/core/capabilities.js";
 import { isDeepStrictEqual } from "node:util";
 
 const DEFAULT_SMOKE_PROVIDERS = new Set<ProviderId>(["claude", "codex"]);

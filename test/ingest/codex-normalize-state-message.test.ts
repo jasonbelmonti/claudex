@@ -4,7 +4,7 @@ import {
   createCodexTranscriptNormalizationContext,
   createCodexTranscriptNormalizationMetadata,
   normalizeCodexTranscriptRecord,
-} from "../../src/ingest/codex/normalize";
+} from "../../src/ingest/codex/normalize.js";
 
 test("response_item message and reasoning branches cover missing text, dedupe, developer suppression, and encrypted fallbacks", () => {
   const context = createCodexTranscriptNormalizationContext();

@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 
-import { createClaudeIngestRegistries } from "../../src/ingest/claude";
+import { createClaudeIngestRegistries } from "../../src/ingest/claude/index.js";
 import {
   createClaudeArtifactNormalizationContext,
   createClaudeArtifactNormalizationMetadata,
   getClaudeArtifactWorkingDirectory,
   normalizeClaudeArtifactRecord,
-} from "../../src/ingest/claude/normalize";
+} from "../../src/ingest/claude/normalize.js";
 
 function expectSingleClaudeEvent(
   record: unknown,

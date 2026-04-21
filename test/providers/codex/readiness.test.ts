@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 
-import { CodexAdapter } from "../../../src/providers/codex/adapter";
-import { isCodexPathOverride } from "../../../src/providers/codex/readiness";
-import type { CodexCommandRunner } from "../../../src/providers/codex/types";
+import { CodexAdapter } from "../../../src/providers/codex/adapter.js";
+import { isCodexPathOverride } from "../../../src/providers/codex/readiness.js";
+import type { CodexCommandRunner } from "../../../src/providers/codex/types.js";
 
 test("checkReadiness reports ready when CLI and login probes succeed", async () => {
   const runner: CodexCommandRunner = async (_command, args) => {

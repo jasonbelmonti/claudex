@@ -1,7 +1,7 @@
-import { PROVIDER_IDS } from "../../../src/core/provider";
-import type { ContractProviderDriver } from "../types";
-import { CLAUDE_CONTRACT_DRIVER } from "./claude";
-import { CODEX_CONTRACT_DRIVER } from "./codex";
+import { PROVIDER_IDS } from "../../../src/core/provider.js";
+import type { ContractProviderDriver } from "../types.js";
+import { CLAUDE_CONTRACT_DRIVER } from "./claude.js";
+import { CODEX_CONTRACT_DRIVER } from "./codex.js";
 
 export const CONTRACT_TEST_DRIVERS = [
   CLAUDE_CONTRACT_DRIVER,

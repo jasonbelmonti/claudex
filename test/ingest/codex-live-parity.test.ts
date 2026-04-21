@@ -3,11 +3,11 @@ import { expect, test } from "bun:test";
 import {
   createCodexSessionIndexIngestRegistry,
   createCodexTranscriptIngestRegistry,
-} from "../../src/ingest/codex";
+} from "../../src/ingest/codex/index.js";
 import {
   assertLiveParityReplay,
   replayLiveParityFixture,
-} from "./live-parity-helpers";
+} from "./live-parity-helpers.js";
 
 const liveCodexParityTest = Bun.env.CLAUDEX_AUDIT_LIVE === "1" ? test : test.skip;
 

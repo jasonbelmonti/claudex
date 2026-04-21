@@ -11,11 +11,11 @@ import {
   createInMemoryCursorStore,
   createSessionIngestService,
 } from "@jasonbelmonti/claudex/ingest";
-import { createClaudeSnapshotTaskIngestRegistry } from "../../src/ingest/claude";
+import { createClaudeSnapshotTaskIngestRegistry } from "../../src/ingest/claude/index.js";
 import {
   createFixtureWorkspace,
   removeFixtureWorkspace,
-} from "./helpers";
+} from "./helpers.js";
 
 const workspaces: string[] = [];
 

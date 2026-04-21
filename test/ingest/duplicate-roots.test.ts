@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 
 import type { DiscoveryRootConfig } from "@jasonbelmonti/claudex/ingest";
 
-import { resolveActiveDiscoveryRoots } from "../../src/ingest/duplicate-roots";
+import { resolveActiveDiscoveryRoots } from "../../src/ingest/duplicate-roots.js";
 
 test("resolveActiveDiscoveryRoots keeps same-path roots when metadata differs", () => {
   const firstRoot: DiscoveryRootConfig = {

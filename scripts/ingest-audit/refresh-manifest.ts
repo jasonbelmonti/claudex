@@ -5,7 +5,7 @@ import {
   normalizeLiveFixtureMetadata,
   readNullableStringField,
   readStringField,
-} from "./live-fixture-types";
+} from "./live-fixture-types.js";
 
 export async function loadRefreshManifest(
   manifestPath: string,
