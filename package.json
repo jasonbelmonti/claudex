@@ -60,7 +60,7 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm run build",
     "ci": "npm run lint && npm run typecheck && npm run test:coverage",
-    "package:check": "bun run ./scripts/package-check.ts && bun test ./test/package/root-import-typecheck.test.ts"
+    "package:check": "node ./scripts/package-check.js"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.12",
