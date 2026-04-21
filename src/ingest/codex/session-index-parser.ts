@@ -1,4 +1,5 @@
 import type { ObservedIngestRecord, ObservedSessionRecord } from "../events.js";
+import { readFileSlice } from "../file-slice.js";
 import type { IngestParseContext, IngestProviderRegistry } from "../registry.js";
 import type { IngestWarning } from "../warnings.js";
 import {
@@ -36,15 +37,14 @@ export function createCodexSessionIndexIngestRegistry(): IngestProviderRegistry 
 export async function* parseCodexSessionIndexFile(
   context: IngestParseContext,
 ): AsyncIterable<ObservedIngestRecord> {
-  const file = Bun.file(context.filePath);
   const cursorStart = context.cursor?.byteOffset ?? 0;
+  const { size, bytes } = await readFileSlice(context.filePath, cursorStart);
 
-  if (cursorStart >= file.size) {
+  if (cursorStart >= size) {
     return;
   }
 
   const decoder = new TextDecoder();
-  const bytes = new Uint8Array(await file.slice(cursorStart).arrayBuffer());
   let line = (context.cursor?.line ?? 0) + 1;
   let byteOffset = cursorStart;
   let lineStart = 0;

@@ -1,7 +1,14 @@
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
+
 import { expect, test } from "bun:test";
 
 import { CodexAdapter } from "../../../src/providers/codex/adapter.js";
-import { isCodexPathOverride } from "../../../src/providers/codex/readiness.js";
+import {
+  isCodexPathOverride,
+  resolveCodexBinary,
+} from "../../../src/providers/codex/readiness.js";
 import type { CodexCommandRunner } from "../../../src/providers/codex/types.js";
 
 test("checkReadiness reports ready when CLI and login probes succeed", async () => {
@@ -102,6 +109,42 @@ test("isCodexPathOverride recognizes Windows-style override paths", () => {
   expect(isCodexPathOverride("./bin/codex")).toBe(true);
   expect(isCodexPathOverride("/usr/local/bin/codex")).toBe(true);
   expect(isCodexPathOverride("codex")).toBe(false);
+});
+
+test("resolveCodexBinary accepts existing override paths", async () => {
+  const tempDir = mkdtempSync(join(tmpdir(), "claudex-codex-"));
+  const binaryPath = join(tempDir, "codex");
+
+  try {
+    writeFileSync(binaryPath, "#!/bin/sh\nexit 0\n");
+    chmodSync(binaryPath, 0o755);
+
+    await expect(
+      resolveCodexBinary({ codexPathOverride: binaryPath }),
+    ).resolves.toBe(binaryPath);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("resolveCodexBinary resolves named overrides from PATH", async () => {
+  const tempDir = mkdtempSync(join(tmpdir(), "claudex-codex-path-"));
+  const binaryName = "mock-codex";
+  const binaryPath = join(tempDir, binaryName);
+  const previousPath = process.env.PATH;
+
+  try {
+    writeFileSync(binaryPath, "#!/bin/sh\nexit 0\n");
+    chmodSync(binaryPath, 0o755);
+    process.env.PATH = [tempDir, previousPath].filter(Boolean).join(delimiter);
+
+    await expect(
+      resolveCodexBinary({ codexPathOverride: binaryName }),
+    ).resolves.toBe(binaryPath);
+  } finally {
+    process.env.PATH = previousPath;
+    rmSync(tempDir, { recursive: true, force: true });
+  }
 });
 
 test("checkReadiness reports error when CLI detection throws", async () => {

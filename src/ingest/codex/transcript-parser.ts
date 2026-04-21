@@ -1,5 +1,6 @@
 import type { ObservedEventCompleteness } from "../completeness.js";
 import type { ObservedIngestRecord } from "../events.js";
+import { readFileSlice } from "../file-slice.js";
 import type { IngestParseContext } from "../registry.js";
 import {
   createCodexIngestSource,
@@ -23,15 +24,14 @@ export async function* parseCodexTranscriptFile(
   const normalizationContext = createCodexTranscriptNormalizationContext(
     context.cursor?.metadata,
   );
-  const file = Bun.file(context.filePath);
   const cursorStart = context.cursor?.byteOffset ?? 0;
+  const { size, bytes } = await readFileSlice(context.filePath, cursorStart);
 
-  if (cursorStart >= file.size) {
+  if (cursorStart >= size) {
     return;
   }
 
   const textDecoder = new TextDecoder();
-  const bytes = new Uint8Array(await file.slice(cursorStart).arrayBuffer());
 
   let line = (context.cursor?.line ?? 0) + 1;
   let byteOffset = cursorStart;

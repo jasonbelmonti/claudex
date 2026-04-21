@@ -14,6 +14,7 @@ import type {
 } from "../events.js";
 import type { ObservedEventSource } from "../source.js";
 import type { IngestWarning } from "../warnings.js";
+import { readFileSlice } from "../file-slice.js";
 import {
   createIngestSource,
   withIngestWarnings,
@@ -46,15 +47,14 @@ export async function* parseTranscriptFile(
 ): AsyncIterable<ObservedIngestRecord> {
   const source = createSourceBase(context);
   const normalizationContext = createClaudeArtifactNormalizationContext(context.cursor?.metadata);
-  const file = Bun.file(context.filePath);
   const cursorStart = context.cursor?.byteOffset ?? 0;
+  const { size, bytes } = await readFileSlice(context.filePath, cursorStart);
 
-  if (cursorStart >= file.size) {
+  if (cursorStart >= size) {
     return;
   }
 
   const text = new TextDecoder();
-  const bytes = new Uint8Array(await file.slice(cursorStart).arrayBuffer());
 
   let line = (context.cursor?.line ?? 0) + 1;
   let byteOffset = cursorStart;

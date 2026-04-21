@@ -18,6 +18,7 @@ import {
 } from "./parser-core.js";
 import type { ObservedEventSource } from "../source.js";
 import type { IngestWarning } from "../warnings.js";
+import { readFileSlice } from "../file-slice.js";
 import {
   createClaudeArtifactNormalizationContext,
   getClaudeArtifactWorkingDirectory,
@@ -63,14 +64,13 @@ export async function* parseSnapshotTaskFile(
   const source = createSourceBase(context);
   const normalizationContext = createClaudeArtifactNormalizationContext();
   const resumeRecordIndex = readSnapshotReplayIndex(context.cursor?.metadata);
-  const file = Bun.file(context.filePath);
   const cursorStart = resumeRecordIndex > 0 ? 0 : context.cursor?.byteOffset ?? 0;
+  const { size, bytes } = await readFileSlice(context.filePath, cursorStart);
 
-  if (cursorStart >= file.size) {
+  if (cursorStart >= size) {
     return;
   }
 
-  const bytes = new Uint8Array(await file.slice(cursorStart).arrayBuffer());
   const payloadText = new TextDecoder().decode(bytes).trim();
 
   if (payloadText.length === 0) {
