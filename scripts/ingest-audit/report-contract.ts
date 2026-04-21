@@ -4,11 +4,11 @@ import {
   type IngestAuditProbeKind,
   type IngestAuditScenario,
   type IngestAuditSourceFamily,
-} from "../../test/ingest/audit-matrix";
+} from "../../test/ingest/audit-matrix.js";
 import {
   createScenarioLiveParitySummary,
   loadLiveFixtureSummariesByScenario,
-} from "./live-fixture-report";
+} from "./live-fixture-report.js";
 
 export const INGEST_AUDIT_REPORT_SCHEMA_VERSION = "ingest-audit-report.v1";
 

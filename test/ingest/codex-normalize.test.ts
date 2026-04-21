@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import {
   createCodexTranscriptNormalizationContext,
   normalizeCodexTranscriptRecord,
-} from "../../src/ingest/codex/normalize";
+} from "../../src/ingest/codex/normalize.js";
 
 test("web_search completion without call_id reuses the pending synthetic id", () => {
   const context = createCodexTranscriptNormalizationContext();

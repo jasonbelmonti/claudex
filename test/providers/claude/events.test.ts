@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 
-import { ClaudeAdapter } from "../../../src/providers/claude/adapter";
-import { FakeClaudeQuery, FakeClaudeQueryFactory } from "./fakes";
+import { ClaudeAdapter } from "../../../src/providers/claude/adapter.js";
+import { FakeClaudeQuery, FakeClaudeQueryFactory } from "./fakes.js";
 import {
   createAssistantMessage,
   createAuthStatusMessage,
@@ -14,7 +14,7 @@ import {
   createTaskStartedMessage,
   createTextDeltaMessage,
   createToolProgressMessage,
-} from "./messages";
+} from "./messages.js";
 
 test("runStreamed maps Claude SDK messages into the normalized event contract", async () => {
   const factory = new FakeClaudeQueryFactory([

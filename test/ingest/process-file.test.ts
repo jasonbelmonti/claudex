@@ -9,15 +9,15 @@ import type {
   SessionIngestServiceOptions,
 } from "@jasonbelmonti/claudex/ingest";
 
-import { __internal, processMatchedFile } from "../../src/ingest/process-file";
-import type { RegistrySelection } from "../../src/ingest/registry-selection";
+import { __internal, processMatchedFile } from "../../src/ingest/process-file.js";
+import type { RegistrySelection } from "../../src/ingest/registry-selection.js";
 import {
   createFixtureWorkspace,
   createObservedEventRecord,
   createRegistry,
   deleteFile,
   removeFixtureWorkspace,
-} from "./helpers";
+} from "./helpers.js";
 
 function createSelection(
   root: DiscoveryRootConfig,

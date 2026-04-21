@@ -16,11 +16,11 @@ import type {
   ObservedSessionRecord,
 } from "@jasonbelmonti/claudex/ingest";
 
-import { INGEST_LIVE_FIXTURE_REQUIRED_FIELDS } from "./audit-matrix";
+import { INGEST_LIVE_FIXTURE_REQUIRED_FIELDS } from "./audit-matrix.js";
 import {
   createFixtureWorkspace,
   removeFixtureWorkspace,
-} from "./helpers";
+} from "./helpers.js";
 
 export type LiveParityExpectedEventStream = {
   eventTypes: ObservedAgentEvent["event"]["type"][];

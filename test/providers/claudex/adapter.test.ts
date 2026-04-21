@@ -1,18 +1,18 @@
 import { expect, test } from "bun:test";
 
-import { isAgentError } from "../../../src/core/errors";
-import type { ProviderCapabilities } from "../../../src/core/capabilities";
-import type { AgentEvent } from "../../../src/core/events";
-import type { TurnInput, TurnOptions } from "../../../src/core/input";
-import type { AgentProviderAdapter, ProviderId } from "../../../src/core/provider";
-import type { TurnResult } from "../../../src/core/results";
+import { isAgentError } from "../../../src/core/errors.js";
+import type { ProviderCapabilities } from "../../../src/core/capabilities.js";
+import type { AgentEvent } from "../../../src/core/events.js";
+import type { TurnInput, TurnOptions } from "../../../src/core/input.js";
+import type { AgentProviderAdapter, ProviderId } from "../../../src/core/provider.js";
+import type { TurnResult } from "../../../src/core/results.js";
 import type {
   AgentSession,
   SessionOptions,
   SessionReference,
-} from "../../../src/core/session";
-import type { ProviderReadiness } from "../../../src/core/readiness";
-import { ClaudexAdapter } from "../../../src/providers/claudex/adapter";
+} from "../../../src/core/session.js";
+import type { ProviderReadiness } from "../../../src/core/readiness.js";
+import { ClaudexAdapter } from "../../../src/providers/claudex/adapter.js";
 
 function createCapabilities(provider: ProviderId): ProviderCapabilities {
   return {

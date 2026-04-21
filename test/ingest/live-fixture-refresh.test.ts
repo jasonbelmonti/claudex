@@ -5,16 +5,16 @@ import { join } from "node:path";
 import type {
   LiveFixtureProvenanceEntry,
   LiveFixtureRefreshManifestRecord,
-} from "../../scripts/ingest-audit/live-fixture-types";
+} from "../../scripts/ingest-audit/live-fixture-types.js";
 
 import {
   createLiveFixtureSidecar,
   normalizeLiveFixtureSidecar,
-} from "../../scripts/ingest-audit/sidecar";
+} from "../../scripts/ingest-audit/sidecar.js";
 import {
   loadRefreshManifest,
   normalizeRefreshManifest,
-} from "../../scripts/ingest-audit/refresh-manifest";
+} from "../../scripts/ingest-audit/refresh-manifest.js";
 
 const tempFiles: string[] = [];
 const BASE_PROVENANCE_ENTRY: LiveFixtureProvenanceEntry = {

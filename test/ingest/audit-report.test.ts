@@ -3,20 +3,20 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { createDeterministicAuditEnv } from "../../scripts/ingest-audit/deterministic-env";
-import { prepareAuditOutputDir } from "../../scripts/ingest-audit/output-dir";
+import { createDeterministicAuditEnv } from "../../scripts/ingest-audit/deterministic-env.js";
+import { prepareAuditOutputDir } from "../../scripts/ingest-audit/output-dir.js";
 import {
   buildAuditReport,
   parseCoverageSummary,
   parseFailedFilesFromJunit,
   renderTextReport,
-} from "../../scripts/ingest-audit/report-generator";
+} from "../../scripts/ingest-audit/report-generator.js";
 import {
   createConfirmedRegressionFindings,
   createIntentionallyUnassertedFindings,
   createScenarioSummaries,
   createUnsupportedObservedFindings,
-} from "../../scripts/ingest-audit/report-contract";
+} from "../../scripts/ingest-audit/report-contract.js";
 
 const REPO_ROOT = new URL("../..", import.meta.url).pathname;
 

@@ -12,7 +12,7 @@ import {
   removeFixtureWorkspace,
   rotateFile,
   truncateFile,
-} from "./helpers";
+} from "./helpers.js";
 
 test("scanNow resets legacy cursors that do not have fingerprints", async () => {
   const workspace = await createFixtureWorkspace({

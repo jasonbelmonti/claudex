@@ -4,15 +4,15 @@ import type {
   SessionMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 
-import { AgentError } from "../../../src/core/errors";
-import { ClaudeAdapter } from "../../../src/providers/claude/adapter";
-import { FakeClaudeQuery, FakeClaudeQueryFactory } from "./fakes";
+import { AgentError } from "../../../src/core/errors.js";
+import { ClaudeAdapter } from "../../../src/providers/claude/adapter.js";
+import { FakeClaudeQuery, FakeClaudeQueryFactory } from "./fakes.js";
 import {
   createAssistantMessage,
   createInitMessage,
   createSuccessResultMessage,
   createTextDeltaMessage,
-} from "./messages";
+} from "./messages.js";
 
 test("createSession maps normalized options into Claude query options", async () => {
   const factory = new FakeClaudeQueryFactory([

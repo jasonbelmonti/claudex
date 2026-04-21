@@ -1,7 +1,7 @@
-import { CodexAdapter } from "../../../src/providers/codex/adapter";
-import type { ContractProviderDriver } from "../types";
-import type { CodexCommandRunner } from "../../../src/providers/codex/types";
-import { FakeCodexClient, FakeCodexThread } from "../../providers/codex/fakes";
+import { CodexAdapter } from "../../../src/providers/codex/adapter.js";
+import type { ContractProviderDriver } from "../types.js";
+import type { CodexCommandRunner } from "../../../src/providers/codex/types.js";
+import { FakeCodexClient, FakeCodexThread } from "../../providers/codex/fakes.js";
 
 const NEW_SESSION_REFERENCE = {
   provider: "codex" as const,

@@ -14,11 +14,11 @@ import {
 import {
   createCodexIngestRegistries,
   createCodexTranscriptIngestRegistry,
-} from "../../src/ingest/codex";
+} from "../../src/ingest/codex/index.js";
 import {
   createFixtureWorkspace,
   removeFixtureWorkspace,
-} from "./helpers";
+} from "./helpers.js";
 
 const workspaces: string[] = [];
 

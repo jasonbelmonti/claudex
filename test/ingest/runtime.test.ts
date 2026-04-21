@@ -25,7 +25,7 @@ import {
   removeFixtureWorkspace,
   rotateFile,
   truncateFile,
-} from "./helpers";
+} from "./helpers.js";
 
 const workspaces: string[] = [];
 

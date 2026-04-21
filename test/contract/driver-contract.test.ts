@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 
-import { supportsCapability } from "../../src/core/capabilities";
+import { supportsCapability } from "../../src/core/capabilities.js";
 import {
   CONTRACT_TEST_DRIVERS,
   CONTRACT_TEST_PROVIDER_IDS,
   EXPECTED_CONTRACT_PROVIDER_IDS,
-} from "./drivers";
+} from "./drivers/index.js";
 
 test("contract drivers stay aligned with the shared harness shape", async () => {
   expect(CONTRACT_TEST_PROVIDER_IDS).toEqual(EXPECTED_CONTRACT_PROVIDER_IDS);

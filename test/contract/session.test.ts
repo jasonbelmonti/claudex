@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 
-import type { AgentError } from "../../src/core/errors";
-import { supportsCapability } from "../../src/core/capabilities";
-import type { SessionReference } from "../../src/core/session";
+import type { AgentError } from "../../src/core/errors.js";
+import { supportsCapability } from "../../src/core/capabilities.js";
+import type { SessionReference } from "../../src/core/session.js";
 import {
   assertAgentErrorProvider,
   assertMessageCompletedLifecycle,
@@ -18,8 +18,8 @@ import {
   collectEvents,
   countTerminalEvents,
   getTerminalEvent,
-} from "./helpers";
-import { CONTRACT_TEST_DRIVERS } from "./drivers";
+} from "./helpers.js";
+import { CONTRACT_TEST_DRIVERS } from "./drivers/index.js";
 
 function getExpectedInitialReference(
   expectedInitialReference: SessionReference | null | undefined,

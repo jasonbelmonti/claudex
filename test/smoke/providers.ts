@@ -1,6 +1,6 @@
-import type { SessionOptions } from "../../src/core/session";
-import type { AgentProviderAdapter, ProviderId } from "../../src/core/provider";
-import { CONTRACT_TEST_DRIVERS } from "../contract/drivers";
+import type { SessionOptions } from "../../src/core/session.js";
+import type { AgentProviderAdapter, ProviderId } from "../../src/core/provider.js";
+import { CONTRACT_TEST_DRIVERS } from "../contract/drivers/index.js";
 
 type SmokeProviderConfig = {
   createAdapter: () => AgentProviderAdapter;

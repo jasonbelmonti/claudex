@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 
-import { CodexAdapter } from "../../../src/providers/codex/adapter";
+import { CodexAdapter } from "../../../src/providers/codex/adapter.js";
 import {
   FakeCodexClient,
   FakeCodexThread,
   RejectingCodexThread,
-} from "./fakes";
+} from "./fakes.js";
 
 test("runStreamed maps Codex events into the normalized event contract", async () => {
   const thread = new FakeCodexThread([

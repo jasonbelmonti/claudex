@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { mergeClaudeProviderOptions } from "../../../src/providers/claude/provider-option-merge";
+import { mergeClaudeProviderOptions } from "../../../src/providers/claude/provider-option-merge.js";
 
 test("mergeClaudeProviderOptions recursively merges sibling Claude namespaces", () => {
   const merged = mergeClaudeProviderOptions(

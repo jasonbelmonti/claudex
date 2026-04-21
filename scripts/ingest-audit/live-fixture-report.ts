@@ -1,13 +1,13 @@
 import { resolve } from "node:path";
 
-import type { IngestAuditScenario } from "../../test/ingest/audit-matrix";
-import type { LiveFixtureRefreshManifestRecord } from "./live-fixture-types";
-import { loadRefreshManifest } from "./refresh-manifest";
+import type { IngestAuditScenario } from "../../test/ingest/audit-matrix.js";
+import type { LiveFixtureRefreshManifestRecord } from "./live-fixture-types.js";
+import { loadRefreshManifest } from "./refresh-manifest.js";
 import type {
   IngestAuditLiveFixtureSummary,
   IngestAuditLiveParityStatus,
-} from "./report-contract";
-import { normalizeLiveFixtureSidecar } from "./sidecar";
+} from "./report-contract.js";
+import { normalizeLiveFixtureSidecar } from "./sidecar.js";
 
 type UnsupportedObservedContainer = {
   expected?: {

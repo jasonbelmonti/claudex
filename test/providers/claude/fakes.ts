@@ -7,7 +7,7 @@ import type {
 import type {
   ClaudeQueryFactory,
   ClaudeQueryLike,
-} from "../../../src/providers/claude/types";
+} from "../../../src/providers/claude/types.js";
 
 const DEFAULT_ACCOUNT: AccountInfo = {
   email: "claude@example.com",

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 
-import { AgentError } from "../../../src/core/errors";
-import { CodexAdapter } from "../../../src/providers/codex/adapter";
-import { FakeCodexClient, FakeCodexThread } from "./fakes";
+import { AgentError } from "../../../src/core/errors.js";
+import { CodexAdapter } from "../../../src/providers/codex/adapter.js";
+import { FakeCodexClient, FakeCodexThread } from "./fakes.js";
 
 test("createSession maps core session options into Codex thread options", async () => {
   const startThread = new FakeCodexThread([

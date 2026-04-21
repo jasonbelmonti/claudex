@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 
 import type { IngestCursor } from "@jasonbelmonti/claudex/ingest";
 
-import { resolveCursorRecovery } from "../../src/ingest/cursor-recovery";
+import { resolveCursorRecovery } from "../../src/ingest/cursor-recovery.js";
 
 const SOURCE = {
   provider: "claude" as const,

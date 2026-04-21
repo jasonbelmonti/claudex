@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 
-import { ClaudeAdapter } from "../../../src/providers/claude/adapter";
-import { FakeClaudeQuery, FakeClaudeQueryFactory } from "./fakes";
+import { ClaudeAdapter } from "../../../src/providers/claude/adapter.js";
+import { FakeClaudeQuery, FakeClaudeQueryFactory } from "./fakes.js";
 
 test("checkReadiness reports ready when initialization and account probes succeed", async () => {
   const factory = new FakeClaudeQueryFactory([new FakeClaudeQuery()]);

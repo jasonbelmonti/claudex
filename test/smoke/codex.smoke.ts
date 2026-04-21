@@ -1,7 +1,7 @@
 import { setDefaultTimeout, test } from "bun:test";
 
-import { runSmokeScenario, shouldRunSmokeProvider } from "./helpers";
-import { SMOKE_PROVIDERS } from "./providers";
+import { runSmokeScenario, shouldRunSmokeProvider } from "./helpers.js";
+import { SMOKE_PROVIDERS } from "./providers.js";
 
 setDefaultTimeout(120_000);
 

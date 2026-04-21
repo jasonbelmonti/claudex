@@ -20,7 +20,7 @@ import {
   deleteFile,
   removeFixtureWorkspace,
   waitForCondition,
-} from "./helpers";
+} from "./helpers.js";
 
 const workspaces: string[] = [];
 

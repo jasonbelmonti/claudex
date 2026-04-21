@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 
 import {
   CONTRACT_TEST_DRIVERS,
-} from "./drivers";
+} from "./drivers/index.js";
 
 for (const driver of CONTRACT_TEST_DRIVERS) {
   test(`${driver.provider} readiness scenarios satisfy the normalized contract`, async () => {

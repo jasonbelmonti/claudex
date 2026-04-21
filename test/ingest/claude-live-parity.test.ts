@@ -3,11 +3,11 @@ import { expect, test } from "bun:test";
 import {
   createClaudeSnapshotTaskIngestRegistry,
   createClaudeTranscriptIngestRegistry,
-} from "../../src/ingest/claude";
+} from "../../src/ingest/claude/index.js";
 import {
   assertLiveParityReplay,
   replayLiveParityFixture,
-} from "./live-parity-helpers";
+} from "./live-parity-helpers.js";
 
 const liveClaudeParityTest = Bun.env.CLAUDEX_AUDIT_LIVE === "1"
   ? test

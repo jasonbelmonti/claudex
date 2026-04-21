@@ -1,7 +1,7 @@
 import {
   type LiveFixtureSidecar,
   normalizeLiveFixtureMetadata,
-} from "./live-fixture-types";
+} from "./live-fixture-types.js";
 
 export function createLiveFixtureSidecar<
   TExtra extends Record<string, unknown> = Record<string, unknown>,
