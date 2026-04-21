@@ -1,4 +1,5 @@
 const GLOB_REGEX_CACHE = new Map<string, RegExp>();
+const NEVER_MATCH_REGEX = /$./;
 const REGEX_SPECIAL_CHARACTERS = /[|\\{}()[\]^$+?.]/g;
 
 export function matchesGlobPattern(pattern: string, value: string): boolean {
@@ -13,9 +14,17 @@ function getGlobRegex(pattern: string): RegExp {
     return cached;
   }
 
-  const regex = new RegExp(`^${compilePattern(pattern)}$`);
+  const regex = compileGlobRegex(pattern);
   GLOB_REGEX_CACHE.set(pattern, regex);
   return regex;
+}
+
+function compileGlobRegex(pattern: string): RegExp {
+  try {
+    return new RegExp(`^${compilePattern(pattern)}$`);
+  } catch {
+    return NEVER_MATCH_REGEX;
+  }
 }
 
 function compilePattern(pattern: string): string {
@@ -192,7 +201,7 @@ function compileCharacterClass(body: string): string {
     body[0] === "!"
       ? "^"
       : body[0] === "^"
-        ? "\\^"
+        ? "^"
         : "";
   const rawBody = prefix.length > 0 ? body.slice(1) : body;
   const escapedBody = rawBody

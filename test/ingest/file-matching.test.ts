@@ -87,6 +87,49 @@ test("matchesDiscoveryRootFilters supports character classes", () => {
   ).toBe(false);
 });
 
+test("matchesDiscoveryRootFilters supports caret-negated character classes", () => {
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["file-[^ab].jsonl"],
+      },
+      "/tmp/root/nested/file-c.jsonl",
+    ),
+  ).toBe(true);
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["file-[^ab].jsonl"],
+      },
+      "/tmp/root/nested/file-a.jsonl",
+    ),
+  ).toBe(false);
+});
+
+test("matchesDiscoveryRootFilters treats malformed character class ranges as non-matches", () => {
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["file-[z-a].jsonl"],
+      },
+      "/tmp/root/nested/file-c.jsonl",
+    ),
+  ).toBe(false);
+  expect(
+    matchesDiscoveryRootFilters(
+      {
+        ...root,
+        include: ["**/*.jsonl"],
+        exclude: ["file-[z-a].jsonl"],
+      },
+      "/tmp/root/nested/file-c.jsonl",
+    ),
+  ).toBe(true);
+});
+
 test("matchesDiscoveryRootFilters supports brace alternation", () => {
   expect(
     matchesDiscoveryRootFilters(
