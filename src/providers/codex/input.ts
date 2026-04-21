@@ -4,9 +4,9 @@ import type {
   TurnOptions as CodexTurnOptions,
 } from "@openai/codex-sdk";
 
-import { AgentError } from "../../core/errors";
-import type { TurnInput, TurnOptions } from "../../core/input";
-import type { CodexTurnProviderOptions } from "./types";
+import { AgentError } from "../../core/errors.js";
+import type { TurnInput, TurnOptions } from "../../core/input.js";
+import type { CodexTurnProviderOptions } from "./types.js";
 
 export function mapTurnInputToCodexInput(input: TurnInput): Input {
   if (!input.attachments?.length) {

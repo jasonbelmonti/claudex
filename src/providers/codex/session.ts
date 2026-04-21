@@ -1,15 +1,15 @@
-import type { AgentEvent } from "../../core/events";
-import { AgentError } from "../../core/errors";
-import type { TurnInput, TurnOptions } from "../../core/input";
-import type { ProviderCapabilities } from "../../core/capabilities";
-import type { AgentSession } from "../../core/session";
-import type { TurnResult } from "../../core/results";
-import { normalizeCodexRunError } from "./errors";
-import { mapTurnInputToCodexInput, mapTurnOptionsToCodexTurnOptions } from "./input";
-import { mapCodexThreadEvent } from "./events";
-import { createCodexSessionReference } from "./references";
-import { createCodexTurnState } from "./state";
-import type { CodexThreadLike } from "./types";
+import type { AgentEvent } from "../../core/events.js";
+import { AgentError } from "../../core/errors.js";
+import type { TurnInput, TurnOptions } from "../../core/input.js";
+import type { ProviderCapabilities } from "../../core/capabilities.js";
+import type { AgentSession } from "../../core/session.js";
+import type { TurnResult } from "../../core/results.js";
+import { normalizeCodexRunError } from "./errors.js";
+import { mapTurnInputToCodexInput, mapTurnOptionsToCodexTurnOptions } from "./input.js";
+import { mapCodexThreadEvent } from "./events.js";
+import { createCodexSessionReference } from "./references.js";
+import { createCodexTurnState } from "./state.js";
+import type { CodexThreadLike } from "./types.js";
 
 export class CodexSession implements AgentSession {
   readonly provider = "codex" as const;
