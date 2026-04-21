@@ -2,6 +2,16 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 
 export function run(command, cwd) {
+  execute(command, cwd);
+}
+
+export function runAndCapture(command, cwd) {
+  const result = execute(command, cwd);
+
+  return result.stdout;
+}
+
+function execute(command, cwd) {
   const [executable, ...args] = command;
 
   if (!executable) {
@@ -21,6 +31,8 @@ export function run(command, cwd) {
 
     throw new Error(`Command failed (${command.join(" ")}):\n${output || "No output"}`);
   }
+
+  return result;
 }
 
 export function runNodeModule(source, cwd) {
