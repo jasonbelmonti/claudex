@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, readTextFile, test } from "#test-support";
 import { stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -24,7 +24,9 @@ afterEach(async () => {
 });
 
 test("snapshot/task parser normalizes artifact arrays and records malformed records non-fatally", async () => {
-  const fixture = await Bun.file(new URL("../fixtures/claude/snapshot-task.json", import.meta.url)).text();
+  const fixture = await readTextFile(
+    new URL("../fixtures/claude/snapshot-task.json", import.meta.url),
+  );
   const workspace = await createFixtureWorkspace({
     "claude/snapshot-task.json": fixture,
   });

@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import { createClaudeIngestRegistries } from "../../src/ingest/claude/index.js";
 import {

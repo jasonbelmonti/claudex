@@ -1,3 +1,4 @@
+import { readJsonFile } from "./file-system.js";
 import {
   type LiveFixtureRefreshManifest,
   type LiveFixtureRefreshManifestRecord,
@@ -13,7 +14,7 @@ export async function loadRefreshManifest(
   let raw: unknown;
 
   try {
-    raw = await Bun.file(manifestPath).json();
+    raw = await readJsonFile(manifestPath);
   } catch (cause) {
     throw new Error(`Failed to read refresh manifest at ${manifestPath}.`, {
       cause,

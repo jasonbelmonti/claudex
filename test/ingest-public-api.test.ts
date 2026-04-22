@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import * as ingest from "@jasonbelmonti/claudex/ingest";
 

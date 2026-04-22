@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import { AgentError } from "../../../src/core/errors.js";
 import { CodexAdapter } from "../../../src/providers/codex/adapter.js";

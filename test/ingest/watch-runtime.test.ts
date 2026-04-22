@@ -1,4 +1,11 @@
-import { afterEach, expect, test } from "bun:test";
+import {
+  afterEach,
+  expect,
+  getFileSizeSync,
+  sleep,
+  test,
+  writeTextFile,
+} from "#test-support";
 import { stat, utimes } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -63,7 +70,7 @@ test("start watches file changes and stop prevents further watch processing", as
                 provider: "claude",
                 rootPath: context.root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -84,7 +91,7 @@ test("start watches file changes and stop prevents further watch processing", as
     && discoveryEvents.some((event) => event.type === "watch.started"),
   );
 
-  await Bun.write(filePath, "one\ntwo\n");
+  await writeTextFile(filePath, "one\ntwo\n");
 
   await waitForCondition(() =>
     parsePhases.includes("watch")
@@ -97,8 +104,8 @@ test("start watches file changes and stop prevents further watch processing", as
 
   const changedEventsBeforeStop = discoveryEvents.filter((event) => event.type === "file.changed").length;
 
-  await Bun.write(filePath, "one\ntwo\nthree\n");
-  await Bun.sleep(120);
+  await writeTextFile(filePath, "one\ntwo\nthree\n");
+  await sleep(120);
 
   expect(discoveryEvents.some((event) => event.type === "watch.stopped")).toBe(true);
   expect(discoveryEvents.filter((event) => event.type === "file.changed")).toHaveLength(
@@ -155,7 +162,7 @@ test("start scans non-watch roots before starting watchers for watched roots", a
                 provider: "claude",
                 rootPath: context.root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -188,8 +195,8 @@ test("start scans non-watch roots before starting watchers for watched roots", a
     `watch.started:${watchRoot.path}`,
   ]);
 
-  await Bun.write(watchFilePath, "one\ntwo\n");
-  await Bun.write(coldFilePath, "cold\nstill-cold\n");
+  await writeTextFile(watchFilePath, "one\ntwo\n");
+  await writeTextFile(coldFilePath, "cold\nstill-cold\n");
 
   await waitForCondition(() =>
     watchFiles.includes(watchFilePath),
@@ -237,7 +244,7 @@ test("start resets lifecycle state after initial scan failures and can be retrie
                 provider: "claude",
                 rootPath: context.root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -307,7 +314,7 @@ test("start stops the created watcher when watch.started delivery fails", async 
                 provider: "claude",
                 rootPath: context.root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -325,14 +332,14 @@ test("start stops the created watcher when watch.started delivery fails", async 
 
   await expect(service.start()).rejects.toThrow("watch.started failed");
 
-  await Bun.write(filePath, "one\ntwo\n");
-  await Bun.sleep(120);
+  await writeTextFile(filePath, "one\ntwo\n");
+  await sleep(120);
 
   expect(parsePhases).toEqual(["initial_scan"]);
 
   failWatchStarted = false;
   await service.start();
-  await Bun.write(filePath, "one\ntwo\nthree\n");
+  await writeTextFile(filePath, "one\ntwo\nthree\n");
   await waitForCondition(() => parsePhases.includes("watch"));
   await service.stop();
 });
@@ -379,7 +386,7 @@ test("start emits watch.stopped for already-started roots when a later watch.sta
                 provider: "claude",
                 rootPath: context.root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -466,7 +473,7 @@ test("stop waits for in-flight startup scans without leaving a watcher behind", 
                 provider: "claude",
                 rootPath: context.root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -488,8 +495,8 @@ test("stop waits for in-flight startup scans without leaving a watcher behind", 
 
   await Promise.all([startPromise, stopPromise]);
 
-  await Bun.write(filePath, "one\ntwo\n");
-  await Bun.sleep(120);
+  await writeTextFile(filePath, "one\ntwo\n");
+  await sleep(120);
 
   expect(parsePhases).toEqual(["initial_scan"]);
   expect(discoveryEvents.some((event) => event.type === "watch.started")).toBe(false);
@@ -534,7 +541,7 @@ test("stop during watch.started does not strand startup state and allows restart
                 provider: "claude",
                 rootPath: context.root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -564,8 +571,8 @@ test("stop during watch.started does not strand startup state and allows restart
 
   await Promise.all([startPromise, stopPromise]);
 
-  await Bun.write(filePath, "one\ntwo\n");
-  await Bun.sleep(120);
+  await writeTextFile(filePath, "one\ntwo\n");
+  await sleep(120);
 
   expect(parsePhases).toEqual(["initial_scan"]);
   expect(discoveryEvents.map((event) => event.type)).toEqual([
@@ -577,7 +584,7 @@ test("stop during watch.started does not strand startup state and allows restart
   ]);
 
   await service.start();
-  await Bun.write(filePath, "one\ntwo\nthree\n");
+  await writeTextFile(filePath, "one\ntwo\nthree\n");
   await waitForCondition(() => parsePhases.includes("watch"));
   await service.stop();
 });
@@ -620,7 +627,7 @@ test("watch-driven deletions emit file.deleted and clear persisted cursors", asy
                 provider: "claude",
                 rootPath: context.root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -687,7 +694,7 @@ test("watch tick failures stop the watcher instead of retrying forever", async (
                 provider: "claude",
                 rootPath: context.root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -715,7 +722,7 @@ test("watch tick failures stop the watcher instead of retrying forever", async (
     discoveryEvents.some((event) => event.type === "watch.started"),
   );
 
-  await Bun.write(filePath, "one\ntwo\n");
+  await writeTextFile(filePath, "one\ntwo\n");
 
   await waitForCondition(() =>
     warnings.some((warning) => warning.code === "watch-failed"),
@@ -723,14 +730,14 @@ test("watch tick failures stop the watcher instead of retrying forever", async (
 
   const failuresAfterStop = watchFailureCount;
 
-  await Bun.sleep(120);
+  await sleep(120);
 
   expect(failuresAfterStop).toBe(1);
   expect(watchFailureCount).toBe(failuresAfterStop);
   expect(discoveryEvents.filter((event) => event.type === "watch.stopped")).toHaveLength(1);
 
-  await Bun.write(filePath, "one\ntwo\nthree\n");
-  await Bun.sleep(120);
+  await writeTextFile(filePath, "one\ntwo\nthree\n");
+  await sleep(120);
 
   expect(watchFailureCount).toBe(failuresAfterStop);
   expect(warnings.filter((warning) => warning.code === "watch-failed")).toHaveLength(1);
@@ -779,7 +786,7 @@ test("watch tick failures emit earlier watch.stopped events before a later warni
                 provider: "claude",
                 rootPath: context.root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -811,11 +818,11 @@ test("watch tick failures emit earlier watch.stopped events before a later warni
     discoveryEvents.filter((event) => event.type === "watch.started").length === 2,
   );
 
-  await Bun.write(firstFilePath, "one\nnext\n");
-  await Bun.write(secondFilePath, "two\nnext\n");
+  await writeTextFile(firstFilePath, "one\nnext\n");
+  await writeTextFile(secondFilePath, "two\nnext\n");
 
   await waitForCondition(() => warningCount === 2);
-  await Bun.sleep(50);
+  await sleep(50);
 
   expect(warnings.filter((warning) => warning.code === "watch-failed")).toHaveLength(2);
   expect(
@@ -875,7 +882,7 @@ test("reconcileNow detects drift and emits reconcile lifecycle events", async ()
                 provider: "claude",
                 rootPath: context.root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -889,7 +896,7 @@ test("reconcileNow detects drift and emits reconcile lifecycle events", async ()
   });
 
   await service.scanNow();
-  await Bun.write(filePath, "one\ntwo\n");
+  await writeTextFile(filePath, "one\ntwo\n");
   await service.reconcileNow();
 
   expect(parsePhases).toEqual(["initial_scan", "reconcile"]);

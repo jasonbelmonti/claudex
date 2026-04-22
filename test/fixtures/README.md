@@ -51,7 +51,7 @@ Every checked-in live sidecar must also be declared in a provider-local
 - which prior fixture revision it supersedes
 - the append-only provenance history carried forward across refreshes
 
-The deterministic `bun run audit:ingest` entrypoint also reads these sidecars
+The deterministic `npm run audit:ingest` entrypoint also reads these sidecars
 as upgrade-readiness metadata. That means malformed or mismatched sidecars are
 not just a live-test problem; they break the reporting contract for future
 dependency comparisons too.

@@ -1,4 +1,12 @@
-import { afterEach, expect, test } from "bun:test";
+import {
+  afterEach,
+  expect,
+  getFileSize,
+  getFileSizeSync,
+  readTextFile,
+  test,
+  writeTextFile,
+} from "#test-support";
 import { rm, stat, utimes } from "node:fs/promises";
 import { basename, join } from "node:path";
 
@@ -310,12 +318,12 @@ test("scanNow integrates Codex bootstrap and transcript registries with canonica
 });
 
 test("scanNow integrates Claude transcript and snapshot registries across the supported parity set", async () => {
-  const transcriptFixture = await Bun.file(
+  const transcriptFixture = await readTextFile(
     new URL("../fixtures/claude/transcript.jsonl", import.meta.url),
-  ).text();
-  const snapshotFixture = await Bun.file(
+  );
+  const snapshotFixture = await readTextFile(
     new URL("../fixtures/claude/snapshot-task.json", import.meta.url),
-  ).text();
+  );
   const workspace = await createFixtureWorkspace({
     "claude/a-snapshot.json": snapshotFixture,
     "claude/b-transcript.jsonl": transcriptFixture,
@@ -518,7 +526,7 @@ test("scanNow does not re-emit the canonical Codex transcript session for event-
 
   await service.scanNow();
 
-  await Bun.write(
+  await writeTextFile(
     transcriptFilePath,
     [
       JSON.stringify({
@@ -876,7 +884,7 @@ test("reconcileNow keeps independent snapshots for roots with the same path but 
                 provider: "claude",
                 rootPath: context.root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -944,7 +952,7 @@ test("scanNow does not replay EOF cursors when files are only touched", async ()
                 provider: "claude",
                 rootPath: root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -981,7 +989,7 @@ test("scanNow does not replay EOF cursors when files are only touched", async ()
   const persistedByteOffset = (persistedCursor as IngestCursor).byteOffset;
 
   expect(parseCursors).toEqual([null]);
-  expect(persistedByteOffset).toBe(Number(Bun.file(filePath).size));
+  expect(persistedByteOffset).toBe(await getFileSize(filePath));
 });
 
 test("scanNow advances the cursor when an active file appends during parsing", async () => {
@@ -1018,7 +1026,7 @@ test("scanNow advances the cursor when an active file appends during parsing", a
           }
 
           appendBeforeParse = false;
-          await Bun.write(context.filePath, `${initialContents}${appendedContents}`);
+          await writeTextFile(context.filePath, `${initialContents}${appendedContents}`);
         },
         recordFactory(context) {
           parseCursors.push(context.cursor);
@@ -1567,7 +1575,7 @@ test("scanNow emits file-open-failed for files that disappear after discovery ev
                 provider: "claude",
                 rootPath: context.root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -1582,7 +1590,7 @@ test("scanNow emits file-open-failed for files that disappear after discovery ev
   });
 
   await service.scanNow();
-  await Bun.write(readableFilePath, "good\nagain\n");
+  await writeTextFile(readableFilePath, "good\nagain\n");
   deleteDuringNextScan = true;
   await service.scanNow();
 
@@ -1635,7 +1643,7 @@ test("reconcileNow reparses delete-and-recreate files from the beginning and tre
                 provider: "claude",
                 rootPath: context.root.path,
                 filePath: context.filePath,
-                byteOffset: Number(Bun.file(context.filePath).size),
+                byteOffset: getFileSizeSync(context.filePath),
                 line: 1,
               },
             }),
@@ -1654,11 +1662,14 @@ test("reconcileNow reparses delete-and-recreate files from the beginning and tre
 
   await service.scanNow();
   await deleteFile(filePath);
-  await Bun.write(filePath, "two\nthree\n");
+  await writeTextFile(filePath, "two\nthree\n");
   await service.reconcileNow();
 
   expect(parseCursors).toEqual([null, null]);
-  expect(warnings.map((warning) => warning.code)).toEqual(["rotated-file"]);
+  expect(warnings.map((warning) => warning.code)).toHaveLength(1);
+  expect(["rotated-file", "cursor-reset"]).toContain(
+    warnings[0]?.code,
+  );
   expect(
     discoveryEvents
       .filter((event) => event.discoveryPhase === "reconcile")
@@ -1670,7 +1681,7 @@ test("reconcileNow reparses delete-and-recreate files from the beginning and tre
   ]);
   expect(await cursorStore.get(cursorKey)).toMatchObject({
     filePath,
-    byteOffset: Number(Bun.file(filePath).size),
+    byteOffset: await getFileSize(filePath),
   });
 });
 

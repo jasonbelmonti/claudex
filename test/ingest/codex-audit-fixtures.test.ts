@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, readTextFile, test, writeTextFile } from "#test-support";
 import { join } from "node:path";
 
 import type {
@@ -29,7 +29,7 @@ afterEach(async () => {
 });
 
 async function readCodexFixture(name: string): Promise<string> {
-  return Bun.file(new URL(`../fixtures/codex/${name}`, import.meta.url)).text();
+  return readTextFile(new URL(`../fixtures/codex/${name}`, import.meta.url));
 }
 
 test("branch-expansion fixture replays deterministic Codex tool, usage, and mirror-collapse paths", async () => {
@@ -247,7 +247,7 @@ test("incremental replay fixtures preserve mirror collapse and only emit newly c
   ]);
 
   observedEvents.length = 0;
-  await Bun.write(filePath, resumedTranscript);
+  await writeTextFile(filePath, resumedTranscript);
   await service.scanNow();
 
   expect(parseCursors).toHaveLength(2);

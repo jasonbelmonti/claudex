@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import { mergeClaudeProviderOptions } from "../../../src/providers/claude/provider-option-merge.js";
 

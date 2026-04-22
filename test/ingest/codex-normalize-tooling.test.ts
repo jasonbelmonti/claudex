@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import {
   createCodexTranscriptNormalizationContext,
@@ -590,6 +590,6 @@ test("custom tool and web search normalization cover missing identifiers, pendin
   }
 
   expect(completedSynthetic.events[0].output).toBeUndefined();
-  expect(context.pendingToolCalls.has("search-explicit")).toBeFalse();
-  expect(context.pendingToolCalls.has("call-other-tool")).toBeTrue();
+  expect(context.pendingToolCalls.has("search-explicit")).toBeFalsy();
+  expect(context.pendingToolCalls.has("call-other-tool")).toBeTruthy();
 });

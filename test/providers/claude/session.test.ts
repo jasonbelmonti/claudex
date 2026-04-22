@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, sleep, test } from "#test-support";
 import type {
   SDKMessage,
   SessionMessage,
@@ -1378,7 +1378,7 @@ class DelayedFakeClaudeQuery extends FakeClaudeQuery {
   override async *[Symbol.asyncIterator](): AsyncIterator<SDKMessage> {
     for (const step of this.steps) {
       if (step.delayMs) {
-        await Bun.sleep(step.delayMs);
+        await sleep(step.delayMs);
       }
 
       yield step.message;

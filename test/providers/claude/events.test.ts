@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import { ClaudeAdapter } from "../../../src/providers/claude/adapter.js";
 import { FakeClaudeQuery, FakeClaudeQueryFactory } from "./fakes.js";

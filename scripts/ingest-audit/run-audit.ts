@@ -1,7 +1,10 @@
+import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { createDeterministicAuditEnv } from "./deterministic-env.js";
+import { fileExists, readJsonFile, readTextFile } from "./file-system.js";
 import { prepareAuditOutputDir } from "./output-dir.js";
 import {
   buildAuditReport,
@@ -17,9 +20,9 @@ import {
   type IngestAuditCommandResult,
 } from "./report-contract.js";
 
-const repoRoot = resolve(import.meta.dir, "..", "..");
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-const options = parseArgs(Bun.argv.slice(2));
+const options = parseArgs(process.argv.slice(2));
 const outputDir = resolve(repoRoot, options.outputDir ?? "out/ingest-audit");
 const coverageDir = resolve(outputDir, "coverage");
 const junitPath = resolve(outputDir, "deterministic.junit.xml");
@@ -28,7 +31,9 @@ const textPath = resolve(outputDir, options.textOut ?? "report.txt");
 
 prepareAuditOutputDir(repoRoot, outputDir, coverageDir);
 
-const packageJson = await Bun.file(resolve(repoRoot, "package.json")).json();
+const packageJson = await readJsonFile<Record<string, unknown>>(
+  resolve(repoRoot, "package.json"),
+);
 const generatedAt = new Date().toISOString();
 const scenarios = await createScenarioSummaries(repoRoot);
 
@@ -36,12 +41,15 @@ const deterministicCommand = await runCommand({
   id: "deterministic-tests",
   label: "Deterministic ingest audit tests",
   command: [
-    process.execPath,
-    "test",
+    "npm",
+    "exec",
+    "--",
+    "vitest",
+    "run",
     "test/ingest",
     "test/ingest-public-api.test.ts",
     "--reporter=junit",
-    `--reporter-outfile=${junitPath}`,
+    `--outputFile=${junitPath}`,
   ],
   outputDir,
 });
@@ -50,12 +58,15 @@ const coverageCommand = await runCommand({
   id: "deterministic-coverage",
   label: "Deterministic ingest audit coverage",
   command: [
-    process.execPath,
-    "test",
+    "npm",
+    "exec",
+    "--",
+    "vitest",
+    "run",
     "--coverage",
-    "--coverage-reporter=text",
-    "--coverage-reporter=lcov",
-    `--coverage-dir=${coverageDir}`,
+    "--coverage.reporter=text",
+    "--coverage.reporter=lcov",
+    `--coverage.reportsDirectory=${coverageDir}`,
     "test/ingest",
     "test/ingest-public-api.test.ts",
   ],
@@ -93,7 +104,7 @@ const report = buildAuditReport({
     },
   },
   runtime: {
-    bunVersion: Bun.version,
+    nodeVersion: process.version,
     packageManager:
       typeof packageJson.packageManager === "string"
         ? packageJson.packageManager
@@ -165,16 +176,26 @@ function parseArgs(argv: readonly string[]): {
 
 async function runCommand(input: RunCommandInput): Promise<IngestAuditCommandResult> {
   const startedAt = performance.now();
-  const result = Bun.spawnSync({
-    cmd: input.command,
+  const [command, ...args] = input.command;
+
+  if (!command) {
+    throw new Error(`Command ${input.id} is missing an executable.`);
+  }
+
+  const result = spawnSync(command, args, {
     cwd: repoRoot,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: createDeterministicAuditEnv(Bun.env),
+    encoding: "utf8",
+    stdio: "pipe",
+    env: createDeterministicAuditEnv(process.env),
   });
+
+  if (result.error) {
+    throw result.error;
+  }
+
   const durationMs = Math.round(performance.now() - startedAt);
-  const stdout = result.stdout.toString();
-  const stderr = result.stderr.toString();
+  const stdout = result.stdout ?? "";
+  const stderr = result.stderr ?? "";
   const stdoutPath = resolve(input.outputDir, `${input.id}.stdout.txt`);
   const stderrPath = resolve(input.outputDir, `${input.id}.stderr.txt`);
 
@@ -185,8 +206,8 @@ async function runCommand(input: RunCommandInput): Promise<IngestAuditCommandRes
     id: input.id,
     label: input.label,
     command: input.command,
-    status: result.exitCode === 0 ? "passed" : "failed",
-    exitCode: result.exitCode ?? 1,
+    status: result.status === 0 ? "passed" : "failed",
+    exitCode: result.status ?? 1,
     durationMs,
     stdoutPath,
     stderrPath,
@@ -195,29 +216,30 @@ async function runCommand(input: RunCommandInput): Promise<IngestAuditCommandRes
 }
 
 async function readOptionalText(filePath: string): Promise<string | null> {
-  const file = Bun.file(filePath);
-
-  if (!(await file.exists())) {
+  if (!(await fileExists(filePath))) {
     return null;
   }
 
-  return file.text();
+  return readTextFile(filePath);
 }
 
 async function runGitCommand(args: string[]): Promise<string | null> {
-  const result = Bun.spawnSync({
-    cmd: ["git", ...args],
+  const result = spawnSync("git", args, {
     cwd: repoRoot,
-    stdout: "pipe",
-    stderr: "ignore",
-    env: Bun.env,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+    env: process.env,
   });
 
-  if (result.exitCode !== 0) {
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
     return null;
   }
 
-  return result.stdout.toString().trim();
+  return result.stdout.trim();
 }
 
 function readDependencyVersion(

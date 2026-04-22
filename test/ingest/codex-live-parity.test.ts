@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import {
   createCodexSessionIndexIngestRegistry,
@@ -9,7 +9,7 @@ import {
   replayLiveParityFixture,
 } from "./live-parity-helpers.js";
 
-const liveCodexParityTest = Bun.env.CLAUDEX_AUDIT_LIVE === "1" ? test : test.skip;
+const liveCodexParityTest = process.env.CLAUDEX_AUDIT_LIVE === "1" ? test : test.skip;
 
 const CODEX_LIVE_PARITY_CASES = [
   {

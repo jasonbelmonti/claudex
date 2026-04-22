@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import {
   createClaudeSnapshotTaskIngestRegistry,
@@ -9,7 +9,7 @@ import {
   replayLiveParityFixture,
 } from "./live-parity-helpers.js";
 
-const liveClaudeParityTest = Bun.env.CLAUDEX_AUDIT_LIVE === "1"
+const liveClaudeParityTest = process.env.CLAUDEX_AUDIT_LIVE === "1"
   ? test
   : test.skip;
 

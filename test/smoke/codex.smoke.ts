@@ -1,12 +1,10 @@
-import { setDefaultTimeout, test } from "bun:test";
+import { test } from "#test-support";
 
 import { runSmokeScenario, shouldRunSmokeProvider } from "./helpers.js";
 import { SMOKE_PROVIDERS } from "./providers.js";
 
-setDefaultTimeout(120_000);
-
 if (shouldRunSmokeProvider("codex")) {
-  test("codex CLI-auth smoke", async () => {
+  test("codex CLI-auth smoke", { timeout: 120_000 }, async () => {
     await runSmokeScenario({
       provider: "codex",
       createAdapter: SMOKE_PROVIDERS.codex.createAdapter,

@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, readJsonFile, test, writeJsonFile } from "#test-support";
 import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -46,7 +46,7 @@ afterEach(() => {
 async function readCodexFixtureMetadata(
   name: string,
 ): Promise<Record<string, unknown>> {
-  return Bun.file(new URL(`../fixtures/codex/${name}`, import.meta.url)).json();
+  return readJsonFile(new URL(`../fixtures/codex/${name}`, import.meta.url));
 }
 
 function createTempManifestPath(): string {
@@ -97,7 +97,7 @@ test("refresh manifests validate stable scenario ids, append-only supersession, 
     }),
   ];
 
-  await Bun.write(manifestPath, JSON.stringify(manifest, null, 2));
+  await writeJsonFile(manifestPath, manifest);
 
   const loadedManifest = await loadRefreshManifest(manifestPath);
   expect(loadedManifest).toHaveLength(2);
@@ -151,7 +151,7 @@ test("refresh manifest loader rejects malformed append-only records", async () =
     }),
   ];
 
-  await Bun.write(manifestPath, JSON.stringify(manifest, null, 2));
+  await writeJsonFile(manifestPath, manifest);
 
   await expect(loadRefreshManifest(manifestPath)).rejects.toThrow(
     "Refresh manifest at",
@@ -262,7 +262,7 @@ test("sidecar helpers treat undefined provenance history as absent", async () =>
   });
 
   expect(rebuilt.provenanceHistory).toBeUndefined();
-  expect(Object.hasOwn(rebuilt, "provenanceHistory")).toBeFalse();
+  expect(Object.hasOwn(rebuilt, "provenanceHistory")).toBeFalsy();
 });
 
 test("refresh manifest rejects superseding a different scenario record", () => {

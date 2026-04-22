@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test, writeTextFile } from "#test-support";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -226,10 +226,10 @@ test("prepareAuditOutputDir removes stale audit artifacts before a new run", () 
 
   prepareAuditOutputDir(REPO_ROOT, outputDir, coverageDir);
 
-  expect(existsSync(outputDir)).toBeTrue();
-  expect(existsSync(coverageDir)).toBeTrue();
-  expect(existsSync(staleJunitPath)).toBeFalse();
-  expect(existsSync(staleCoveragePath)).toBeFalse();
+  expect(existsSync(outputDir)).toBeTruthy();
+  expect(existsSync(coverageDir)).toBeTruthy();
+  expect(existsSync(staleJunitPath)).toBeFalsy();
+  expect(existsSync(staleCoveragePath)).toBeFalsy();
 
   rmSync(outputDir, { force: true, recursive: true });
 });
@@ -287,7 +287,7 @@ test("createDeterministicAuditEnv disables opt-in live parity", () => {
     CLAUDEX_AUDIT_LIVE: "0",
     FOO: "bar",
   });
-  expect("EMPTY" in env).toBeFalse();
+  expect("EMPTY" in env).toBeFalsy();
 });
 
 test("coverage parser aggregates lcov totals", async () => {
@@ -296,7 +296,7 @@ test("coverage parser aggregates lcov totals", async () => {
     `claudex-ingest-audit-${crypto.randomUUID()}.lcov`,
   );
 
-  await Bun.write(
+  await writeTextFile(
     coveragePath,
     ["TN:", "SF:src/example.ts", "FNF:4", "FNH:3", "LF:10", "LH:9"].join("\n"),
   );
@@ -335,8 +335,8 @@ test("text report renders the finding buckets and artifact paths", async () => {
       },
     },
     runtime: {
-      bunVersion: "1.3.0",
-      packageManager: "bun@1.3.0",
+      nodeVersion: "v22.15.0",
+      packageManager: "npm@10.9.2",
     },
     dependencies: {
       claudeAgentSdk: "0.2.114",
@@ -346,7 +346,7 @@ test("text report renders the finding buckets and artifact paths", async () => {
       {
         id: "deterministic-tests",
         label: "Deterministic ingest audit tests",
-        command: ["bun", "test"],
+        command: ["npm", "exec", "--", "vitest", "run"],
         status: "passed",
         exitCode: 0,
         durationMs: 1200,
@@ -365,6 +365,8 @@ test("text report renders the finding buckets and artifact paths", async () => {
   const rendered = renderTextReport(report);
 
   expect(rendered).toContain("Ingest Audit: PASSED");
+  expect(rendered).toContain("Entrypoint: npm run audit:ingest");
+  expect(rendered).toContain("Node: v22.15.0");
   expect(rendered).toContain("JSON report: /tmp/report.json");
   expect(rendered).toContain("Live Parity:");
   expect(rendered).toContain("live-codex-replay-parity: ready");

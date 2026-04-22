@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import { buildObservedEventSource } from "../../src/ingest/source-builder.js";
 

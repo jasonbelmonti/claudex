@@ -42,15 +42,21 @@ export async function probeProvidersInOrder(params: {
   if (degraded) {
     return {
       selected: degraded,
-      selectedAdapter: adapters.get(degraded.provider)!,
+      selectedAdapter: requireAdapter(adapters, degraded.provider),
       probes,
       resolution: "degraded",
     };
   }
 
+  const fallback = probes[0];
+
+  if (!fallback) {
+    throw new Error("Expected at least one provider probe.");
+  }
+
   return {
-    selected: probes[0]!,
-    selectedAdapter: adapters.get(probes[0]!.provider)!,
+    selected: fallback,
+    selectedAdapter: requireAdapter(adapters, fallback.provider),
     probes,
     resolution: "fallback",
   };
@@ -79,4 +85,17 @@ export function extendReadinessWithResolution(params: {
       },
     },
   };
+}
+
+function requireAdapter(
+  adapters: ReadonlyMap<ProviderId, AgentProviderAdapter>,
+  provider: ProviderId,
+): AgentProviderAdapter {
+  const adapter = adapters.get(provider);
+
+  if (!adapter) {
+    throw new Error(`Missing adapter for provider ${provider}.`);
+  }
+
+  return adapter;
 }

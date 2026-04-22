@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "#test-support";
 
 import { isAgentError } from "../../../src/core/errors.js";
 import type { ProviderCapabilities } from "../../../src/core/capabilities.js";

@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, readTextFile, test, writeTextFile } from "#test-support";
 import { join } from "node:path";
 
 import type {
@@ -23,7 +23,9 @@ afterEach(async () => {
 });
 
 test("transcript parser emits normalized events and warnings for malformed lines", async () => {
-  const fixture = await Bun.file(new URL("../fixtures/claude/transcript.jsonl", import.meta.url)).text();
+  const fixture = await readTextFile(
+    new URL("../fixtures/claude/transcript.jsonl", import.meta.url),
+  );
   const workspace = await createFixtureWorkspace({
     "claude/transcript.jsonl": fixture,
   });
@@ -127,7 +129,7 @@ test("transcript parser preserves Claude user working directories across increme
     workingDirectory: "/tmp/claudex",
   });
 
-  await Bun.write(filePath, initialContents + appendedAssistant);
+  await writeTextFile(filePath, initialContents + appendedAssistant);
   await service.reconcileNow();
 
   expect(observedEvents.map((record) => record.event.type)).toEqual([
@@ -273,7 +275,7 @@ test("transcript parser preserves assistant fallback across incremental reconcil
   });
 
   await service.scanNow();
-  await Bun.write(filePath, initialContents + appendedResult);
+  await writeTextFile(filePath, initialContents + appendedResult);
   await service.reconcileNow();
 
   expect(observedEvents).toHaveLength(2);
