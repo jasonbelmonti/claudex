@@ -29,7 +29,7 @@ export class AgentError extends Error {
   readonly raw?: unknown;
   readonly extensions?: Record<string, unknown>;
 
-  static [Symbol.hasInstance](value: unknown): boolean {
+  static override [Symbol.hasInstance](value: unknown): boolean {
     return isAgentErrorLike(value);
   }
 
