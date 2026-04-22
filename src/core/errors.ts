@@ -30,6 +30,12 @@ export class AgentError extends Error {
   readonly extensions?: Record<string, unknown>;
 
   static override [Symbol.hasInstance](value: unknown): boolean {
+    // biome-ignore lint/complexity/noThisInStatic: Symbol.hasInstance must inspect the receiver constructor to preserve subclass instanceof semantics.
+    if (this !== AgentError) {
+      // biome-ignore lint/complexity/noThisInStatic: Symbol.hasInstance must inspect the receiver constructor to preserve subclass instanceof semantics.
+      return Function.prototype[Symbol.hasInstance].call(this, value);
+    }
+
     return isAgentErrorLike(value);
   }
 
