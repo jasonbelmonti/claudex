@@ -154,20 +154,10 @@ Pull requests and pushes to `main` run the repository CI contract from
 - Node 24 coverage via `npm run test:coverage`
 - Node 24 packed-artifact verification via `npm run package:check`
 
-To run the same checks locally:
+To reproduce the full CI contract locally:
 
 ```bash
 npm run check
-```
-
-To run the exact CI command, including LCOV coverage output in `coverage/lcov.info`:
-
-```bash
-npm run ci
-```
-
-To verify the packed artifact import surface before publish:
-
-```bash
+npm run test:coverage
 npm run package:check
 ```
