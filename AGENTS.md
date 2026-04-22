@@ -1,118 +1,53 @@
 ---
-description: Use Bun instead of Node.js, npm, pnpm, or vite.
+description: Use Node.js and the repository's npm-based workflows.
 globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
 alwaysApply: false
 ---
 
-Default to using Bun instead of Node.js.
+Default to using standard Node.js and npm workflows.
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Bun automatically loads .env, so don't use dotenv.
+- Use `node <file>` or `tsx <file>` instead of `bun <file>`
+- Use `npm test` or `vitest run` instead of `bun test`
+- Use `npm ci` for reproducible dependency installs in repo workflows
+- Use `npm run <script>` instead of `bun run <script>`
+- Prefer standard Node APIs and ecosystem tools over Bun-only globals or modules
+
+## Runtime Policy
+
+- This repository targets a Node-only release line
+- `package.json` currently declares `engines.node >=18`
+- CI verifies the repository on Node 20, 22, and 24
+- The package is ESM-only
 
 ## APIs
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+- Prefer `node:fs/promises` or other standard Node file APIs over `Bun.file`
+- Prefer `node:child_process`, `node:stream`, and standard Web APIs available in Node before reaching for runtime-specific helpers
+- Do not introduce `Bun.*` globals, `bun:*` imports, or Bun-only execution assumptions
 
 ## Module Design
 
-- Separate types/interfaces, business logic, and generic utilities into different files whenever practical.
-- Keep each file and class tightly focused on a single responsibility.
-- Prefer smaller modules over large multi-purpose files, even if that adds a bit more hierarchy.
-- If a file starts mixing contract types, implementation logic, and reusable helpers, split it before it grows further.
+- Separate types/interfaces, business logic, and generic utilities into different files whenever practical
+- Keep each file and class tightly focused on a single responsibility
+- Prefer smaller modules over large multi-purpose files, even if that adds a bit more hierarchy
+- If a file starts mixing contract types, implementation logic, and reusable helpers, split it before it grows further
 
 ## Testing
 
-Use `bun test` to run tests.
+Use Vitest for tests.
 
-```ts#index.test.ts
-import { test, expect } from "bun:test";
+```ts
+import { describe, expect, it } from "vitest";
 
-test("hello world", () => {
-  expect(1).toBe(1);
+describe("example", () => {
+  it("works", () => {
+    expect(1).toBe(1);
+  });
 });
 ```
 
-## Frontend
+## Tooling
 
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
-
-Server:
-
-```ts#index.ts
-import index from "./index.html"
-
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
-
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
-
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
-
-With the following `frontend.tsx`:
-
-```tsx#frontend.tsx
-import React from "react";
-
-// import .css files directly and it works
-import './index.css';
-
-import { createRoot } from "react-dom/client";
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
-
-```sh
-bun --hot ./index.ts
-```
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
+- Prefer `npm run check` for the local baseline verification path
+- Use `npm run test:coverage` for coverage output
+- Use `npm run package:check` to verify the packed artifact surface before publish
