@@ -1,6 +1,6 @@
 # Verified Capability Matrix
 
-This matrix reflects the merged adapters plus the shared contract harness and Bun-hosted CLI smoke coverage on `main`.
+This matrix reflects the merged adapters plus the shared contract harness and Node-based verification coverage on `main`.
 
 Definitions:
 

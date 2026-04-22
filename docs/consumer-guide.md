@@ -2,6 +2,22 @@
 
 This guide is for orchestration and agent-console consumers that want one surface over Claude and Codex without pretending the providers are identical. It covers both the live SDK adapters and the passive `@jasonbelmonti/claudex/ingest` observation surface.
 
+## Runtime And Packaging Expectations
+
+The current `main` branch tracks the Node-only major release line for
+`@jasonbelmonti/claudex`.
+
+- Use a standard Node runtime for supported execution and validation.
+- Treat the package as ESM-only. Use `import` in ESM projects or dynamic
+  `import()` from CommonJS.
+- Repository CI verifies the currently supported Node release lines 20, 22, and
+  24. Package metadata still declares `engines.node >=18`, so consumers with an
+  older floor pinned in internal tooling should read the migration guidance
+  before upgrading.
+
+If you are migrating from the Bun-first 1.x line, start with
+[docs/node-only-migration.md](./node-only-migration.md).
+
 ## 1. Default To ClaudexAdapter
 
 Use `ClaudexAdapter` when you want provider-agnostic startup and let it resolve
