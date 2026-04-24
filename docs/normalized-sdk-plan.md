@@ -152,7 +152,7 @@ The repository no longer treats Bun as a supported host runtime. The Node-only
 follow-up work moved validation, smoke checks, packaging checks, and release
 automation onto standard Node workflows.
 
-Package metadata still declares `engines.node >=18`, but as of April 21, 2026,
+Package metadata still declares `engines.node >=18`, but as of April 30, 2025,
 the actively supported upstream Node release lines are 20, 22, and 24. The
 repository CI contract verifies those supported lines directly.
 

@@ -43,12 +43,15 @@ jobs:
       - name: Run baseline verification
         run: npm run check
 
+      - name: Run test suite
+        if: matrix.node-version != '24'
+        run: npm test
+
       - name: Run test coverage
         if: matrix.node-version == '24'
         run: npm run test:coverage
 
       - name: Run package smoke check
-        if: matrix.node-version == '24'
         run: npm run package:check
 
       - name: Upload coverage report

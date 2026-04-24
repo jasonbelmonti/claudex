@@ -30,7 +30,7 @@ repro steps, and release validation all assume Node.
   and 24
 - the package is ESM-only
 
-As of April 21, 2026, upstream Node 18 is end-of-life. That means the package
+As of April 30, 2025, upstream Node 18 is end-of-life. That means the package
 metadata floor and the actively supported Node lines are not the same thing.
 Consumers adopting the next major release should plan on a currently supported
 Node runtime even if internal tooling still accepts `>=18`.

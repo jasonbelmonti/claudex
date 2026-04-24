@@ -151,13 +151,15 @@ Pull requests and pushes to `main` run the repository CI contract from
 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml):
 
 - Node 20, 22, and 24 baseline verification via `npm run check`
+- Node 20 and 22 test-suite verification via `npm test`
 - Node 24 coverage via `npm run test:coverage`
-- Node 24 packed-artifact verification via `npm run package:check`
+- Node 20, 22, and 24 packed-artifact verification via `npm run package:check`
 
-To reproduce the full CI contract locally:
+To reproduce the full CI command set locally on a supported Node release:
 
 ```bash
 npm run check
+npm test
 npm run test:coverage
 npm run package:check
 ```
