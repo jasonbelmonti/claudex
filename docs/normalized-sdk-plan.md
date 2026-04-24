@@ -148,8 +148,13 @@ Attachment support remains capability-gated rather than universally normalized.
 
 ### Runtime compatibility
 
-Codex documents Node 18+, while this repo is Bun-first. The shipped Bun-hosted
-implementation has not required an internal Node sidecar.
+The repository no longer treats Bun as a supported host runtime. The Node-only
+follow-up work moved validation, smoke checks, packaging checks, and release
+automation onto standard Node workflows.
+
+Package metadata still declares `engines.node >=18`, but as of April 30, 2025,
+the actively supported upstream Node release lines are 20, 22, and 24. The
+repository CI contract verifies those supported lines directly.
 
 ## Closure Against Original Success Criteria
 
@@ -166,8 +171,8 @@ implementation has not required an internal Node sidecar.
    Status: complete.
 6. The repo contains a capability matrix marking normalized, capability-gated,
    and provider-specific features. Status: complete.
-7. Bun-hosted execution works for both adapters without introducing a public API
-   change. Status: complete.
+7. Repository validation, packed-artifact checks, and smoke coverage run under
+   Node without a Bun dependency. Status: complete.
 
 ## Completed Workstreams
 

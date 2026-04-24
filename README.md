@@ -1,6 +1,6 @@
 # claudex
 
-`claudex` is a Bun-hosted TypeScript library that exposes one normalized API over the CLI-authenticated Claude and Codex SDKs, plus a passive `@jasonbelmonti/claudex/ingest` surface for replaying local provider artifacts.
+`claudex` is a Node-hosted TypeScript library that exposes one normalized API over the CLI-authenticated Claude and Codex SDKs, plus a passive `@jasonbelmonti/claudex/ingest` surface for replaying local provider artifacts.
 
 The goal is provider-agnostic orchestration, not fake parity. The stable contract covers readiness, session lifecycle, buffered and streamed turns, structured output, and normalized event/result/error shapes. Anything that does not normalize cleanly stays capability-gated or provider-specific.
 
@@ -10,11 +10,12 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 - Claude adapter: merged
 - Codex adapter: merged
 - Shared contract harness: merged
-- Bun-hosted CLI smoke tests: passing for Claude and Codex
-- Node fallback for Codex: not needed at the moment
+- Node-based validation and package smoke checks: passing on `main`
+- Migration guidance for the Node-only major release: published in-repo
 
 ## Docs
 
+- Node-only migration guide: [docs/node-only-migration.md](./docs/node-only-migration.md)
 - Implementation record: [docs/normalized-sdk-plan.md](./docs/normalized-sdk-plan.md)
 - Verified capability matrix: [docs/capability-matrix.md](./docs/capability-matrix.md)
 - Consumer guide: [docs/consumer-guide.md](./docs/consumer-guide.md)
@@ -22,12 +23,22 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 ## Install
 
 ```bash
-bun add @jasonbelmonti/claudex
+npm install @jasonbelmonti/claudex
 ```
 
-`@jasonbelmonti/claudex` 1.0 is Bun-first. The published package ships built ESM
-entrypoints for install-time and packed-artifact import checks, while Bun
-remains the supported consumer runtime for this release.
+`main` now tracks the Node-only release line for `@jasonbelmonti/claudex`.
+The package is ESM-only, repository validation runs on standard Node workflows,
+and Bun is no longer part of the supported runtime or maintenance contract.
+
+## Runtime And Module Requirements
+
+- Package metadata currently declares `engines.node >=18`.
+- Repository CI verifies the currently supported Node release lines: 20, 22, and 24.
+- The package is ESM-only. CommonJS consumers must use dynamic `import()` or an ESM bridge.
+
+If you are upgrading from the Bun-first 1.x line or running on an older Node
+release, read [docs/node-only-migration.md](./docs/node-only-migration.md)
+before adopting the next semver-major version.
 
 ## Quick Start
 
@@ -112,26 +123,26 @@ Use the live adapter surface when you need to start or resume sessions, or when 
 If you're working on the repository itself:
 
 ```bash
-bun install
+npm ci
 ```
 
 Then run the usual checks:
 
 ```bash
-bun run typecheck
-bun test
+npm run typecheck
+npm test
 ```
 
 Authenticated local smoke tests are opt-in:
 
 ```bash
-bun run test:smoke
+npm run test:smoke
 ```
 
 To limit smoke to one provider:
 
 ```bash
-CLAUDEX_SMOKE=1 CLAUDEX_SMOKE_PROVIDERS=codex bun test ./test/smoke/codex.smoke.ts
+CLAUDEX_SMOKE=1 CLAUDEX_SMOKE_PROVIDERS=codex npm run test -- ./test/smoke/codex.smoke.ts
 ```
 
 ## CI Contract
@@ -139,26 +150,16 @@ CLAUDEX_SMOKE=1 CLAUDEX_SMOKE_PROVIDERS=codex bun test ./test/smoke/codex.smoke.
 Pull requests and pushes to `main` run the repository CI contract from
 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml):
 
-- `bun install --frozen-lockfile`
-- `bun run lint`
-- `bun run typecheck`
-- `bun run test:coverage`
-- `bun run package:check`
+- Node 20, 22, and 24 baseline verification via `npm run check`
+- Node 20 and 22 test-suite verification via `npm test`
+- Node 24 coverage via `npm run test:coverage`
+- Node 20, 22, and 24 packed-artifact verification via `npm run package:check`
 
-To run the same checks locally:
-
-```bash
-bun run check
-```
-
-To run the exact CI command, including LCOV coverage output in `coverage/lcov.info`:
+To reproduce the full CI command set locally on a supported Node release:
 
 ```bash
-bun run ci
-```
-
-To verify the packed artifact import surface before publish:
-
-```bash
-bun run package:check
+npm run check
+npm test
+npm run test:coverage
+npm run package:check
 ```

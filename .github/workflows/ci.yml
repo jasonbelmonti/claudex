@@ -16,9 +16,16 @@ concurrency:
 
 jobs:
   verify:
-    name: Verify
+    name: Verify (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version:
+          - "20"
+          - "22"
+          - "24"
 
     steps:
       - name: Checkout repository
@@ -27,7 +34,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: ${{ matrix.node-version }}
           cache: npm
 
       - name: Install dependencies
@@ -36,14 +43,19 @@ jobs:
       - name: Run baseline verification
         run: npm run check
 
+      - name: Run test suite
+        if: matrix.node-version != '24'
+        run: npm test
+
       - name: Run test coverage
+        if: matrix.node-version == '24'
         run: npm run test:coverage
 
       - name: Run package smoke check
         run: npm run package:check
 
       - name: Upload coverage report
-        if: always()
+        if: always() && matrix.node-version == '24'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
