@@ -1,4 +1,9 @@
 import { expect, test } from "#test-support";
+import type {
+  AgentConfig,
+  McpServerDescriptor,
+  SessionOptions,
+} from "@jasonbelmonti/claudex";
 
 import * as claudex from "@jasonbelmonti/claudex";
 
@@ -11,6 +16,24 @@ test("public api exports the core contract surface", () => {
   expect(typeof claudex.ClaudexAdapter).toBe("function");
   expect("ClaudeAdapter" in claudex).toBe(false);
   expect("CodexAdapter" in claudex).toBe(false);
+});
+
+test("public api exports normalized agent config types", () => {
+  const descriptor = {
+    transport: "stdio",
+    command: "node",
+    args: ["./mcp-server.js"],
+  } satisfies McpServerDescriptor;
+  const agentConfig: AgentConfig = {
+    mcpServers: {
+      local: descriptor,
+    },
+  };
+  const sessionOptions: SessionOptions = {
+    agentConfig,
+  };
+
+  expect(sessionOptions.agentConfig?.mcpServers?.local).toEqual(descriptor);
 });
 
 test("ClaudexAdapter exposes the unresolved metadata contract", () => {

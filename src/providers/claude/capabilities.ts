@@ -35,6 +35,7 @@ export function createClaudeCapabilities(
       "event:auth-status": { available: true },
       "usage:tokens": { available: true },
       "usage:cost": { available: true },
+      "mcp:session-descriptors": { available: true },
       "mcp:managed-servers": { available: true },
       "extensions:hooks-plugins": { available: true },
     },

@@ -32,6 +32,11 @@ export function createCodexCapabilities(
       "event:auth-status": { available: false },
       "usage:tokens": { available: true },
       "usage:cost": { available: false },
+      "mcp:session-descriptors": {
+        available: false,
+        notes:
+          "Codex MCP configuration is available through Codex TOML-style sdkOptions.config, not per-session descriptors.",
+      },
       "mcp:managed-servers": {
         available: false,
         notes: "The TypeScript SDK surfaces MCP tool calls, not MCP server management.",

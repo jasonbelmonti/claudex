@@ -98,6 +98,7 @@ High-value capability checks in the current surface:
 - `event:reasoning-summary`
 - `event:todo-update`
 - `event:auth-status`
+- `mcp:session-descriptors`
 - `usage:cost`
 
 ## 4. Session Lifecycle Rules
@@ -170,12 +171,32 @@ This is where false parity gets expensive, so be explicit:
 
 - Image attachments: only Codex currently supports normalized image attachments, and only local file paths
 - Approval configuration: normalized at the session-option level, but approval request/resolution events are not yet normalized
-- MCP management, hooks, plugins, and other provider-native extension systems remain outside the stable core
+- Session-level MCP descriptors are normalized through `SessionOptions.agentConfig.mcpServers` for Claude only
+- Codex MCP configuration remains available through `ClaudexAdapter({ codex: { sdkOptions: { config } } })`, which maps to Codex TOML-style config
+- Skills, MCP management, hooks, plugins, and other provider-native extension systems remain outside the stable core
 
 If you need those advanced surfaces:
 
 - use `capabilities` to detect whether the provider can do the thing at all
 - use `raw` payloads and provider `extensions` when you intentionally step outside the common contract
+
+```ts
+const session = await adapter.createSession({
+  agentConfig: {
+    mcpServers: {
+      local: {
+        transport: "stdio",
+        command: "node",
+        args: ["./mcp-server.js"],
+      },
+      remote: {
+        transport: "http",
+        url: "https://mcp.example.com",
+      },
+    },
+  },
+});
+```
 
 ## 8. Passive Ingest Is Observation, Not Control
 

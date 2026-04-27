@@ -119,6 +119,136 @@ test("createSession inherits adapter sdkOptions defaults for reserved Claude fie
   });
 });
 
+test("createSession maps normalized MCP server descriptors into Claude query options", async () => {
+  const factory = new FakeClaudeQueryFactory([
+    new FakeClaudeQuery([
+      createInitMessage("claude-session-mcp"),
+      createAssistantMessage("claude-session-mcp", "Configured"),
+      createSuccessResultMessage("claude-session-mcp", "Configured"),
+    ]),
+  ]);
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+  });
+  const session = await adapter.createSession({
+    agentConfig: {
+      mcpServers: {
+        local: {
+          transport: "stdio",
+          command: "node",
+          args: ["./mcp-server.js"],
+          env: {
+            NODE_ENV: "test",
+          },
+        },
+        remote: {
+          transport: "http",
+          url: "https://mcp.example.com",
+          headers: {
+            Authorization: "Bearer test",
+          },
+        },
+        events: {
+          transport: "sse",
+          url: "https://mcp.example.com/events",
+        },
+      },
+    },
+  });
+
+  await session.run({
+    prompt: "Use MCP",
+  });
+
+  expect(factory.invocations[0]?.options.mcpServers).toEqual({
+    local: {
+      type: "stdio",
+      command: "node",
+      args: ["./mcp-server.js"],
+      env: {
+        NODE_ENV: "test",
+      },
+    },
+    remote: {
+      type: "http",
+      url: "https://mcp.example.com",
+      headers: {
+        Authorization: "Bearer test",
+      },
+    },
+    events: {
+      type: "sse",
+      url: "https://mcp.example.com/events",
+    },
+  });
+});
+
+test("createSession lets native Claude MCP options replace sdk defaults and normalized descriptors override by name", async () => {
+  const factory = new FakeClaudeQueryFactory([
+    new FakeClaudeQuery([
+      createInitMessage("claude-session-mcp-merge"),
+      createAssistantMessage("claude-session-mcp-merge", "Merged"),
+      createSuccessResultMessage("claude-session-mcp-merge", "Merged"),
+    ]),
+  ]);
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+    sdkOptions: {
+      mcpServers: {
+        sdk: {
+          type: "stdio",
+          command: "node",
+          args: ["./sdk-server.js"],
+        },
+      },
+    },
+  });
+  const session = await adapter.createSession({
+    agentConfig: {
+      mcpServers: {
+        shared: {
+          transport: "http",
+          url: "https://normalized.example.com",
+        },
+      },
+    },
+    providerOptions: {
+      claude: {
+        options: {
+          mcpServers: {
+            native: {
+              type: "stdio",
+              command: "node",
+              args: ["./native-server.js"],
+            },
+            shared: {
+              type: "stdio",
+              command: "node",
+              args: ["./native-shared.js"],
+            },
+          },
+        },
+      },
+    },
+  });
+
+  await session.run({
+    prompt: "Use merged MCP",
+  });
+
+  expect(factory.invocations[0]?.options.mcpServers).toEqual({
+    native: {
+      type: "stdio",
+      command: "node",
+      args: ["./native-server.js"],
+    },
+    shared: {
+      type: "http",
+      url: "https://normalized.example.com",
+    },
+  });
+});
+
 test("resumeSession uses the provided reference immediately", async () => {
   const factory = new FakeClaudeQueryFactory([
     new FakeClaudeQuery([
@@ -264,6 +394,80 @@ test("fork() creates a new Claude session that forks on first run", async () => 
   expect(forkedSession?.reference).toEqual({
     provider: "claude",
     sessionId: "claude-session-4",
+  });
+});
+
+test("fork() preserves and merges normalized MCP server descriptors", async () => {
+  const factory = new FakeClaudeQueryFactory([
+    new FakeClaudeQuery([
+      createInitMessage("claude-session-mcp-fork-1"),
+      createAssistantMessage("claude-session-mcp-fork-1", "Original"),
+      createSuccessResultMessage("claude-session-mcp-fork-1", "Original"),
+    ]),
+    new FakeClaudeQuery([
+      createInitMessage("claude-session-mcp-fork-2"),
+      createAssistantMessage("claude-session-mcp-fork-2", "Forked"),
+      createSuccessResultMessage("claude-session-mcp-fork-2", "Forked"),
+    ]),
+  ]);
+  const adapter = new ClaudeAdapter({
+    queryFactory: factory.create,
+  });
+  const session = await adapter.createSession({
+    agentConfig: {
+      mcpServers: {
+        base: {
+          transport: "stdio",
+          command: "node",
+          args: ["./base-server.js"],
+        },
+        shared: {
+          transport: "http",
+          url: "https://base.example.com",
+        },
+      },
+    },
+  });
+
+  await session.run({
+    prompt: "Original turn",
+  });
+
+  const forkedSession = await session.fork?.({
+    agentConfig: {
+      mcpServers: {
+        shared: {
+          transport: "sse",
+          url: "https://fork.example.com/events",
+        },
+        fork: {
+          transport: "stdio",
+          command: "node",
+          args: ["./fork-server.js"],
+        },
+      },
+    },
+  });
+
+  await forkedSession?.run({
+    prompt: "Forked turn",
+  });
+
+  expect(factory.invocations[1]?.options.mcpServers).toEqual({
+    base: {
+      type: "stdio",
+      command: "node",
+      args: ["./base-server.js"],
+    },
+    shared: {
+      type: "sse",
+      url: "https://fork.example.com/events",
+    },
+    fork: {
+      type: "stdio",
+      command: "node",
+      args: ["./fork-server.js"],
+    },
   });
 });
 

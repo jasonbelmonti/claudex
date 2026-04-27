@@ -98,6 +98,12 @@ export const CAPABILITY_CATALOG = [
     description: "Expose provider cost data when a provider reports it.",
   },
   {
+    id: "mcp:session-descriptors",
+    label: "Session MCP descriptors",
+    normalization: "capability-gated",
+    description: "Accept normalized MCP server descriptors in session options.",
+  },
+  {
     id: "mcp:managed-servers",
     label: "Managed MCP servers",
     normalization: "provider-specific",
