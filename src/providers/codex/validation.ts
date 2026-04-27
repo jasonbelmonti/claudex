@@ -14,6 +14,18 @@ export function validateCodexSessionOptions(
     });
   }
 
+  if (
+    options.agentConfig?.mcpServers &&
+    Object.keys(options.agentConfig.mcpServers).length > 0
+  ) {
+    throw new AgentError({
+      code: "unsupported_feature",
+      provider: "codex",
+      message:
+        "Codex MCP normalization is not supported at session scope; use codex.sdkOptions.config for Codex TOML-style config.",
+    });
+  }
+
   if (options.resumeStrategy === "fork") {
     throw new AgentError({
       code: "unsupported_feature",

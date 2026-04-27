@@ -4,6 +4,7 @@ import type { AgentEvent } from "../../core/events.js";
 import { AgentError } from "../../core/errors.js";
 import type { TurnInput, TurnOptions } from "../../core/input.js";
 import type { ProviderCapabilities } from "../../core/capabilities.js";
+import type { AgentConfig } from "../../core/agent-config.js";
 import type { AgentSession, SessionOptions } from "../../core/session.js";
 import type { TurnResult } from "../../core/results.js";
 import { mapTurnInputToClaudePrompt } from "./input.js";
@@ -325,6 +326,10 @@ export class ClaudeSession implements AgentSession {
     const baseSessionOptions = {
       ...this.state.baseSessionOptions,
       ...options,
+      agentConfig: mergeAgentConfig(
+        this.state.baseSessionOptions.agentConfig,
+        options.agentConfig,
+      ),
       providerOptions: mergeClaudeProviderOptions(
         this.state.baseSessionOptions.providerOptions,
         options.providerOptions,
@@ -361,6 +366,24 @@ export class ClaudeSession implements AgentSession {
       raw: error.raw,
     };
   }
+}
+
+function mergeAgentConfig(
+  base?: AgentConfig,
+  override?: AgentConfig,
+): AgentConfig | undefined {
+  const mcpServers = {
+    ...(base?.mcpServers ?? {}),
+    ...(override?.mcpServers ?? {}),
+  };
+
+  if (Object.keys(mcpServers).length === 0) {
+    return undefined;
+  }
+
+  return {
+    mcpServers,
+  };
 }
 
 async function raceClaudeQueryWithTranscriptPollTick(params: {

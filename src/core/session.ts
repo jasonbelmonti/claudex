@@ -1,6 +1,7 @@
 import type { ProviderCapabilities } from "./capabilities.js";
 import type { AgentEvent } from "./events.js";
 import type { TurnInput, TurnOptions } from "./input.js";
+import type { AgentConfig } from "./agent-config.js";
 import type { ProviderId } from "./provider.js";
 import type { TurnResult } from "./results.js";
 
@@ -26,6 +27,7 @@ export type SessionOptions = {
   approvalMode?: ApprovalMode;
   sandboxProfile?: SandboxProfile;
   resumeStrategy?: ResumeStrategy;
+  agentConfig?: AgentConfig;
   metadata?: Record<string, unknown>;
   providerOptions?: Record<string, unknown>;
 };

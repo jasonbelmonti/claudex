@@ -95,6 +95,7 @@ Do not branch on provider name when a capability flag will do.
 - `stream:message-delta`: Claude only
 - `event:reasoning-summary`: Codex only in the current normalized surface
 - `event:file-change`: both providers, but payload detail differs
+- `mcp:session-descriptors`: Claude only; Codex MCP config remains available through `codex.sdkOptions.config`
 - `usage:cost`: Claude only
 
 See [docs/capability-matrix.md](./docs/capability-matrix.md) for the full matrix and [docs/consumer-guide.md](./docs/consumer-guide.md) for orchestration guidance.

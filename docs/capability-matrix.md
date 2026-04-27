@@ -25,7 +25,8 @@ Definitions:
 | Reasoning summaries | Capability-gated | No | Yes | The current Claude adapter does not emit a normalized reasoning-summary event. |
 | Todo updates | Capability-gated | No | Yes | Only Codex currently emits normalized todo-list updates. |
 | Approval request/resolution events | Capability-gated | No | No | Approval configuration is normalized, but neither adapter emits stable approval request/resolution events yet. |
-| Managed MCP servers | Provider-specific | Yes | No | Claude SDK options can manage MCP/server concerns; Codex only surfaces MCP-related activity, not server management. |
+| Session MCP descriptors | Capability-gated | Yes | No | `SessionOptions.agentConfig.mcpServers` maps to Claude `mcpServers`; Codex rejects it and callers should use `codex.sdkOptions.config` for TOML-style MCP config. |
+| Managed MCP servers | Provider-specific | Yes | No | Claude SDK options can manage dynamic MCP/server concerns; Codex only surfaces MCP-related activity, not server management. |
 | Hooks and plugins | Provider-specific | Yes | No | Claude-specific extension systems stay outside the stable core. |
 
 ## Verified Runtime Semantics

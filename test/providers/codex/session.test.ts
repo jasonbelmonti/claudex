@@ -257,6 +257,30 @@ test("createSession rejects unsupported session-level instructions", async () =>
   ).rejects.toBeInstanceOf(AgentError);
 });
 
+test("createSession rejects session-level normalized MCP descriptors", async () => {
+  const adapter = new CodexAdapter({
+    client: new FakeCodexClient([new FakeCodexThread([])]),
+  });
+
+  await expect(
+    adapter.createSession({
+      agentConfig: {
+        mcpServers: {
+          local: {
+            transport: "stdio",
+            command: "node",
+            args: ["./mcp-server.js"],
+          },
+        },
+      },
+    }),
+  ).rejects.toMatchObject({
+    code: "unsupported_feature",
+    message:
+      "Codex MCP normalization is not supported at session scope; use codex.sdkOptions.config for Codex TOML-style config.",
+  });
+});
+
 test("resumeSession rejects fork resumeStrategy because Codex cannot fork threads", async () => {
   const adapter = new CodexAdapter({
     client: new FakeCodexClient(),

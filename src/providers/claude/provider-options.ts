@@ -9,6 +9,10 @@ import type {
   ClaudeSessionProviderOptions,
   ClaudeTurnProviderOptions,
 } from "./types.js";
+import {
+  mapAgentConfigMcpServers,
+  mergeMcpServers,
+} from "./mcp-options.js";
 
 const RESERVED_SESSION_OPTION_KEYS = new Set<keyof ClaudeSdkOptions>([
   "abortController",
@@ -24,6 +28,7 @@ const RESERVED_SESSION_OPTION_KEYS = new Set<keyof ClaudeSdkOptions>([
   "sessionId",
   "systemPrompt",
   "additionalDirectories",
+  "mcpServers",
 ]);
 
 const RESERVED_TURN_OPTION_KEYS = new Set<keyof ClaudeSdkOptions>([
@@ -61,8 +66,16 @@ export function buildClaudeBaseQueryOptions(params: {
     sessionOptions,
     reservedProviderOptions.permissionMode ?? reservedSdkOptions.permissionMode,
   );
+  const nativeMcpServers =
+    providerOptions.options && Object.hasOwn(providerOptions.options, "mcpServers")
+      ? providerOptions.options.mcpServers
+      : params.sdkOptions?.mcpServers;
+  const mcpServers = mergeMcpServers(
+    nativeMcpServers,
+    mapAgentConfigMcpServers(sessionOptions.agentConfig),
+  );
 
-  return {
+  const baseOptions = {
     ...mergedOptions,
     cwd:
       sessionOptions.workingDirectory ??
@@ -82,6 +95,11 @@ export function buildClaudeBaseQueryOptions(params: {
       mapInstructionsToSystemPrompt(sessionOptions.instructions) ??
       reservedProviderOptions.systemPrompt ??
       reservedSdkOptions.systemPrompt,
+  };
+
+  return {
+    ...baseOptions,
+    ...(mcpServers ? { mcpServers } : {}),
   };
 }
 
