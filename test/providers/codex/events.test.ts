@@ -96,6 +96,7 @@ test("runStreamed maps Codex events into the normalized event contract", async (
         usage: {
           input_tokens: 10,
           cached_input_tokens: 0,
+          reasoning_output_tokens: 0,
           output_tokens: 3,
         },
       },
@@ -171,6 +172,7 @@ test("runStreamed suppresses session.started when a resumed Codex thread re-emit
           usage: {
             input_tokens: 4,
             cached_input_tokens: 0,
+            reasoning_output_tokens: 0,
             output_tokens: 3,
           },
         },
@@ -450,6 +452,7 @@ function createStructuredOutputRun(
       usage: {
         input_tokens: 2,
         cached_input_tokens: 0,
+        reasoning_output_tokens: 0,
         output_tokens: 1,
       },
     },
