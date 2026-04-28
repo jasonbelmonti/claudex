@@ -27,6 +27,7 @@ test("createSession maps core session options into Codex thread options", async 
         usage: {
           input_tokens: 4,
           cached_input_tokens: 0,
+          reasoning_output_tokens: 0,
           output_tokens: 2,
         },
       },
@@ -165,6 +166,7 @@ test("resumeSession uses the provided reference immediately", async () => {
           usage: {
             input_tokens: 1,
             cached_input_tokens: 0,
+            reasoning_output_tokens: 0,
             output_tokens: 1,
           },
         },

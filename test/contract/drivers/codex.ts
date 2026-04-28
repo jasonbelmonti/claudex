@@ -160,6 +160,7 @@ export const CODEX_CONTRACT_DRIVER: ContractProviderDriver = {
                   usage: {
                     input_tokens: 4,
                     cached_input_tokens: 0,
+                    reasoning_output_tokens: 0,
                     output_tokens: 2,
                   },
                 },
@@ -185,6 +186,7 @@ export const CODEX_CONTRACT_DRIVER: ContractProviderDriver = {
                     usage: {
                       input_tokens: 2,
                       cached_input_tokens: 0,
+                      reasoning_output_tokens: 0,
                       output_tokens: 2,
                     },
                   },
@@ -252,6 +254,7 @@ export const CODEX_CONTRACT_DRIVER: ContractProviderDriver = {
                   usage: {
                     input_tokens: 2,
                     cached_input_tokens: 0,
+                    reasoning_output_tokens: 0,
                     output_tokens: 1,
                   },
                 },
@@ -295,6 +298,7 @@ export const CODEX_CONTRACT_DRIVER: ContractProviderDriver = {
                     usage: {
                       input_tokens: 1,
                       cached_input_tokens: 0,
+                      reasoning_output_tokens: 0,
                       output_tokens: 1,
                     },
                   },
