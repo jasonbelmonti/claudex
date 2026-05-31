@@ -11,9 +11,9 @@ The current `main` branch tracks the Node-only major release line for
 - Treat the package as ESM-only. Use `import` in ESM projects or dynamic
   `import()` from CommonJS.
 - Repository CI verifies the currently supported Node release lines 20, 22, and
-  24. Package metadata still declares `engines.node >=18`, so consumers with an
-  older floor pinned in internal tooling should read the migration guidance
-  before upgrading.
+  24. Package metadata declares `engines.node >=20`, so consumers with an older
+  floor pinned in internal tooling should read the migration guidance before
+  upgrading.
 
 If you are migrating from the Bun-first 1.x line, start with
 [docs/node-only-migration.md](./node-only-migration.md).

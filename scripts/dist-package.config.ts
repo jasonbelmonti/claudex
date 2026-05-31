@@ -22,5 +22,5 @@ export const DIST_PACKAGE_BUILD_CONFIG: Options = {
   outDir: "dist",
   platform: "node",
   splitting: true,
-  target: "node18",
+  target: "node20",
 };

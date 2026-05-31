@@ -339,7 +339,7 @@ test("resumeSession rejects unknown providers with a typed AgentError before pin
     expect(error.provider).toBe("codex");
     expect(error.details).toMatchObject({
       requestedProvider: "bogus",
-      supportedProviders: ["claude", "codex"],
+      supportedProviders: ["claude", "codex", "copilot"],
       preferredProviders: ["codex", "claude"],
     });
   }
@@ -396,6 +396,24 @@ test("custom preferred provider order is honored during resolution", async () =>
   expect(claude.createSessionCallCount).toBe(1);
 });
 
+test("custom preferred provider order accepts injected copilot providers", async () => {
+  const codex = new FakeAdapter("codex", [createReadiness("codex", "ready")]);
+  const copilot = new FakeAdapter("copilot", [
+    createReadiness("copilot", "ready"),
+  ]);
+  const adapter = new ClaudexAdapter({
+    preferredProviders: ["copilot", "codex"],
+    providers: { codex, copilot },
+  });
+
+  const session = await adapter.createSession();
+
+  expect(session.provider).toBe("copilot");
+  expect(adapter.preferredProviders).toEqual(["copilot", "codex"]);
+  expect(copilot.createSessionCallCount).toBe(1);
+  expect(codex.createSessionCallCount).toBe(0);
+});
+
 test("invalid preferred provider ids fail with a typed AgentError", async () => {
   try {
     new ClaudexAdapter({
@@ -413,7 +431,7 @@ test("invalid preferred provider ids fail with a typed AgentError", async () => 
     expect(error.provider).toBe("codex");
     expect(error.details).toMatchObject({
       invalidPreferredProviders: ["bogus"],
-      supportedProviders: ["claude", "codex"],
+      supportedProviders: ["claude", "codex", "copilot"],
       configuredPreferredProviders: ["bogus"],
     });
   }

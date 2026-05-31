@@ -10,6 +10,7 @@ export type ClaudexAdapterOptions = {
   providers?: Partial<Record<ProviderId, AgentProviderAdapter>>;
   claude?: ClaudexNestedProviderOptions;
   codex?: ClaudexNestedProviderOptions;
+  copilot?: ClaudexNestedProviderOptions;
 };
 
 export type ClaudexAdapterMetadata = {

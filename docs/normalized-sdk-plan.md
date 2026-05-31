@@ -46,7 +46,7 @@ checkpoint.
 
 The shipped library exports a small stable core:
 
-- `ProviderId = "claude" | "codex"`
+- `ProviderId = "claude" | "codex" | "copilot"`
 - `ProviderCapabilities`
 - `ProviderReadiness`
 - `AgentProviderAdapter`
@@ -58,11 +58,17 @@ The shipped library exports a small stable core:
 - `TurnResult`
 - `AgentError`
 
-The delivered provider-agnostic entry points are:
+The delivered provider-agnostic root entry point is:
+
+- `ClaudexAdapter`
+
+The current runtime-backed provider-specific adapter entry points are:
 
 - `ClaudeAdapter`
 - `CodexAdapter`
-- `ClaudexAdapter`
+
+`copilot` is registered as a public provider identity for injection and follow-on
+runtime work, but no runtime-backed `CopilotAdapter` is delivered yet.
 
 Behavioral guarantees for the common path:
 
@@ -78,7 +84,7 @@ Behavioral guarantees for the common path:
   `extensions`, but `extensions` is not a universal result/error guarantee.
 - `ClaudexAdapter` resolves a default provider in configured order, pins to the
   resolved provider for its lifetime, and keeps actual provider identity as
-  `claude` or `codex`.
+  `claude`, `codex`, or an explicitly injected `copilot` provider.
 
 Canonical event categories in the shipped surface:
 
@@ -152,9 +158,8 @@ The repository no longer treats Bun as a supported host runtime. The Node-only
 follow-up work moved validation, smoke checks, packaging checks, and release
 automation onto standard Node workflows.
 
-Package metadata still declares `engines.node >=18`, but as of April 30, 2025,
-the actively supported upstream Node release lines are 20, 22, and 24. The
-repository CI contract verifies those supported lines directly.
+Package metadata declares `engines.node >=20`, matching the maintained upstream
+Node release floor. Repository CI verifies Node 20, 22, and 24 directly.
 
 ## Closure Against Original Success Criteria
 
