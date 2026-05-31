@@ -75,6 +75,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.2.121",
+    "@github/copilot-sdk": "1.0.0-beta.9",
     "@openai/codex-sdk": "0.125.0",
     "ajv": "^8.18.0",
     "minimatch": "^10.2.5"
