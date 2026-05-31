@@ -15,7 +15,7 @@ Default to using standard Node.js and npm workflows.
 ## Runtime Policy
 
 - This repository targets a Node-only release line
-- `package.json` currently declares `engines.node >=18`
+- `package.json` declares `engines.node >=20`
 - CI verifies the repository on Node 20, 22, and 24
 - The package is ESM-only
 

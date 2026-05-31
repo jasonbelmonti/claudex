@@ -25,15 +25,14 @@ repro steps, and release validation all assume Node.
 
 ## Runtime Support Policy
 
-- `package.json` currently declares `engines.node >=18`
+- `package.json` declares `engines.node >=20`
 - repository CI verifies the currently supported upstream Node lines: 20, 22,
   and 24
 - the package is ESM-only
 
-As of April 30, 2025, upstream Node 18 is end-of-life. That means the package
-metadata floor and the actively supported Node lines are not the same thing.
-Consumers adopting the next major release should plan on a currently supported
-Node runtime even if internal tooling still accepts `>=18`.
+As of April 30, 2025, upstream Node 18 is end-of-life. The package metadata now
+matches the maintained release floor, so consumers adopting the next major
+release should plan on Node 20 or newer.
 
 ## What Downstream Consumers Should Change
 

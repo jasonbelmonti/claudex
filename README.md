@@ -9,6 +9,7 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 - ClaudexAdapter default resolver: merged
 - Claude adapter: merged
 - Codex adapter: merged
+- Copilot provider identity: registered; runtime adapter planned
 - Shared contract harness: merged
 - Node-based validation and package smoke checks: passing on `main`
 - Migration guidance for the Node-only major release: published in-repo
@@ -32,7 +33,7 @@ and Bun is no longer part of the supported runtime or maintenance contract.
 
 ## Runtime And Module Requirements
 
-- Package metadata currently declares `engines.node >=18`.
+- Package metadata declares `engines.node >=20`.
 - Repository CI verifies the currently supported Node release lines: 20, 22, and 24.
 - The package is ESM-only. CommonJS consumers must use dynamic `import()` or an ESM bridge.
 
@@ -75,7 +76,8 @@ if (supportsCapability(session.capabilities, "session:fork") && session.fork) {
 
 The stable root entrypoint intentionally exposes the provider-agnostic surface.
 When you need explicit provider wiring or test doubles, pass adapters through
-`ClaudexAdapter`'s `providers` option.
+`ClaudexAdapter`'s `providers` option. The `copilot` provider id is reserved as
+part of that public contract; its runtime adapter is planned for a later leaf.
 
 ## What The Contract Guarantees
 

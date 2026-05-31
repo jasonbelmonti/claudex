@@ -8,7 +8,7 @@ import type {
 import * as claudex from "@jasonbelmonti/claudex";
 
 test("public api exports the core contract surface", () => {
-  expect(claudex.PROVIDER_IDS).toEqual(["claude", "codex"]);
+  expect(claudex.PROVIDER_IDS).toEqual(["claude", "codex", "copilot"]);
   expect(claudex.CAPABILITY_CATALOG.length).toBeGreaterThan(0);
   expect(typeof claudex.supportsCapability).toBe("function");
   expect(typeof claudex.isProviderReady).toBe("function");
@@ -16,6 +16,7 @@ test("public api exports the core contract surface", () => {
   expect(typeof claudex.ClaudexAdapter).toBe("function");
   expect("ClaudeAdapter" in claudex).toBe(false);
   expect("CodexAdapter" in claudex).toBe(false);
+  expect("CopilotAdapter" in claudex).toBe(false);
 });
 
 test("public api exports normalized agent config types", () => {
@@ -46,8 +47,8 @@ test("ClaudexAdapter exposes the unresolved metadata contract", () => {
 
 test("ClaudexAdapter accepts a custom preferred provider order", () => {
   const adapter = new claudex.ClaudexAdapter({
-    preferredProviders: ["claude", "codex", "claude"],
+    preferredProviders: ["copilot", "claude", "codex", "copilot"],
   });
 
-  expect(adapter.preferredProviders).toEqual(["claude", "codex"]);
+  expect(adapter.preferredProviders).toEqual(["copilot", "claude", "codex"]);
 });
