@@ -2,8 +2,12 @@ import type {
   CopilotClientOptions,
   GetAuthStatusResponse,
   GetStatusResponse,
+  MCPServerConfig,
   MessageOptions,
   ModelInfo,
+  PermissionHandler,
+  PermissionRequest,
+  PermissionRequestResult,
   ResumeSessionConfig,
   SessionConfig,
   SessionEvent,
@@ -12,6 +16,7 @@ import type {
   SessionEventType,
   SessionListFilter,
   SessionMetadata,
+  SystemMessageConfig,
   TypedSessionEventHandler,
 } from "@github/copilot-sdk";
 
@@ -19,6 +24,11 @@ export type CopilotSdkOptions = CopilotClientOptions;
 export type CopilotSessionConfig = SessionConfig;
 export type CopilotResumeSessionConfig = ResumeSessionConfig;
 export type CopilotMessageOptions = MessageOptions;
+export type CopilotMcpServerConfig = MCPServerConfig;
+export type CopilotPermissionHandler = PermissionHandler;
+export type CopilotPermissionRequest = PermissionRequest;
+export type CopilotPermissionRequestResult = PermissionRequestResult;
+export type CopilotSystemMessageConfig = SystemMessageConfig;
 export type CopilotSessionEvent = SessionEvent;
 export type CopilotSessionEventType = SessionEventType;
 export type CopilotSessionEventPayload<T extends CopilotSessionEventType> =
@@ -86,4 +96,8 @@ export type CopilotAdapterOptions = {
   ownsClient?: boolean;
   readinessTimeoutMs?: number;
   sdkOptions?: CopilotSdkOptions;
+};
+
+export type CopilotSessionProviderOptions = {
+  sessionConfig?: Partial<CopilotSessionConfig>;
 };

@@ -1,0 +1,8 @@
+src/providers/copilot/mcp-options.ts
+src/providers/copilot/permissions.ts
+src/providers/copilot/provider-options.ts
+src/providers/copilot/validation.ts
+src/providers/copilot/types.ts
+src/providers/copilot/capabilities.ts
+src/providers/copilot/index.ts
+test/providers/copilot/session-options.test.ts
