@@ -4,6 +4,7 @@ import type {
   CopilotModelInfo,
   CopilotResumeSessionConfig,
   CopilotSessionConfig,
+  CopilotSessionEvent,
   CopilotSessionLike,
   CopilotSessionListFilter,
   CopilotSessionMetadata,
@@ -14,9 +15,11 @@ export type FakeCopilotClientOptions = {
   authStatus?: CopilotAuthStatus;
   authStatusError?: unknown;
   authStatusNeverResolves?: boolean;
+  createSessionEvents?: CopilotSessionEvent[];
   createSessions?: CopilotSessionLike[];
   forceStopNeverResolves?: boolean;
   models?: CopilotModelInfo[];
+  resumeSessionEvents?: Record<string, CopilotSessionEvent[]>;
   resumeSessions?: Record<string, CopilotSessionLike>;
   sessions?: CopilotSessionMetadata[];
   startError?: unknown;
@@ -41,9 +44,11 @@ export class FakeCopilotClient implements CopilotClientLike {
   private readonly authStatus: CopilotAuthStatus;
   private readonly authStatusError: unknown;
   private readonly authStatusNeverResolves: boolean;
+  private readonly createSessionEvents: CopilotSessionEvent[];
   private readonly createSessions: CopilotSessionLike[];
   private readonly forceStopNeverResolves: boolean;
   private readonly models: CopilotModelInfo[];
+  private readonly resumeSessionEvents: Record<string, CopilotSessionEvent[]>;
   private readonly resumeSessions: Record<string, CopilotSessionLike>;
   private readonly sessions: CopilotSessionMetadata[];
   private readonly startError: unknown;
@@ -63,9 +68,11 @@ export class FakeCopilotClient implements CopilotClientLike {
     },
     authStatusError,
     authStatusNeverResolves = false,
+    createSessionEvents = [],
     createSessions = [],
     forceStopNeverResolves = false,
     models = [],
+    resumeSessionEvents = {},
     resumeSessions = {},
     sessions = [],
     startError,
@@ -83,9 +90,11 @@ export class FakeCopilotClient implements CopilotClientLike {
     this.authStatus = authStatus;
     this.authStatusError = authStatusError;
     this.authStatusNeverResolves = authStatusNeverResolves;
+    this.createSessionEvents = createSessionEvents;
     this.createSessions = createSessions;
     this.forceStopNeverResolves = forceStopNeverResolves;
     this.models = models;
+    this.resumeSessionEvents = resumeSessionEvents;
     this.resumeSessions = resumeSessions;
     this.sessions = sessions;
     this.startError = startError;
@@ -167,6 +176,11 @@ export class FakeCopilotClient implements CopilotClientLike {
 
   async createSession(config: CopilotSessionConfig) {
     this.lastCreateSessionConfig = config;
+
+    for (const event of this.createSessionEvents) {
+      config.onEvent?.(event);
+    }
+
     const session = this.createSessions.shift();
 
     if (!session) {
@@ -182,6 +196,11 @@ export class FakeCopilotClient implements CopilotClientLike {
   ) {
     this.lastResumeSessionId = sessionId;
     this.lastResumeSessionConfig = config;
+
+    for (const event of this.resumeSessionEvents[sessionId] ?? []) {
+      config.onEvent?.(event);
+    }
+
     const session = this.resumeSessions[sessionId];
 
     if (!session) {

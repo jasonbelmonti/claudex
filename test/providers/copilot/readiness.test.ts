@@ -1,13 +1,12 @@
 import { expect, test } from "#test-support";
 
-import type { AgentError } from "../../../src/core/errors.js";
 import { ClaudexAdapter } from "../../../src/providers/claudex/adapter.js";
 import { CopilotAdapter } from "../../../src/providers/copilot/adapter.js";
 import { createCopilotCapabilities } from "../../../src/providers/copilot/capabilities.js";
 import { checkCopilotReadiness } from "../../../src/providers/copilot/readiness.js";
-import { FakeCopilotClient } from "./fakes.js";
+import { FakeCopilotClient, FakeCopilotSession } from "./fakes.js";
 
-test("Copilot capabilities do not overclaim deferred session and telemetry support", () => {
+test("Copilot capabilities expose runtime support without overclaiming deferred telemetry", () => {
   const capabilities = createCopilotCapabilities({
     providerVersion: "1.0.56",
     extensions: {
@@ -18,8 +17,12 @@ test("Copilot capabilities do not overclaim deferred session and telemetry suppo
   expect(capabilities.provider).toBe("copilot");
   expect(capabilities.providerVersion).toBe("1.0.56");
   expect(capabilities.extensions?.protocolVersion).toBe(3);
-  expect(capabilities.features["session:create"]?.available).toBe(false);
-  expect(capabilities.features["session:resume"]?.available).toBe(false);
+  expect(capabilities.features["session:create"]?.available).toBe(true);
+  expect(capabilities.features["session:resume"]?.available).toBe(true);
+  expect(capabilities.features["output:structured"]?.available).toBe(true);
+  expect(capabilities.features["stream:message-delta"]?.available).toBe(true);
+  expect(capabilities.features["usage:tokens"]?.available).toBe(true);
+  expect(capabilities.features["mcp:session-descriptors"]?.available).toBe(true);
   expect(capabilities.features["attachment:image"]?.available).toBe(false);
   expect(capabilities.features["event:reasoning-summary"]?.available).toBe(false);
   expect(capabilities.features["usage:cost"]?.available).toBe(false);
@@ -385,30 +388,36 @@ test("checkReadiness reports force-stop timeouts as degraded diagnostics", async
   });
 });
 
-test("CopilotAdapter exposes readiness and rejects session operations as deferred", async () => {
+test("CopilotAdapter exposes readiness and creates or resumes fake-backed sessions", async () => {
   const adapter = new CopilotAdapter({
-    clientFactory: () => new FakeCopilotClient(),
+    clientFactory: () =>
+      new FakeCopilotClient({
+        createSessions: [new FakeCopilotSession("created-session")],
+        resumeSessions: {
+          "copilot-session": new FakeCopilotSession("copilot-session"),
+        },
+      }),
   });
 
   await expect(adapter.checkReadiness()).resolves.toMatchObject({
     provider: "copilot",
     status: "ready",
   });
-  await expect(adapter.createSession()).rejects.toMatchObject({
-    name: "AgentError",
-    code: "unsupported_feature",
-    provider: "copilot",
-  } satisfies Partial<AgentError>);
-  await expect(
-    adapter.resumeSession({
+
+  const created = await adapter.createSession();
+
+  expect(created.provider).toBe("copilot");
+  expect(created.reference).toBeNull();
+
+  const resumed = await adapter.resumeSession({
       provider: "copilot",
       sessionId: "copilot-session",
-    }),
-  ).rejects.toMatchObject({
-    name: "AgentError",
-    code: "unsupported_feature",
+    });
+
+  expect(resumed.reference).toEqual({
     provider: "copilot",
-  } satisfies Partial<AgentError>);
+    sessionId: "copilot-session",
+  });
 });
 
 test("ClaudexAdapter can load the default Copilot adapter for readiness", async () => {

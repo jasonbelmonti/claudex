@@ -1,0 +1,145 @@
+{
+  "change": {
+    "binariesTouched": 0,
+    "filesTouched": 15,
+    "linesAdded": 810,
+    "linesChanged": 1350,
+    "linesDeleted": 540,
+    "maxSingleFileChurn": 90,
+    "topLevelDirectoriesTouched": [
+      "src",
+      "test"
+    ],
+    "touchedFiles": [
+      "src/providers/copilot/adapter.ts",
+      "src/providers/copilot/capabilities.ts",
+      "src/providers/copilot/errors.ts",
+      "src/providers/copilot/event-queue.ts",
+      "src/providers/copilot/events.ts",
+      "src/providers/copilot/references.ts",
+      "src/providers/copilot/results.ts",
+      "src/providers/copilot/session.ts",
+      "src/providers/copilot/types.ts",
+      "test/contract/drivers/copilot.ts",
+      "test/contract/session.test.ts",
+      "test/providers/copilot/event-factories.ts",
+      "test/providers/copilot/fake-client.ts",
+      "test/providers/copilot/fake-session.ts",
+      "test/providers/copilot/session.test.ts"
+    ]
+  },
+  "codebase": {
+    "skippedBinaryFiles": 0,
+    "skippedLargeFiles": 0,
+    "sourceFiles": 247,
+    "sourceLines": 42438,
+    "trackedFiles": 266
+  },
+  "comparison": {
+    "sourceLinesChangedPct": 3.1811,
+    "trackedFilesTouchedPct": 5.6391
+  },
+  "estimation": {
+    "adjustedStoryPoints": 13,
+    "baseStoryPoints": 8,
+    "confidence": "medium",
+    "decompositionDepth": 1,
+    "decompositionRationale": [
+      "decomposition rule suppressed: task is already a decomposed child and no hard footprint threshold matched"
+    ],
+    "decompositionRecommended": false,
+    "rationale": [
+      "base story points from line churn: 1350 -> 8",
+      "risk step: files touched >= 8",
+      "risk step: files touched >= 15",
+      "risk step: proposal mode uncertainty"
+    ],
+    "riskSteps": 3,
+    "storyPoints": 13
+  },
+  "execution": {
+    "action": "plan-first",
+    "rationale": [
+      "planning has a required blocking gate before execution"
+    ]
+  },
+  "mode": "proposal",
+  "planning": {
+    "blocksExecution": true,
+    "level": "required",
+    "matchedRules": [
+      "high-blast-radius",
+      "wide-proposal-change"
+    ],
+    "rationale": [
+      "planning rule matched: high-blast-radius - blast radius is high enough that sequencing and controls should be decided before coding",
+      "planning rule matched: wide-proposal-change - proposal touches at least 8 files before implementation has started"
+    ],
+    "recommended": true
+  },
+  "repoRoot": "/Users/jasonbelmonti/Documents/Development/claudex/.worktrees/bel-1258",
+  "risk": {
+    "blastRadius": {
+      "investigationAreas": [
+        "Inspect authentication, authorization, token/session lifecycle, and failure paths.",
+        "Inspect client and server consumers plus serialization boundaries."
+      ],
+      "level": "high",
+      "lowImpactOnly": false,
+      "recommendedControls": [
+        "Run targeted automated tests around the touched boundary.",
+        "Run integration or regression coverage across adjacent boundaries.",
+        "Include a reviewer from an adjacent impacted boundary.",
+        "Exercise authorization and failure-path tests, not just happy paths.",
+        "Verify backward compatibility for contract consumers and producers."
+      ],
+      "requiresHeightenedControls": true,
+      "score": 6,
+      "signals": [
+        {
+          "key": "auth-security",
+          "matchedFiles": [
+            "src/providers/copilot/session.ts",
+            "test/contract/session.test.ts",
+            "test/providers/copilot/fake-session.ts",
+            "test/providers/copilot/session.test.ts"
+          ],
+          "reason": "authentication, authorization, or secret-handling path touched",
+          "weight": 3
+        },
+        {
+          "key": "api-contract",
+          "matchedFiles": [
+            "test/contract/drivers/copilot.ts",
+            "test/contract/session.test.ts"
+          ],
+          "reason": "public API or contract definition path touched",
+          "weight": 2
+        },
+        {
+          "key": "wide-file-fanout",
+          "matchedFiles": [
+            "src/providers/copilot/adapter.ts",
+            "src/providers/copilot/capabilities.ts",
+            "src/providers/copilot/errors.ts",
+            "src/providers/copilot/event-queue.ts",
+            "src/providers/copilot/events.ts",
+            "src/providers/copilot/references.ts",
+            "src/providers/copilot/results.ts",
+            "src/providers/copilot/session.ts",
+            "src/providers/copilot/types.ts",
+            "test/contract/drivers/copilot.ts",
+            "test/contract/session.test.ts",
+            "test/providers/copilot/event-factories.ts",
+            "test/providers/copilot/fake-client.ts",
+            "test/providers/copilot/fake-session.ts",
+            "test/providers/copilot/session.test.ts"
+          ],
+          "reason": "change spans at least 8 files",
+          "weight": 1
+        }
+      ]
+    }
+  },
+  "schemaVersion": "execution-estimation.v5"
+}

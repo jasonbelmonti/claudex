@@ -1,0 +1,15 @@
+src/providers/copilot/adapter.ts
+src/providers/copilot/session.ts
+src/providers/copilot/event-queue.ts
+src/providers/copilot/events.ts
+src/providers/copilot/errors.ts
+src/providers/copilot/references.ts
+src/providers/copilot/results.ts
+src/providers/copilot/capabilities.ts
+src/providers/copilot/types.ts
+test/providers/copilot/session.test.ts
+test/providers/copilot/fake-session.ts
+test/providers/copilot/fake-client.ts
+test/providers/copilot/event-factories.ts
+test/contract/drivers/copilot.ts
+test/contract/session.test.ts
