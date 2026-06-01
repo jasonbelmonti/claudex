@@ -5,10 +5,12 @@ const DIST_PACKAGE_ENTRYPOINTS = {
   "ingest/index": "src/ingest/index.ts",
   "providers/claude/adapter": "src/providers/claude/adapter.ts",
   "providers/codex/adapter": "src/providers/codex/adapter.ts",
+  "providers/copilot/adapter": "src/providers/copilot/adapter.ts",
 };
 
 const DIST_PACKAGE_EXTERNALS = [
   "@anthropic-ai/claude-agent-sdk",
+  "@github/copilot-sdk",
   "@openai/codex-sdk",
   "ajv",
 ];

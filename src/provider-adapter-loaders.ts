@@ -19,20 +19,13 @@ export function createProviderAdapterLoaders(
       exportName: "CodexAdapter",
       options: options.codex,
     }),
-    copilot:
-      createProvidedAdapterLoader(options.providers?.copilot) ??
-      createUnavailableProviderAdapterLoader("copilot"),
+    copilot: createProviderAdapterLoader({
+      providedAdapter: options.providers?.copilot,
+      importPath: "./providers/copilot/adapter.js",
+      exportName: "CopilotAdapter",
+      options: options.copilot,
+    }),
   };
-}
-
-function createProvidedAdapterLoader(
-  providedAdapter: AgentProviderAdapter | undefined,
-): ProviderAdapterLoader | null {
-  if (!providedAdapter) {
-    return null;
-  }
-
-  return async () => providedAdapter;
 }
 
 function createProviderAdapterLoader(params: {
@@ -60,15 +53,5 @@ function createProviderAdapterLoader(params: {
     }
 
     return new Adapter(params.options);
-  };
-}
-
-function createUnavailableProviderAdapterLoader(
-  provider: ProviderId,
-): ProviderAdapterLoader {
-  return async () => {
-    throw new Error(
-      `No default ${provider} adapter is available. Provide an adapter through ClaudexAdapter options.providers.${provider}.`,
-    );
   };
 }

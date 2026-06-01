@@ -1,0 +1,9 @@
+src/providers/copilot/capabilities.ts
+src/providers/copilot/readiness.ts
+src/providers/copilot/adapter.ts
+src/providers/copilot/index.ts
+src/provider-adapter-loaders.ts
+scripts/dist-package.config.ts
+test/providers/copilot/readiness.test.ts
+test/providers/copilot/sdk.test.ts
+test/providers/copilot/fake-client.ts
