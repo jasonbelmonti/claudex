@@ -4,7 +4,7 @@ brief_id: "bel-1256"
 artifact_version: "1.0.0"
 status: "ready-for-review"
 created_at: "2026-05-31T16:53:06Z"
-updated_at: "2026-06-01T14:52:43Z"
+updated_at: "2026-06-01T15:34:39Z"
 target_repo: "/Users/jasonbelmonti/Documents/Development/claudex/.worktrees/bel-1256"
 target_branch: "codex/bel-1256-copilot-readiness"
 review_boundary_id: "RB-bel-1256"
@@ -60,16 +60,22 @@ Implement normalized GitHub Copilot readiness and capability reporting for BEL-1
   - Added `src/providers/copilot/capabilities.ts`, `src/providers/copilot/readiness.ts`, and `src/providers/copilot/adapter.ts`.
   - `src/provider-adapter-loaders.ts` now loads the default `CopilotAdapter` when no custom Copilot adapter is supplied.
   - `scripts/dist-package.config.ts` now emits `dist/providers/copilot/adapter.js` and keeps `@github/copilot-sdk` external.
+  - Copilot readiness now bounds SDK startup, status, auth, cleanup, and force-stop lifecycle operations with a referenced `readinessTimeoutMs` watchdog; timeout and client-construction failures return normalized readiness diagnostics.
   - `npm ci` installed worktree dependencies; npm reported existing audit findings outside BEL-1256 scope.
 - Validation:
   - Spike brief checksum matches the BEL-1256 expected digest.
   - Execution brief and execution plan structural validation passed before implementation.
   - Child execution estimation permits implementation with targeted automated tests and downstream shared-surface review controls.
-  - Focused Copilot tests, shared regressions, `npm run check`, `npm run package:check`, a dist-level Copilot loader smoke, and `git diff --check` passed after the final refinement pass.
+  - Focused Copilot tests passed after lifecycle timeout hardening: 3 files, 22 tests.
+  - Shared regressions, `npm run typecheck`, `npm run check`, `npm run package:check`, a dist-level Copilot loader smoke, and `git diff --check` passed after lifecycle timeout hardening.
   - Consensus review ran with three independent reviewers against packet SHA-256 `261790d859fe90d3837235a8a56b441583ab9e4304bc7c860f0026cc4a6bf77e`; all three returned `APPROVE` with no findings.
+  - A second consensus pass against packet SHA-256 `268750217e5a464ffd11b49a3c0cd8b6f6ff4515178a894d0d8c4d3e1d5ef792` returned `REJECT` for unnormalized client-factory failures and unbounded cleanup; both findings were fixed.
+  - A third consensus pass against packet SHA-256 `f36461c335c5a7cf423a3e4f663b414808c90cdadd2be9ca4cd7230e8f6c5f3d` returned `REJECT` for unbounded startup/status/auth awaits; the lifecycle timeout fix has been applied and validated locally.
+  - A fourth consensus pass against packet SHA-256 `98d08f4b8528dc2a75e6a1c05c017696939f833aee57537f2cd56aadcfe3d7f1` returned `REJECT` because the readiness timeout watchdog used `unref()`; the watchdog now remains referenced and validation passed again.
+  - Final consensus review ran with three independent reviewers against packet SHA-256 `c51ec37bcd79ca0c611e4191af118e891fde38a76b84bc54b009541f968c6684`; all three returned `APPROVE` with no findings.
 - Known gaps:
   - Session behavior is intentionally absent for this leaf.
-  - Cleanup errors now degrade otherwise-ready readiness and appear as warning diagnostics.
+  - Cleanup errors and lifecycle timeouts now degrade otherwise-ready readiness or return normalized error readiness according to the failed lifecycle phase.
   - Live authenticated Copilot behavior remains out of scope.
 
 # Execution Scope
@@ -77,8 +83,8 @@ Implement normalized GitHub Copilot readiness and capability reporting for BEL-1
 | Scope item | Classification | Approval impact | Notes |
 | --- | --- | --- | --- |
 | Copilot capability metadata | in-scope | blocking | Add honest capability reporting with provider/runtime details when available. |
-| SDK-based readiness probe | in-scope | blocking | Use `start()`, `getStatus()`, `getAuthStatus()`, and owned-client cleanup. |
-| Failure and cleanup paths | in-scope | blocking | Startup/status/auth/stop failures must normalize predictably with safe raw diagnostics. |
+| SDK-based readiness probe | in-scope | blocking | Use `start()`, `getStatus()`, `getAuthStatus()`, and bounded owned-client cleanup. |
+| Failure and cleanup paths | in-scope | blocking | Client construction, startup/status/auth/stop/force-stop failures and timeouts must normalize predictably with safe raw diagnostics. |
 | Copilot default adapter for readiness/capabilities | in-scope | blocking | Expose provider-local adapter behavior without implementing sessions. |
 | Session creation, resume, turns, and event normalization | out-of-scope | non-blocking | Later leaves own this work. |
 | Live authenticated smoke coverage | out-of-scope | non-blocking | Deferred until sessions exist. |
@@ -87,7 +93,7 @@ Implement normalized GitHub Copilot readiness and capability reporting for BEL-1
 
 - [x] `checkReadiness()` returns `ready` when Copilot runtime status and auth pass.
 - [x] `checkReadiness()` returns `needs_auth` when `getAuthStatus().isAuthenticated === false`.
-- [x] Startup/status/auth/cleanup errors produce normalized `error` or degraded checks with raw diagnostics preserved where safe.
+- [x] Startup/status/auth/client-construction/cleanup errors and lifecycle timeouts produce normalized `error` or degraded checks with raw diagnostics preserved where safe.
 - [x] Capabilities include known supported/unsupported features without overclaiming resume, image, cost, or reasoning support.
 - [x] Readiness tests prove owned clients are cleaned up and injected clients are handled according to the ownership contract.
 - [x] Child execution estimation with `--decomposition-depth 1` is captured before code changes.
@@ -161,3 +167,6 @@ Implement normalized GitHub Copilot readiness and capability reporting for BEL-1
 | 2026-05-31T16:55:53Z | codex | Recorded structural validation and child execution estimation gate as cleared for implementation. | see `execution-brief.sha256` |
 | 2026-05-31T17:02:27Z | codex | Recorded implemented Copilot readiness/capabilities, package build wiring, and passing validation evidence. | see `execution-brief.sha256` |
 | 2026-06-01T14:52:43Z | codex | Recorded final refinement validation and clean three-reviewer consensus approval. | see `execution-brief.sha256` |
+| 2026-06-01T15:18:35Z | codex | Recorded second and third consensus rejects, client-construction/cleanup/startup/status/auth timeout hardening, and passing local validation evidence. | see `execution-brief.sha256` |
+| 2026-06-01T15:27:16Z | codex | Recorded fourth consensus reject, referenced readiness watchdog correction, and passing local validation evidence. | see `execution-brief.sha256` |
+| 2026-06-01T15:34:39Z | codex | Recorded final clean three-reviewer consensus approval after watchdog correction. | see `execution-brief.sha256` |

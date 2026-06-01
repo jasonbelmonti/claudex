@@ -128,6 +128,60 @@ test("checkReadiness reports startup failures and attempts owned cleanup", async
   expect(client.stopCallCount).toBe(1);
 });
 
+test("checkReadiness times out startup and attempts owned cleanup", async () => {
+  const client = new FakeCopilotClient({
+    startNeverResolves: true,
+  });
+
+  const readiness = await checkCopilotReadiness({
+    clientFactory: () => client,
+    readinessTimeoutMs: 0,
+  });
+
+  expect(readiness).toMatchObject({
+    provider: "copilot",
+    status: "error",
+  });
+  expect(readiness.checks[0]).toMatchObject({
+    kind: "runtime",
+    status: "fail",
+    summary: "Copilot SDK runtime failed to start",
+  });
+  expect(readiness.checks[0]?.detail).toContain(
+    "runtime startup timed out",
+  );
+  expect(readiness.checks.at(-1)).toMatchObject({
+    kind: "runtime",
+    status: "pass",
+    summary: "Copilot SDK runtime stopped cleanly",
+  });
+  expect(client.stopCallCount).toBe(1);
+});
+
+test("checkReadiness normalizes client factory failures", async () => {
+  const readiness = await checkCopilotReadiness({
+    clientFactory: () => {
+      throw new Error("client construction failed");
+    },
+  });
+
+  expect(readiness).toMatchObject({
+    provider: "copilot",
+    status: "error",
+    checks: [
+      {
+        kind: "runtime",
+        status: "fail",
+        summary: "Copilot SDK client creation failed",
+        detail: "client construction failed",
+      },
+    ],
+  });
+  expect(readiness.raw).toMatchObject({
+    startupError: expect.any(Error),
+  });
+});
+
 test("checkReadiness reports status probe failures and stops owned clients", async () => {
   const client = new FakeCopilotClient({
     statusError: new Error("status unavailable"),
@@ -148,6 +202,33 @@ test("checkReadiness reports status probe failures and stops owned clients", asy
     detail: "status unavailable",
   });
   expect(statusFailure.checks.at(-1)).toMatchObject({
+    kind: "runtime",
+    status: "pass",
+    summary: "Copilot SDK runtime stopped cleanly",
+  });
+  expect(client.stopCallCount).toBe(1);
+});
+
+test("checkReadiness times out status probe and stops owned clients", async () => {
+  const client = new FakeCopilotClient({
+    statusNeverResolves: true,
+  });
+
+  const readiness = await checkCopilotReadiness({
+    clientFactory: () => client,
+    readinessTimeoutMs: 0,
+  });
+
+  expect(readiness.status).toBe("error");
+  expect(readiness.checks[0]).toMatchObject({
+    kind: "runtime",
+    status: "fail",
+    summary: "Copilot SDK status probe failed",
+  });
+  expect(readiness.checks[0]?.detail).toContain(
+    "runtime status probe timed out",
+  );
+  expect(readiness.checks.at(-1)).toMatchObject({
     kind: "runtime",
     status: "pass",
     summary: "Copilot SDK runtime stopped cleanly",
@@ -179,6 +260,31 @@ test("checkReadiness reports auth probe failures and stops owned clients", async
     detail: "auth probe failed",
   });
   expect(authFailure.checks.at(-1)).toMatchObject({
+    kind: "runtime",
+    status: "pass",
+    summary: "Copilot SDK runtime stopped cleanly",
+  });
+  expect(client.stopCallCount).toBe(1);
+});
+
+test("checkReadiness times out auth probe and stops owned clients", async () => {
+  const client = new FakeCopilotClient({
+    authStatusNeverResolves: true,
+  });
+
+  const readiness = await checkCopilotReadiness({
+    clientFactory: () => client,
+    readinessTimeoutMs: 0,
+  });
+
+  expect(readiness.status).toBe("error");
+  expect(readiness.checks[1]).toMatchObject({
+    kind: "auth",
+    status: "fail",
+    summary: "Copilot auth probe failed",
+  });
+  expect(readiness.checks[1]?.detail).toContain("auth probe timed out");
+  expect(readiness.checks.at(-1)).toMatchObject({
     kind: "runtime",
     status: "pass",
     summary: "Copilot SDK runtime stopped cleanly",
@@ -225,6 +331,57 @@ test("checkReadiness reports thrown cleanup failures as degraded diagnostics", a
   });
   expect(readiness.raw).toMatchObject({
     cleanupErrors: [expect.any(Error)],
+  });
+});
+
+test("checkReadiness force-stops owned clients when graceful cleanup times out", async () => {
+  const client = new FakeCopilotClient({
+    stopNeverResolves: true,
+  });
+
+  const readiness = await checkCopilotReadiness({
+    clientFactory: () => client,
+    readinessTimeoutMs: 0,
+  });
+
+  expect(readiness.status).toBe("degraded");
+  expect(readiness.checks.at(-1)).toMatchObject({
+    kind: "runtime",
+    status: "warn",
+    summary: "Copilot SDK runtime cleanup timed out",
+  });
+  expect(readiness.checks.at(-1)?.detail).toContain("forceStop() completed");
+  expect(client.stopCallCount).toBe(1);
+  expect(client.forceStopCallCount).toBe(1);
+  expect(readiness.raw).toMatchObject({
+    cleanupErrors: [expect.any(Error)],
+  });
+});
+
+test("checkReadiness reports force-stop timeouts as degraded diagnostics", async () => {
+  const client = new FakeCopilotClient({
+    forceStopNeverResolves: true,
+    stopNeverResolves: true,
+  });
+
+  const readiness = await checkCopilotReadiness({
+    clientFactory: () => client,
+    readinessTimeoutMs: 0,
+  });
+
+  expect(readiness.status).toBe("degraded");
+  expect(readiness.checks.at(-1)).toMatchObject({
+    kind: "runtime",
+    status: "warn",
+    summary: "Copilot SDK runtime cleanup timed out and force stop failed",
+  });
+  expect(readiness.checks.at(-1)?.detail).toContain(
+    "runtime force stop timed out",
+  );
+  expect(client.stopCallCount).toBe(1);
+  expect(client.forceStopCallCount).toBe(1);
+  expect(readiness.raw).toMatchObject({
+    cleanupErrors: [expect.any(Error), expect.any(Error)],
   });
 });
 

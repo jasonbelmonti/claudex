@@ -23,19 +23,46 @@ type CopilotReadinessRaw = {
 
 type CopilotReadinessProbe = {
   client: CopilotClientLike;
+  lifecycleTimeoutMs: number;
   ownsClient: boolean;
 };
+
+const DEFAULT_COPILOT_READINESS_TIMEOUT_MS = 5_000;
 
 export async function checkCopilotReadiness(
   options: CopilotAdapterOptions = {},
 ): Promise<ProviderReadiness> {
-  const probe = createCopilotReadinessProbe(options);
+  let probe: CopilotReadinessProbe;
+
+  try {
+    probe = createCopilotReadinessProbe(options);
+  } catch (error) {
+    return createCopilotReadinessResult({
+      status: "error",
+      checks: [
+        {
+          kind: "runtime",
+          status: "fail",
+          summary: "Copilot SDK client creation failed",
+          detail: toErrorDetail(error),
+        },
+      ],
+      raw: {
+        startupError: error,
+      },
+    });
+  }
+
   const checks: ReadinessCheck[] = [];
   const raw: CopilotReadinessRaw = {};
   let readinessStatus: ProviderReadinessStatus = "ready";
 
   try {
-    await probe.client.start();
+    await runWithTimeout(
+      () => probe.client.start(),
+      probe.lifecycleTimeoutMs,
+      "runtime startup",
+    );
   } catch (error) {
     raw.startupError = error;
     checks.push({
@@ -58,7 +85,11 @@ export async function checkCopilotReadiness(
   }
 
   try {
-    const status = await probe.client.getStatus();
+    const status = await runWithTimeout(
+      () => probe.client.getStatus(),
+      probe.lifecycleTimeoutMs,
+      "runtime status probe",
+    );
     raw.status = status;
     checks.push({
       kind: "runtime",
@@ -88,7 +119,11 @@ export async function checkCopilotReadiness(
   }
 
   try {
-    const auth = await probe.client.getAuthStatus();
+    const auth = await runWithTimeout(
+      () => probe.client.getAuthStatus(),
+      probe.lifecycleTimeoutMs,
+      "auth probe",
+    );
     raw.auth = auth;
 
     if (auth.isAuthenticated) {
@@ -150,6 +185,7 @@ function createCopilotReadinessProbe(
   if (options.client) {
     return {
       client: options.client,
+      lifecycleTimeoutMs: resolveReadinessTimeoutMs(options.readinessTimeoutMs),
       ownsClient: options.ownsClient === true,
     };
   }
@@ -158,6 +194,7 @@ function createCopilotReadinessProbe(
 
   return {
     client: clientFactory(options.sdkOptions ?? {}),
+    lifecycleTimeoutMs: resolveReadinessTimeoutMs(options.readinessTimeoutMs),
     ownsClient: true,
   };
 }
@@ -171,7 +208,14 @@ async function cleanupOwnedClient(
   }
 
   try {
-    const cleanupErrors = await probe.client.stop();
+    const stopResult = await stopWithTimeout(probe);
+
+    if (stopResult.status === "timed_out") {
+      raw.cleanupErrors = [stopResult.error];
+      return forceStopAfterTimeout(probe, raw, stopResult.error);
+    }
+
+    const cleanupErrors = stopResult.errors;
     if (cleanupErrors.length === 0) {
       return {
         kind: "runtime",
@@ -198,6 +242,116 @@ async function cleanupOwnedClient(
       detail: toErrorDetail(error),
     };
   }
+}
+
+async function stopWithTimeout(
+  probe: CopilotReadinessProbe,
+): Promise<
+  | { status: "stopped"; errors: Error[] }
+  | { status: "timed_out"; error: Error }
+> {
+  try {
+    const errors = await runWithTimeout(
+      () => probe.client.stop(),
+      probe.lifecycleTimeoutMs,
+      "runtime cleanup",
+    );
+
+    return {
+      status: "stopped",
+      errors,
+    };
+  } catch (error) {
+    if (isCopilotReadinessTimeoutError(error)) {
+      return {
+        status: "timed_out",
+        error,
+      };
+    }
+
+    throw error;
+  }
+}
+
+async function forceStopAfterTimeout(
+  probe: CopilotReadinessProbe,
+  raw: CopilotReadinessRaw,
+  timeoutError: Error,
+): Promise<ReadinessCheck> {
+  try {
+    await runWithTimeout(
+      () => probe.client.forceStop(),
+      probe.lifecycleTimeoutMs,
+      "runtime force stop",
+    );
+
+    return {
+      kind: "runtime",
+      status: "warn",
+      summary: "Copilot SDK runtime cleanup timed out",
+      detail: `${timeoutError.message} forceStop() completed.`,
+    };
+  } catch (error) {
+    raw.cleanupErrors = [timeoutError, error];
+
+    return {
+      kind: "runtime",
+      status: "warn",
+      summary: "Copilot SDK runtime cleanup timed out and force stop failed",
+      detail: raw.cleanupErrors.map(toErrorDetail).join("\n"),
+    };
+  }
+}
+
+async function runWithTimeout<T>(
+  operation: () => Promise<T>,
+  timeoutMs: number,
+  operationName: string,
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      operation(),
+      new Promise<T>((_, reject) => {
+        timeout = setTimeout(() => {
+          reject(createReadinessTimeoutError(operationName, timeoutMs));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+function createReadinessTimeoutError(
+  operationName: string,
+  timeoutMs: number,
+): Error {
+  const error = new Error(
+    `Copilot SDK ${operationName} timed out after ${timeoutMs}ms.`,
+  );
+  error.name = "CopilotReadinessTimeoutError";
+
+  return error;
+}
+
+function isCopilotReadinessTimeoutError(error: unknown): error is Error {
+  return error instanceof Error && error.name === "CopilotReadinessTimeoutError";
+}
+
+function resolveReadinessTimeoutMs(timeoutMs: number | undefined): number {
+  if (timeoutMs === undefined) {
+    return DEFAULT_COPILOT_READINESS_TIMEOUT_MS;
+  }
+
+  if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
+    return DEFAULT_COPILOT_READINESS_TIMEOUT_MS;
+  }
+
+  return timeoutMs;
 }
 
 function createCopilotReadinessResult(params: {

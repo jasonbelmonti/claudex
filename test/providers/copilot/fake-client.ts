@@ -13,14 +13,19 @@ import type {
 export type FakeCopilotClientOptions = {
   authStatus?: CopilotAuthStatus;
   authStatusError?: unknown;
+  authStatusNeverResolves?: boolean;
   createSessions?: CopilotSessionLike[];
+  forceStopNeverResolves?: boolean;
   models?: CopilotModelInfo[];
   resumeSessions?: Record<string, CopilotSessionLike>;
   sessions?: CopilotSessionMetadata[];
   startError?: unknown;
+  startNeverResolves?: boolean;
   status?: CopilotStatus;
   statusError?: unknown;
+  statusNeverResolves?: boolean;
   stopErrors?: Error[];
+  stopNeverResolves?: boolean;
   stopThrowError?: unknown;
 };
 
@@ -35,14 +40,19 @@ export class FakeCopilotClient implements CopilotClientLike {
 
   private readonly authStatus: CopilotAuthStatus;
   private readonly authStatusError: unknown;
+  private readonly authStatusNeverResolves: boolean;
   private readonly createSessions: CopilotSessionLike[];
+  private readonly forceStopNeverResolves: boolean;
   private readonly models: CopilotModelInfo[];
   private readonly resumeSessions: Record<string, CopilotSessionLike>;
   private readonly sessions: CopilotSessionMetadata[];
   private readonly startError: unknown;
+  private readonly startNeverResolves: boolean;
   private readonly status: CopilotStatus;
   private readonly statusError: unknown;
+  private readonly statusNeverResolves: boolean;
   private readonly stopErrors: Error[];
+  private readonly stopNeverResolves: boolean;
   private readonly stopThrowError: unknown;
 
   constructor({
@@ -52,29 +62,39 @@ export class FakeCopilotClient implements CopilotClientLike {
       login: "fake-user",
     },
     authStatusError,
+    authStatusNeverResolves = false,
     createSessions = [],
+    forceStopNeverResolves = false,
     models = [],
     resumeSessions = {},
     sessions = [],
     startError,
+    startNeverResolves = false,
     status = {
       protocolVersion: 3,
       version: "fake-copilot-runtime",
     },
     statusError,
+    statusNeverResolves = false,
     stopErrors = [],
+    stopNeverResolves = false,
     stopThrowError,
   }: FakeCopilotClientOptions = {}) {
     this.authStatus = authStatus;
     this.authStatusError = authStatusError;
+    this.authStatusNeverResolves = authStatusNeverResolves;
     this.createSessions = createSessions;
+    this.forceStopNeverResolves = forceStopNeverResolves;
     this.models = models;
     this.resumeSessions = resumeSessions;
     this.sessions = sessions;
     this.startError = startError;
+    this.startNeverResolves = startNeverResolves;
     this.status = status;
     this.statusError = statusError;
+    this.statusNeverResolves = statusNeverResolves;
     this.stopErrors = stopErrors;
+    this.stopNeverResolves = stopNeverResolves;
     this.stopThrowError = stopThrowError;
   }
 
@@ -83,6 +103,10 @@ export class FakeCopilotClient implements CopilotClientLike {
 
     if (this.startError) {
       throw this.startError;
+    }
+
+    if (this.startNeverResolves) {
+      return new Promise<void>(() => {});
     }
   }
 
@@ -93,16 +117,28 @@ export class FakeCopilotClient implements CopilotClientLike {
       throw this.stopThrowError;
     }
 
+    if (this.stopNeverResolves) {
+      return new Promise<Error[]>(() => {});
+    }
+
     return [...this.stopErrors];
   }
 
   async forceStop() {
     this.forceStopCallCount += 1;
+
+    if (this.forceStopNeverResolves) {
+      return new Promise<void>(() => {});
+    }
   }
 
   async getStatus() {
     if (this.statusError) {
       throw this.statusError;
+    }
+
+    if (this.statusNeverResolves) {
+      return new Promise<CopilotStatus>(() => {});
     }
 
     return this.status;
@@ -111,6 +147,10 @@ export class FakeCopilotClient implements CopilotClientLike {
   async getAuthStatus() {
     if (this.authStatusError) {
       throw this.authStatusError;
+    }
+
+    if (this.authStatusNeverResolves) {
+      return new Promise<CopilotAuthStatus>(() => {});
     }
 
     return this.authStatus;

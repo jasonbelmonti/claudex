@@ -4,7 +4,7 @@ plan_id: "bel-1256"
 artifact_version: "1.0.0"
 status: "ready-for-review"
 created_at: "2026-05-31T16:53:06Z"
-updated_at: "2026-06-01T14:52:43Z"
+updated_at: "2026-06-01T15:34:39Z"
 target_repo: "/Users/jasonbelmonti/Documents/Development/claudex/.worktrees/bel-1256"
 target_branch: "codex/bel-1256-copilot-readiness"
 source_packet: ".codex/execution-briefs/bel-1256/execution-brief.md"
@@ -46,9 +46,9 @@ First, validate this plan and run child execution estimation from the proposed f
 | 1 | Validate the execution brief and this execution plan, then write checksums. | `.codex/execution-briefs/bel-1256/execution-brief.md`, `.codex/execution-plans/bel-1256/execution-plan.md` | Source inventory loaded | Validator output passes and checksum files exist. | Structural validation fails and cannot be fixed without scope changes. |
 | 2 | Run child execution estimation with `--decomposition-depth 1`. | `.codex/execution-plans/bel-1256/proposed-files.txt` | Step 1 | Estimator returned `proceed-with-controls`, medium blast radius, 8 adjusted story points, and `decompositionRecommended: false`. | Estimator returns `decompose-first`, `plan-first`, or decomposition required. |
 | 3 | Add honest Copilot capability metadata. | `src/providers/copilot/capabilities.ts` | Step 2 | Capability object reports `provider: "copilot"` and only proven features as available. | Required capability claims depend on session/live behavior. |
-| 4 | Add SDK lifecycle readiness probe with ownership cleanup. | `src/providers/copilot/readiness.ts`, `src/providers/copilot/types.ts` if needed | Step 3 | Probe starts client, reads status/auth, maps unauthenticated to `needs_auth`, stops only owned clients, and records stop warnings. | Ownership cannot be represented without changing public contracts. |
+| 4 | Add SDK lifecycle readiness probe with ownership cleanup. | `src/providers/copilot/readiness.ts`, `src/providers/copilot/types.ts` if needed | Step 3 | Probe starts client, reads status/auth, maps unauthenticated to `needs_auth`, bounds lifecycle operations, stops only owned clients, and records stop warnings. | Ownership cannot be represented without changing public contracts. |
 | 5 | Add minimal default Copilot adapter and loader wiring. | `src/providers/copilot/adapter.ts`, `src/providers/copilot/index.ts`, `src/provider-adapter-loaders.ts` | Step 4 | Default loader can construct `CopilotAdapter`; adapter exposes readiness/capabilities and rejects session methods as unsupported. | Loader wiring would force session implementation. |
-| 6 | Add focused tests for readiness, cleanup, capability honesty, and loader/export behavior. | `test/providers/copilot/readiness.test.ts`, `test/providers/copilot/sdk.test.ts`, `test/providers/copilot/fake-client.ts` | Step 5 | Tests cover ready, needs-auth, startup/status/auth failure, stop warning, owned cleanup, injected client non-cleanup, and default export surface. | Tests require live Copilot credentials or sessions. |
+| 6 | Add focused tests for readiness, cleanup, capability honesty, and loader/export behavior. | `test/providers/copilot/readiness.test.ts`, `test/providers/copilot/sdk.test.ts`, `test/providers/copilot/fake-client.ts` | Step 5 | Tests cover ready, needs-auth, client-factory failure, startup/status/auth failures and timeouts, stop/force-stop timeout handling, owned cleanup, injected client non-cleanup, and default export surface. | Tests require live Copilot credentials or sessions. |
 | 7 | Install dependencies if absent, then run validation gates. | `npm ci`, `npm test -- test/providers/copilot/readiness.test.ts test/providers/copilot/sdk.test.ts`, `npm run typecheck` | Step 6 | Commands pass or failures are documented with exact scope. | Required validation fails for reasons outside BEL-1256 scope. |
 
 # File Touch Plan
@@ -61,7 +61,7 @@ First, validate this plan and run child execution estimation from the proposed f
 | `.codex/execution-plans/bel-1256/execution-plan.sha256` | add/update | Plan checksum. | low | Must be regenerated after plan changes. |
 | `.codex/execution-plans/bel-1256/proposed-files.txt` | add | Proposal file list for child estimation. | low | Keep aligned with code route before estimation. |
 | `src/providers/copilot/capabilities.ts` | add | Define honest Copilot capability metadata. | medium | Do not overclaim session resume, image, cost, or reasoning support. |
-| `src/providers/copilot/readiness.ts` | add | Implement SDK startup/status/auth/cleanup readiness probe. | medium | Must not stop caller-supplied shared clients by default. |
+| `src/providers/copilot/readiness.ts` | add | Implement SDK startup/status/auth/cleanup readiness probe with bounded lifecycle timeouts. | medium | Must not stop caller-supplied shared clients by default. |
 | `src/providers/copilot/adapter.ts` | add | Provide default adapter for readiness/capabilities only. | low | Session methods must fail predictably as out of scope. |
 | `src/providers/copilot/index.ts` | update | Export provider-local capability/readiness/adapter surface. | low | Root package should still avoid provider-specific exports. |
 | `src/provider-adapter-loaders.ts` | update | Wire default Copilot adapter loader. | low | Preserve custom adapter override behavior. |
@@ -90,7 +90,7 @@ First, validate this plan and run child execution estimation from the proposed f
 | Plan validation wrapper | `python3 /Users/jasonbelmonti/.codex/skills/execution-plan/scripts/validate_execution_plan.py --file ./.codex/execution-plans/bel-1256/execution-plan.md` | Wrapper validation passes before execution. | codex |
 | Child execution estimation | `python3 /Users/jasonbelmonti/.codex/skill-checkouts/execution-estimation/scripts/estimate_execution.py --repo-root /Users/jasonbelmonti/Documents/Development/claudex/.worktrees/bel-1256 --proposed-files ./.codex/execution-plans/bel-1256/proposed-files.txt --decomposition-depth 1` | Passed at 2026-05-31T16:55:53Z with `proceed-with-controls`, medium blast radius, 8 adjusted story points, and no decomposition recommendation. | codex |
 | Dependency install | `npm ci` | Dependencies available in the worktree if `node_modules` is absent. | codex |
-| Focused tests | `npm test -- test/providers/copilot/readiness.test.ts test/providers/copilot/sdk.test.ts test/providers/copilot/fakes.test.ts` | Passed after final refinement: 3 files, 16 tests. | codex |
+| Focused tests | `npm test -- test/providers/copilot/readiness.test.ts test/providers/copilot/sdk.test.ts test/providers/copilot/fakes.test.ts` | Passed after lifecycle timeout hardening: 3 files, 22 tests. | codex |
 | Shared regression tests | `npm test -- test/providers/claudex/adapter.test.ts test/public-api.test.ts test/contract/readiness.test.ts test/providers/adapter-entry-loader.test.ts` | Passed: 4 files, 21 tests. | codex |
 | Type validation | `npm run typecheck` | Passed. | codex |
 | Baseline validation | `npm run check` | Passed lint, typecheck, dist build, and declaration build. | codex |
@@ -98,6 +98,10 @@ First, validate this plan and run child execution estimation from the proposed f
 | Dist loader smoke | `node --input-type=module` using `./dist/index.js` with `preferredProviders: ["copilot"]` | Passed: returned `{"provider":"copilot","status":"ready","providerVersion":"dist-smoke-runtime","stopCallCount":1}`. | codex |
 | Diff hygiene | `git diff --check` | Passed. | codex |
 | Consensus review | Three independent reviewer agents using packet SHA-256 `261790d859fe90d3837235a8a56b441583ab9e4304bc7c860f0026cc4a6bf77e` | Passed: 3/3 `APPROVE`, no findings. | codex |
+| Consensus review round 2 | Three independent reviewer agents using packet SHA-256 `268750217e5a464ffd11b49a3c0cd8b6f6ff4515178a894d0d8c4d3e1d5ef792` | Rejected for unnormalized client-factory failures and unbounded cleanup; findings fixed. | codex |
+| Consensus review round 3 | Three independent reviewer agents using packet SHA-256 `f36461c335c5a7cf423a3e4f663b414808c90cdadd2be9ca4cd7230e8f6c5f3d` | Rejected for unbounded startup/status/auth awaits; lifecycle timeout fix applied and local validation passed. | codex |
+| Consensus review round 4 | Three independent reviewer agents using packet SHA-256 `98d08f4b8528dc2a75e6a1c05c017696939f833aee57537f2cd56aadcfe3d7f1` | Rejected because the readiness timeout watchdog used `unref()`; watchdog now remains referenced and local validation passed. | codex |
+| Consensus review round 5 | Three independent reviewer agents using packet SHA-256 `c51ec37bcd79ca0c611e4191af118e891fde38a76b84bc54b009541f968c6684` | Passed: 3/3 `APPROVE`, no findings. | codex |
 
 # Stop Conditions
 
@@ -144,3 +148,6 @@ First, validate this plan and run child execution estimation from the proposed f
 | 2026-05-31T16:55:53Z | codex | Recorded passed child execution estimation gate and marked plan ready for implementation. | see `execution-plan.sha256` |
 | 2026-05-31T17:02:27Z | codex | Recorded completed implementation route, package build touch, and validation evidence. | see `execution-plan.sha256` |
 | 2026-06-01T14:52:43Z | codex | Recorded final refinement validation and clean consensus review. | see `execution-plan.sha256` |
+| 2026-06-01T15:18:35Z | codex | Recorded second and third consensus rejects, lifecycle timeout hardening, and passing local validation evidence. | see `execution-plan.sha256` |
+| 2026-06-01T15:27:16Z | codex | Recorded fourth consensus reject, referenced readiness watchdog correction, and passing local validation evidence. | see `execution-plan.sha256` |
+| 2026-06-01T15:34:39Z | codex | Recorded final clean three-reviewer consensus approval after watchdog correction. | see `execution-plan.sha256` |
