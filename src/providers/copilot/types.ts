@@ -83,5 +83,7 @@ export type CopilotClientFactory = (
 export type CopilotAdapterOptions = {
   client?: CopilotClientLike;
   clientFactory?: CopilotClientFactory;
+  ownsClient?: boolean;
+  readinessTimeoutMs?: number;
   sdkOptions?: CopilotSdkOptions;
 };

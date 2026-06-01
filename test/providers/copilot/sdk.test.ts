@@ -2,10 +2,14 @@ import * as rootApi from "@jasonbelmonti/claudex";
 import { describe, expect, it } from "vitest";
 
 import {
+  CopilotAdapter,
   createCopilotClient,
   type CopilotClientFactory,
 } from "../../../src/providers/copilot/index.js";
-import { createCopilotClient as createCopilotClientFromProviders } from "../../../src/providers/index.js";
+import {
+  CopilotAdapter as CopilotAdapterFromProviders,
+  createCopilotClient as createCopilotClientFromProviders,
+} from "../../../src/providers/index.js";
 
 describe("Copilot SDK factory", () => {
   it("constructs a client-compatible facade without starting the runtime", () => {
@@ -21,6 +25,8 @@ describe("Copilot SDK factory", () => {
 
   it("is exported from the provider-local surface but not the package root", () => {
     expect(createCopilotClientFromProviders).toBe(createCopilotClient);
+    expect(CopilotAdapterFromProviders).toBe(CopilotAdapter);
     expect("createCopilotClient" in rootApi).toBe(false);
+    expect("CopilotAdapter" in rootApi).toBe(false);
   });
 });
