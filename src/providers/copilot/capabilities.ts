@@ -8,7 +8,8 @@ export function createCopilotCapabilities(
     features: {
       "session:create": {
         available: false,
-        notes: "Copilot SDK session creation is deferred to a later adapter slice.",
+        notes:
+          "Copilot session configuration mapping exists, but runtime session creation is deferred to a later adapter slice.",
       },
       "session:resume": {
         available: false,
@@ -61,7 +62,8 @@ export function createCopilotCapabilities(
       },
       "mcp:session-descriptors": {
         available: false,
-        notes: "Copilot MCP descriptor mapping is deferred until session support exists.",
+        notes:
+          "Copilot MCP descriptor mapping exists for session configuration; runtime session support is deferred.",
       },
       "mcp:managed-servers": {
         available: false,
