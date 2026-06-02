@@ -119,13 +119,14 @@ export class CopilotSession implements AgentSession {
       );
       const turnTimeoutMs =
         providerOptions.turnTimeoutMs ?? DEFAULT_COPILOT_TURN_TIMEOUT_MS;
+      const copilotMessage = mapTurnInputToCopilotMessage(input);
       this.enqueuePendingLifecycleEvents(queue);
-      const sendPromise = this.session.send(mapTurnInputToCopilotMessage(input));
+      const sendPromise = this.session.send(copilotMessage);
       void sendPromise.catch((error) => {
         queue.fail(error);
       });
       turnTimeout = setTimeout(() => {
-        queue.fail(createCopilotTurnTimeoutError(turnTimeoutMs));
+        void this.failTimedOutTurn(queue, turnTimeoutMs);
       }, turnTimeoutMs);
 
       for await (const event of queue) {
@@ -220,6 +221,19 @@ export class CopilotSession implements AgentSession {
     try {
       await this.session.abort();
       queue.enqueue(createSyntheticCopilotAbortIdleEvent());
+    } catch (error) {
+      queue.fail(error);
+    }
+  }
+
+  private async failTimedOutTurn(
+    queue: AsyncEventQueue<CopilotSessionEvent>,
+    turnTimeoutMs: number,
+  ): Promise<void> {
+    queue.fail(createCopilotTurnTimeoutError(turnTimeoutMs));
+
+    try {
+      await this.session.abort();
     } catch (error) {
       queue.fail(error);
     }
