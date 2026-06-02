@@ -186,6 +186,27 @@ test("checkReadiness normalizes client factory failures", async () => {
   });
 });
 
+test("CopilotAdapter reports client factory failures through readiness", async () => {
+  const adapter = new CopilotAdapter({
+    clientFactory: () => {
+      throw new Error("client construction failed");
+    },
+  });
+
+  await expect(adapter.checkReadiness()).resolves.toMatchObject({
+    provider: "copilot",
+    status: "error",
+    checks: [
+      {
+        kind: "runtime",
+        status: "fail",
+        summary: "Copilot SDK client creation failed",
+        detail: "client construction failed",
+      },
+    ],
+  });
+});
+
 test("checkReadiness reports status probe failures and stops owned clients", async () => {
   const client = new FakeCopilotClient({
     statusError: new Error("status unavailable"),

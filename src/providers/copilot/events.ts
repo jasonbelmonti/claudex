@@ -55,6 +55,10 @@ export function mapCopilotSessionEvent(params: {
   const { event, getSessionReference, state } = params;
   const session = getSessionReference();
 
+  if (isSubAgentEvent(event)) {
+    return [];
+  }
+
   switch (event.type) {
     case "session.start":
       return [mapSessionStartedEvent(event)];
@@ -81,6 +85,10 @@ export function mapCopilotSessionEvent(params: {
     default:
       return [];
   }
+}
+
+function isSubAgentEvent(event: CopilotSessionEvent): boolean {
+  return "agentId" in event && event.agentId !== undefined;
 }
 
 export function createCopilotTurnStartedEvent(params: {

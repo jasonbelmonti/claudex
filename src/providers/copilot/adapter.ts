@@ -26,11 +26,10 @@ export class CopilotAdapter implements AgentProviderAdapter {
   readonly provider = "copilot" as const;
   readonly capabilities = createCopilotCapabilities();
 
-  private readonly client: CopilotClientLike;
+  private client: CopilotClientLike | null;
 
   constructor(private readonly options: CopilotAdapterOptions = {}) {
-    const clientFactory = options.clientFactory ?? createCopilotClient;
-    this.client = options.client ?? clientFactory(options.sdkOptions ?? {});
+    this.client = options.client ?? null;
   }
 
   checkReadiness() {
@@ -48,7 +47,7 @@ export class CopilotAdapter implements AgentProviderAdapter {
         }
       },
     });
-    const session = await this.client.createSession(config);
+    const session = await this.getClient().createSession(config);
     const agentSession = new CopilotSession({
       capabilities: this.capabilities,
       initialReference: null,
@@ -74,7 +73,7 @@ export class CopilotAdapter implements AgentProviderAdapter {
       });
     }
 
-    const session = await this.client.resumeSession(
+    const session = await this.getClient().resumeSession(
       reference.sessionId,
       createRuntimeResumeConfig(options),
     );
@@ -84,6 +83,17 @@ export class CopilotAdapter implements AgentProviderAdapter {
       initialReference: createCopilotSessionReference(reference.sessionId),
       session,
     });
+  }
+
+  private getClient(): CopilotClientLike {
+    if (this.client) {
+      return this.client;
+    }
+
+    const clientFactory = this.options.clientFactory ?? createCopilotClient;
+    this.client = clientFactory(this.options.sdkOptions ?? {});
+
+    return this.client;
   }
 }
 
