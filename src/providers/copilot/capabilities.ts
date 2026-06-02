@@ -7,37 +7,41 @@ export function createCopilotCapabilities(
     provider: "copilot",
     features: {
       "session:create": {
-        available: false,
+        available: true,
         notes:
-          "Copilot session configuration mapping exists, but runtime session creation is deferred to a later adapter slice.",
+          "Copilot sessions are created through the SDK facade with normalized configuration mapping.",
       },
       "session:resume": {
-        available: false,
-        notes: "Resume support is unclaimed until persisted post-turn sessions are proven.",
+        available: true,
+        notes:
+          "Copilot session references can be resumed through the SDK facade; live persistence remains smoke-test follow-up.",
       },
       "session:fork": {
         available: false,
         notes: "Copilot fork semantics are not implemented by the normalized adapter.",
       },
       "output:structured": {
-        available: false,
-        notes: "No native JSON-schema output contract is implemented for Copilot yet.",
+        available: true,
+        notes:
+          "Structured output is validated post-hoc against the final assistant message.",
       },
       "attachment:image": {
         available: false,
         notes: "Image attachment behavior needs live vision-model validation before exposure.",
       },
       "stream:message-delta": {
-        available: false,
-        notes: "Streaming event normalization is deferred until Copilot turn support exists.",
+        available: true,
+        notes:
+          "Copilot assistant.message_delta events are normalized when SDK streaming is enabled.",
       },
       "event:reasoning-summary": {
         available: false,
         notes: "Copilot reasoning events are not exposed until they are verified safe to normalize.",
       },
       "event:tool-lifecycle": {
-        available: false,
-        notes: "Tool lifecycle event mapping is deferred until Copilot turn support exists.",
+        available: true,
+        notes:
+          "Copilot tool execution events are normalized into canonical tool lifecycle events.",
       },
       "event:file-change": {
         available: false,
@@ -53,17 +57,18 @@ export function createCopilotCapabilities(
         notes: "Readiness can report auth state, but execution-time auth events are not implemented.",
       },
       "usage:tokens": {
-        available: false,
-        notes: "Token usage mapping is deferred until Copilot turn support exists.",
+        available: true,
+        notes:
+          "Token usage is normalized when Copilot emits assistant.usage with input and output token counts.",
       },
       "usage:cost": {
         available: false,
         notes: "Cost telemetry is not exposed until provider values are proven stable.",
       },
       "mcp:session-descriptors": {
-        available: false,
+        available: true,
         notes:
-          "Copilot MCP descriptor mapping exists for session configuration; runtime session support is deferred.",
+          "Normalized MCP descriptors map into Copilot session configuration.",
       },
       "mcp:managed-servers": {
         available: false,

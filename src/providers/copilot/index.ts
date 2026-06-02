@@ -1,9 +1,16 @@
 export * from "./adapter.js";
 export * from "./capabilities.js";
+export * from "./errors.js";
+export * from "./events.js";
+export * from "./event-queue.js";
+export * from "./input.js";
 export * from "./mcp-options.js";
 export * from "./permissions.js";
 export * from "./provider-options.js";
 export * from "./readiness.js";
+export * from "./references.js";
+export * from "./results.js";
 export * from "./sdk.js";
+export * from "./session.js";
 export * from "./validation.js";
 export type * from "./types.js";

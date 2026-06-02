@@ -17,6 +17,8 @@ export class FakeCopilotSession implements CopilotSessionLike {
   lastSendAndWaitTimeout?: number;
   abortCallCount = 0;
   disconnectCallCount = 0;
+  sendError?: unknown;
+  sendNeverResolves = false;
 
   private readonly allEventHandlers = new Set<CopilotSessionEventHandler>();
   private readonly typedEventHandlers = new Map<
@@ -35,6 +37,16 @@ export class FakeCopilotSession implements CopilotSessionLike {
     this.runs.push(events);
   }
 
+  get handlerCount() {
+    return (
+      this.allEventHandlers.size +
+      Array.from(this.typedEventHandlers.values()).reduce(
+        (count, handlers) => count + handlers.size,
+        0,
+      )
+    );
+  }
+
   async send(input: CopilotMessageInput) {
     this.sentMessages.push(input);
     this.lastAssistantMessage = undefined;
@@ -48,6 +60,14 @@ export class FakeCopilotSession implements CopilotSessionLike {
       }
 
       this.emit(event);
+    }
+
+    if (this.sendError) {
+      throw this.sendError;
+    }
+
+    if (this.sendNeverResolves) {
+      return new Promise<string>(() => {});
     }
 
     return messageId;
