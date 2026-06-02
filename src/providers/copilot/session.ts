@@ -131,6 +131,10 @@ export class CopilotSession implements AgentSession {
 
       for await (const event of queue) {
         for (const mappedEvent of this.mapQueuedEvent(event, state)) {
+          if (mappedEvent.type === "session.started") {
+            this.currentReference = mappedEvent.reference;
+          }
+
           if (
             mappedEvent.type === "turn.completed" ||
             mappedEvent.type === "turn.failed"
