@@ -4,6 +4,7 @@ import type {
 } from "../../../src/providers/copilot/types.js";
 
 type FakeCopilotEventMetadata = {
+  agentId?: string;
   id?: string;
   parentId?: string | null;
   timestamp?: string;
@@ -38,10 +39,12 @@ type FakeCopilotModelCallFailureEvent = Extract<
 const defaultTimestamp = "2026-05-31T00:00:00.000Z";
 
 const createEventMetadata = ({
+  agentId,
   id = "fake-event",
   parentId = null,
   timestamp = defaultTimestamp,
 }: FakeCopilotEventMetadata = {}) => ({
+  ...(agentId === undefined ? {} : { agentId }),
   id,
   parentId,
   timestamp,
@@ -162,6 +165,7 @@ export const createCopilotSessionErrorEvent = ({
 });
 
 export const createCopilotModelCallFailureEvent = ({
+  agentId,
   errorMessage = "Copilot model call failed",
   id = "fake-model-call-failure",
   model = "fake-copilot-model",
@@ -175,7 +179,7 @@ export const createCopilotModelCallFailureEvent = ({
   source?: FakeCopilotModelCallFailureEvent["data"]["source"];
   statusCode?: number;
 } = {}): FakeCopilotModelCallFailureEvent => ({
-  ...createEventMetadata({ id, parentId, timestamp }),
+  ...createEventMetadata({ agentId, id, parentId, timestamp }),
   type: "model.call_failure",
   ephemeral: true,
   data: {

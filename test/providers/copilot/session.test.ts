@@ -410,6 +410,55 @@ test("Copilot model call failures emit one normalized terminal failure", async (
   expect(fakeSession.handlerCount).toBe(0);
 });
 
+test("Copilot ignores sub-agent model failures while completing the root turn", async () => {
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotSessionStartEvent({
+        sessionId: COPILOT_REFERENCE.sessionId,
+      }),
+      createCopilotModelCallFailureEvent({
+        agentId: "subagent-1",
+        errorMessage: "sub-agent failed",
+      }),
+      createCopilotAssistantMessageEvent({
+        content: "root ok",
+      }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({
+      createSessions: [fakeSession],
+    }),
+  });
+  const session = await adapter.createSession();
+
+  const events = await collectEvents(
+    session.runStreamed({
+      prompt: "Ignore sub-agent failure",
+    }),
+  );
+  const terminalEvents = events.filter(
+    (event) => event.type === "turn.completed" || event.type === "turn.failed",
+  );
+
+  expect(events.map((event) => event.type)).toEqual([
+    "session.started",
+    "turn.started",
+    "message.completed",
+    "turn.completed",
+  ]);
+  expect(terminalEvents).toHaveLength(1);
+  expect(terminalEvents[0]).toMatchObject({
+    type: "turn.completed",
+    result: {
+      session: COPILOT_REFERENCE,
+      text: "root ok",
+    },
+  });
+  expect(session.reference).toEqual(COPILOT_REFERENCE);
+});
+
 test("Copilot rejects attachments while image input remains unclaimed", async () => {
   const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId);
   const adapter = new CopilotAdapter({
