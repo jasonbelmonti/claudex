@@ -21,6 +21,7 @@ test("Copilot capabilities expose runtime support without overclaiming deferred 
   expect(capabilities.features["session:resume"]?.available).toBe(true);
   expect(capabilities.features["output:structured"]?.available).toBe(true);
   expect(capabilities.features["stream:message-delta"]?.available).toBe(true);
+  expect(capabilities.features["event:tool-lifecycle"]?.available).toBe(true);
   expect(capabilities.features["usage:tokens"]?.available).toBe(true);
   expect(capabilities.features["mcp:session-descriptors"]?.available).toBe(true);
   expect(capabilities.features["attachment:image"]?.available).toBe(false);

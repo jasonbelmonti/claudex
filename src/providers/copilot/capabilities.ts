@@ -39,8 +39,9 @@ export function createCopilotCapabilities(
         notes: "Copilot reasoning events are not exposed until they are verified safe to normalize.",
       },
       "event:tool-lifecycle": {
-        available: false,
-        notes: "Tool lifecycle event mapping is deferred until Copilot turn support exists.",
+        available: true,
+        notes:
+          "Copilot tool execution events are normalized into canonical tool lifecycle events.",
       },
       "event:file-change": {
         available: false,
