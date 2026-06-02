@@ -317,6 +317,51 @@ test("Copilot missing terminal events time out as one normalized failure", async
   expect(fakeSession.handlerCount).toBe(0);
 });
 
+test("Copilot timeout after session start emits turn.started before failure", async () => {
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId);
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({
+      createSessionEvents: [
+        createCopilotSessionStartEvent({
+          sessionId: COPILOT_REFERENCE.sessionId,
+        }),
+      ],
+      createSessions: [fakeSession],
+    }),
+  });
+  const session = await adapter.createSession();
+
+  const events = await collectEvents(
+    session.runStreamed(
+      {
+        prompt: "Start then time out",
+      },
+      {
+        providerOptions: {
+          copilot: {
+            turnTimeoutMs: 1,
+          },
+        },
+      },
+    ),
+  );
+
+  expect(events.map((event) => event.type)).toEqual([
+    "session.started",
+    "turn.started",
+    "turn.failed",
+  ]);
+  expect(events.at(-1)).toMatchObject({
+    type: "turn.failed",
+    session: COPILOT_REFERENCE,
+    error: {
+      message: "Timeout after 1ms waiting for Copilot session.idle.",
+    },
+  });
+  expect(session.reference).toEqual(COPILOT_REFERENCE);
+  expect(fakeSession.abortCallCount).toBe(1);
+});
+
 test("Copilot provider failures emit one terminal event and suppress later idle terminals", async () => {
   const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
     [
@@ -408,6 +453,50 @@ test("Copilot model call failures emit one normalized terminal failure", async (
   expect(events.at(-1)).toBe(terminalEvents[0]);
   expect(session.reference).toEqual(COPILOT_REFERENCE);
   expect(fakeSession.handlerCount).toBe(0);
+});
+
+test("Copilot model call telemetry does not fail a later successful turn", async () => {
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotSessionStartEvent({
+        sessionId: COPILOT_REFERENCE.sessionId,
+      }),
+      createCopilotModelCallFailureEvent({
+        errorMessage: "retryable model failure",
+      }),
+      createCopilotAssistantMessageEvent({
+        content: "retry ok",
+      }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({
+      createSessions: [fakeSession],
+    }),
+  });
+  const session = await adapter.createSession();
+
+  const events = await collectEvents(
+    session.runStreamed({
+      prompt: "Retry after model failure",
+    }),
+  );
+
+  expect(events.map((event) => event.type)).toEqual([
+    "session.started",
+    "turn.started",
+    "message.completed",
+    "turn.completed",
+  ]);
+  expect(events.at(-1)).toMatchObject({
+    type: "turn.completed",
+    result: {
+      session: COPILOT_REFERENCE,
+      text: "retry ok",
+    },
+  });
+  expect(session.reference).toEqual(COPILOT_REFERENCE);
 });
 
 test("Copilot ignores sub-agent model failures while completing the root turn", async () => {
