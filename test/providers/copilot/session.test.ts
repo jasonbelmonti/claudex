@@ -442,6 +442,7 @@ test("Copilot rejects attachments while image input remains unclaimed", async ()
   expect(failedEvents).toHaveLength(1);
   expect(failedEvents[0]).toMatchObject({
     type: "turn.failed",
+    session: null,
     error: {
       code: "unsupported_feature",
       provider: "copilot",
