@@ -35,6 +35,14 @@ type FakeCopilotModelCallFailureEvent = Extract<
   CopilotSessionEvent,
   { type: "model.call_failure" }
 >;
+type FakeCopilotToolExecutionStartEvent = Extract<
+  CopilotSessionEvent,
+  { type: "tool.execution_start" }
+>;
+type FakeCopilotToolExecutionCompleteEvent = Extract<
+  CopilotSessionEvent,
+  { type: "tool.execution_complete" }
+>;
 
 const defaultTimestamp = "2026-05-31T00:00:00.000Z";
 
@@ -187,6 +195,59 @@ export const createCopilotModelCallFailureEvent = ({
     model,
     source,
     statusCode,
+  },
+});
+
+export const createCopilotToolExecutionStartEvent = ({
+  args = {},
+  id = "fake-tool-start",
+  parentId = null,
+  timestamp = defaultTimestamp,
+  toolCallId = "fake-tool-call",
+  toolName = "run_in_terminal",
+  turnId = "fake-turn",
+}: FakeCopilotEventMetadata & {
+  args?: Record<string, unknown>;
+  toolCallId?: string;
+  toolName?: string;
+  turnId?: string;
+} = {}): FakeCopilotToolExecutionStartEvent => ({
+  ...createEventMetadata({ id, parentId, timestamp }),
+  type: "tool.execution_start",
+  data: {
+    arguments: args,
+    toolCallId,
+    toolName,
+    turnId,
+  },
+});
+
+export const createCopilotToolExecutionCompleteEvent = ({
+  content = "tool ok",
+  error,
+  id = "fake-tool-complete",
+  parentId = null,
+  success = true,
+  timestamp = defaultTimestamp,
+  toolCallId = "fake-tool-call",
+  turnId = "fake-turn",
+}: FakeCopilotEventMetadata & {
+  content?: string;
+  error?: { message: string };
+  success?: boolean;
+  toolCallId?: string;
+  turnId?: string;
+} = {}): FakeCopilotToolExecutionCompleteEvent => ({
+  ...createEventMetadata({ id, parentId, timestamp }),
+  type: "tool.execution_complete",
+  data: {
+    ...(error === undefined ? {} : { error }),
+    result: {
+      content,
+    },
+    success,
+    toolCallId,
+    turnId,
   },
 });
 

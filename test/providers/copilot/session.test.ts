@@ -11,6 +11,8 @@ import {
   createCopilotModelCallFailureEvent,
   createCopilotSessionErrorEvent,
   createCopilotSessionStartEvent,
+  createCopilotToolExecutionCompleteEvent,
+  createCopilotToolExecutionStartEvent,
   createCopilotUsageEvent,
   FakeCopilotClient,
   FakeCopilotSession,
@@ -582,6 +584,67 @@ test("Copilot ignores sub-agent model failures while completing the root turn", 
     },
   });
   expect(session.reference).toEqual(COPILOT_REFERENCE);
+});
+
+test("Copilot tool completions preserve started tool metadata", async () => {
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotSessionStartEvent({
+        sessionId: COPILOT_REFERENCE.sessionId,
+      }),
+      createCopilotToolExecutionStartEvent({
+        args: {
+          command: "pwd",
+        },
+        toolCallId: "tool-call-1",
+        toolName: "run_in_terminal",
+      }),
+      createCopilotToolExecutionCompleteEvent({
+        content: "done",
+        toolCallId: "tool-call-1",
+      }),
+      createCopilotAssistantMessageEvent({
+        content: "tool ok",
+      }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({
+      createSessions: [fakeSession],
+    }),
+  });
+  const session = await adapter.createSession();
+
+  const events = await collectEvents(
+    session.runStreamed({
+      prompt: "Run a command",
+    }),
+  );
+
+  expect(events).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        type: "tool.started",
+        toolCallId: "tool-call-1",
+        toolName: "run_in_terminal",
+        kind: "command",
+      }),
+      expect.objectContaining({
+        type: "tool.completed",
+        toolCallId: "tool-call-1",
+        toolName: "run_in_terminal",
+        kind: "command",
+        outcome: "success",
+      }),
+    ]),
+  );
+  expect(events.at(-1)).toMatchObject({
+    type: "turn.completed",
+    result: {
+      text: "tool ok",
+    },
+  });
 });
 
 test("Copilot rejects attachments while image input remains unclaimed", async () => {
