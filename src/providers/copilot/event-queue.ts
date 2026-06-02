@@ -14,6 +14,7 @@ export class AsyncEventQueue<T> implements AsyncIterable<T> {
     resolve: (event: QueuedEvent<T>) => void;
   }> = [];
   private closed = false;
+  private failed = false;
   private error: unknown;
 
   enqueue(value: T): void {
@@ -33,9 +34,18 @@ export class AsyncEventQueue<T> implements AsyncIterable<T> {
     }
 
     this.closed = true;
-    this.resolveNext({
+    const doneEvent: QueuedEvent<T> = {
       kind: "done",
-    });
+    };
+
+    if (this.waiters.length === 0) {
+      this.events.push(doneEvent);
+      return;
+    }
+
+    while (this.waiters.length > 0) {
+      this.waiters.shift()?.resolve(doneEvent);
+    }
   }
 
   fail(error: unknown): void {
@@ -44,6 +54,7 @@ export class AsyncEventQueue<T> implements AsyncIterable<T> {
     }
 
     this.closed = true;
+    this.failed = true;
     this.error = error;
 
     while (this.waiters.length > 0) {
@@ -70,7 +81,7 @@ export class AsyncEventQueue<T> implements AsyncIterable<T> {
       return Promise.resolve(event);
     }
 
-    if (this.error !== undefined) {
+    if (this.failed) {
       return Promise.reject(this.error);
     }
 
