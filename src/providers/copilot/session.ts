@@ -245,7 +245,7 @@ export class CopilotSession implements AgentSession {
 
   private createTurnFailedEvent(error: AgentError): AgentEvent {
     return createCopilotTurnFailedEvent({
-      session: this.currentReference ?? this.runtimeReference,
+      session: this.currentReference,
       error,
     });
   }
