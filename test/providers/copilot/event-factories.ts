@@ -18,6 +18,22 @@ type FakeCopilotIdleEvent = Extract<
   CopilotSessionEvent,
   { type: "session.idle" }
 >;
+type FakeCopilotAssistantMessageDeltaEvent = Extract<
+  CopilotSessionEvent,
+  { type: "assistant.message_delta" }
+>;
+type FakeCopilotAssistantUsageEvent = Extract<
+  CopilotSessionEvent,
+  { type: "assistant.usage" }
+>;
+type FakeCopilotSessionErrorEvent = Extract<
+  CopilotSessionEvent,
+  { type: "session.error" }
+>;
+type FakeCopilotModelCallFailureEvent = Extract<
+  CopilotSessionEvent,
+  { type: "model.call_failure" }
+>;
 
 const defaultTimestamp = "2026-05-31T00:00:00.000Z";
 
@@ -74,6 +90,99 @@ export const createCopilotAssistantMessageEvent = ({
     content,
     messageId,
     ...(model ? { model } : {}),
+  },
+});
+
+export const createCopilotAssistantMessageDeltaEvent = ({
+  deltaContent = "fake ",
+  id = "fake-assistant-message-delta",
+  messageId = "fake-message",
+  parentId = null,
+  timestamp = defaultTimestamp,
+}: FakeCopilotEventMetadata & {
+  deltaContent?: string;
+  messageId?: string;
+} = {}): FakeCopilotAssistantMessageDeltaEvent => ({
+  ...createEventMetadata({ id, parentId, timestamp }),
+  type: "assistant.message_delta",
+  ephemeral: true,
+  data: {
+    deltaContent,
+    messageId,
+  },
+});
+
+export const createCopilotUsageEvent = ({
+  cacheReadTokens = 0,
+  cacheWriteTokens,
+  cost,
+  id = "fake-assistant-usage",
+  inputTokens = 4,
+  model = "fake-copilot-model",
+  outputTokens = 2,
+  parentId = null,
+  timestamp = defaultTimestamp,
+}: FakeCopilotEventMetadata & {
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  cost?: number;
+  inputTokens?: number;
+  model?: string;
+  outputTokens?: number;
+} = {}): FakeCopilotAssistantUsageEvent => ({
+  ...createEventMetadata({ id, parentId, timestamp }),
+  type: "assistant.usage",
+  ephemeral: true,
+  data: {
+    cacheReadTokens,
+    ...(cacheWriteTokens === undefined ? {} : { cacheWriteTokens }),
+    ...(cost === undefined ? {} : { cost }),
+    inputTokens,
+    model,
+    outputTokens,
+  },
+});
+
+export const createCopilotSessionErrorEvent = ({
+  errorType = "query",
+  id = "fake-session-error",
+  message = "Copilot failed",
+  parentId = null,
+  timestamp = defaultTimestamp,
+}: FakeCopilotEventMetadata & {
+  errorType?: string;
+  message?: string;
+} = {}): FakeCopilotSessionErrorEvent => ({
+  ...createEventMetadata({ id, parentId, timestamp }),
+  type: "session.error",
+  data: {
+    errorType,
+    message,
+  },
+});
+
+export const createCopilotModelCallFailureEvent = ({
+  errorMessage = "Copilot model call failed",
+  id = "fake-model-call-failure",
+  model = "fake-copilot-model",
+  parentId = null,
+  source = "top_level",
+  statusCode = 500,
+  timestamp = defaultTimestamp,
+}: FakeCopilotEventMetadata & {
+  errorMessage?: string;
+  model?: string;
+  source?: FakeCopilotModelCallFailureEvent["data"]["source"];
+  statusCode?: number;
+} = {}): FakeCopilotModelCallFailureEvent => ({
+  ...createEventMetadata({ id, parentId, timestamp }),
+  type: "model.call_failure",
+  ephemeral: true,
+  data: {
+    errorMessage,
+    model,
+    source,
+    statusCode,
   },
 });
 
