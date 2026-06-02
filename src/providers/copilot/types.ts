@@ -101,3 +101,7 @@ export type CopilotAdapterOptions = {
 export type CopilotSessionProviderOptions = {
   sessionConfig?: Partial<CopilotSessionConfig>;
 };
+
+export type CopilotTurnProviderOptions = {
+  turnTimeoutMs?: number;
+};
