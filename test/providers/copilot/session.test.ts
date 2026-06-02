@@ -256,12 +256,13 @@ test("Copilot idle without an assistant message emits a normalized failure inste
 
   expect(terminalEvent).toMatchObject({
     type: "turn.failed",
+    session: COPILOT_REFERENCE,
     error: {
       code: "provider_failure",
       provider: "copilot",
     },
   });
-  expect(session.reference).toBeNull();
+  expect(session.reference).toEqual(COPILOT_REFERENCE);
 });
 
 test("Copilot missing terminal events time out as one normalized failure", async () => {
@@ -303,6 +304,7 @@ test("Copilot missing terminal events time out as one normalized failure", async
   expect(terminalEvents).toHaveLength(1);
   expect(terminalEvents[0]).toMatchObject({
     type: "turn.failed",
+    session: COPILOT_REFERENCE,
     error: {
       code: "provider_failure",
       message: "Timeout after 1ms waiting for Copilot session.idle.",
@@ -310,7 +312,7 @@ test("Copilot missing terminal events time out as one normalized failure", async
     },
   });
   expect(events.at(-1)).toBe(terminalEvents[0]);
-  expect(session.reference).toBeNull();
+  expect(session.reference).toEqual(COPILOT_REFERENCE);
   expect(fakeSession.abortCallCount).toBe(1);
   expect(fakeSession.handlerCount).toBe(0);
 });
@@ -346,6 +348,7 @@ test("Copilot provider failures emit one terminal event and suppress later idle 
   expect(terminalEvents).toHaveLength(1);
   expect(terminalEvents[0]).toMatchObject({
     type: "turn.failed",
+    session: COPILOT_REFERENCE,
     error: {
       code: "provider_failure",
       message: "Copilot runtime failed",
@@ -353,7 +356,7 @@ test("Copilot provider failures emit one terminal event and suppress later idle 
     },
   });
   expect(terminalEvents[0]?.raw).toBeDefined();
-  expect(session.reference).toBeNull();
+  expect(session.reference).toEqual(COPILOT_REFERENCE);
   expect(fakeSession.handlerCount).toBe(0);
 });
 
@@ -389,6 +392,7 @@ test("Copilot model call failures emit one normalized terminal failure", async (
   expect(terminalEvents).toHaveLength(1);
   expect(terminalEvents[0]).toMatchObject({
     type: "turn.failed",
+    session: COPILOT_REFERENCE,
     error: {
       code: "provider_failure",
       message: "rate limit reached",
@@ -402,7 +406,7 @@ test("Copilot model call failures emit one normalized terminal failure", async (
     },
   });
   expect(events.at(-1)).toBe(terminalEvents[0]);
-  expect(session.reference).toBeNull();
+  expect(session.reference).toEqual(COPILOT_REFERENCE);
   expect(fakeSession.handlerCount).toBe(0);
 });
 
