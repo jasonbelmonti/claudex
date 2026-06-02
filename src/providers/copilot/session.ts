@@ -202,7 +202,7 @@ export class CopilotSession implements AgentSession {
     const mappedEvents = mapCopilotSessionEvent({
       event,
       state,
-      getSessionReference: () => this.runtimeReference,
+      getSessionReference: () => this.currentReference,
     });
 
     if (state.sawTurnStarted) {
@@ -223,7 +223,7 @@ export class CopilotSession implements AgentSession {
       ...mappedEvents.slice(0, firstNonSessionStartedIndex),
       createCopilotTurnStartedEvent({
         input: state.input,
-        session: this.runtimeReference,
+        session: this.currentReference,
       }),
       ...mappedEvents.slice(firstNonSessionStartedIndex),
     ];
