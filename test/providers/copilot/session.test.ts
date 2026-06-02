@@ -311,6 +311,7 @@ test("Copilot missing terminal events time out as one normalized failure", async
   });
   expect(events.at(-1)).toBe(terminalEvents[0]);
   expect(session.reference).toBeNull();
+  expect(fakeSession.abortCallCount).toBe(1);
   expect(fakeSession.handlerCount).toBe(0);
 });
 
@@ -409,13 +410,18 @@ test("Copilot rejects attachments while image input remains unclaimed", async ()
   const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId);
   const adapter = new CopilotAdapter({
     client: new FakeCopilotClient({
+      createSessionEvents: [
+        createCopilotSessionStartEvent({
+          sessionId: COPILOT_REFERENCE.sessionId,
+        }),
+      ],
       createSessions: [fakeSession],
     }),
   });
   const session = await adapter.createSession();
 
-  await expect(
-    session.run({
+  const failedEvents = await collectEvents(
+    session.runStreamed({
       prompt: "Describe the image",
       attachments: [
         {
@@ -427,12 +433,39 @@ test("Copilot rejects attachments while image input remains unclaimed", async ()
         },
       ],
     }),
-  ).rejects.toMatchObject({
-    code: "unsupported_feature",
-    provider: "copilot",
+  );
+
+  expect(failedEvents).toHaveLength(1);
+  expect(failedEvents[0]).toMatchObject({
+    type: "turn.failed",
+    error: {
+      code: "unsupported_feature",
+      provider: "copilot",
+    },
   });
   expect(fakeSession.sentMessages).toEqual([]);
   expect(session.reference).toBeNull();
+
+  fakeSession.enqueueRun([
+    createCopilotAssistantMessageEvent({
+      content: "follow-up ok",
+    }),
+    createCopilotIdleEvent(),
+  ]);
+
+  const followUpEvents = await collectEvents(
+    session.runStreamed({
+      prompt: "Continue after rejected input",
+    }),
+  );
+
+  expect(followUpEvents.map((event) => event.type)).toEqual([
+    "session.started",
+    "turn.started",
+    "message.completed",
+    "turn.completed",
+  ]);
+  expect(session.reference).toEqual(COPILOT_REFERENCE);
 });
 
 test("Copilot abort signal calls session.abort and emits a normalized aborted failure", async () => {
