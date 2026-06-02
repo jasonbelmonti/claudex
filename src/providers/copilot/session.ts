@@ -167,7 +167,7 @@ export class CopilotSession implements AgentSession {
           state.sawTurnStarted = true;
           yield createCopilotTurnStartedEvent({
             input: state.input,
-            session: this.currentReference ?? this.runtimeReference,
+            session: this.currentReference,
           });
         }
 
