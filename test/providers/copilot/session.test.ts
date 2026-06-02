@@ -362,6 +362,42 @@ test("Copilot timeout after session start emits turn.started before failure", as
   expect(fakeSession.abortCallCount).toBe(1);
 });
 
+test("Copilot direct send failures use consistent pre-start session identity", async () => {
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId);
+  fakeSession.sendError = new Error("send failed before session start");
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({
+      createSessions: [fakeSession],
+    }),
+  });
+  const session = await adapter.createSession();
+
+  const events = await collectEvents(
+    session.runStreamed({
+      prompt: "Fail before start",
+    }),
+  );
+
+  expect(events.map((event) => event.type)).toEqual([
+    "turn.started",
+    "turn.failed",
+  ]);
+  expect(events[0]).toMatchObject({
+    type: "turn.started",
+    session: null,
+  });
+  expect(events[1]).toMatchObject({
+    type: "turn.failed",
+    session: null,
+    error: {
+      provider: "copilot",
+      message: "send failed before session start",
+    },
+  });
+  expect(session.reference).toBeNull();
+  expect(fakeSession.handlerCount).toBe(0);
+});
+
 test("Copilot provider failures emit one terminal event and suppress later idle terminals", async () => {
   const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
     [
