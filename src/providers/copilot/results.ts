@@ -16,6 +16,10 @@ export type CopilotTurnState = {
   latestMessageId?: string;
   latestMessageText: string;
   latestStructuredOutput?: unknown;
+  latestModelCallFailure?: Extract<
+    CopilotSessionEvent,
+    { type: "model.call_failure" }
+  >;
   structuredOutputError?: AgentError;
   latestUsage?: CopilotAssistantUsageEvent["data"];
   sawAssistantMessage: boolean;

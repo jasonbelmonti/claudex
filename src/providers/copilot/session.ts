@@ -96,6 +96,7 @@ export class CopilotSession implements AgentSession {
       void this.abortTurn(queue);
     };
     let sawTerminalEvent = false;
+    let sentTurn = false;
     let turnTimeout: ReturnType<typeof setTimeout> | undefined;
     const clearTurnTimeout = () => {
       if (turnTimeout !== undefined) {
@@ -122,6 +123,7 @@ export class CopilotSession implements AgentSession {
       const copilotMessage = mapTurnInputToCopilotMessage(input);
       this.enqueuePendingLifecycleEvents(queue);
       const sendPromise = this.session.send(copilotMessage);
+      sentTurn = true;
       void sendPromise.catch((error) => {
         queue.fail(error);
       });
@@ -161,6 +163,14 @@ export class CopilotSession implements AgentSession {
       }
     } catch (error) {
       if (!sawTerminalEvent) {
+        if (sentTurn && !state.sawTurnStarted) {
+          state.sawTurnStarted = true;
+          yield createCopilotTurnStartedEvent({
+            input: state.input,
+            session: this.currentReference ?? this.runtimeReference,
+          });
+        }
+
         yield this.createTurnFailedEvent(
           normalizeCopilotRunError(error, {
             signal: options.signal,

@@ -25,10 +25,6 @@ type CopilotSessionErrorEvent = Extract<
   CopilotSessionEvent,
   { type: "session.error" }
 >;
-type CopilotModelCallFailureEvent = Extract<
-  CopilotSessionEvent,
-  { type: "model.call_failure" }
->;
 type CopilotIdleEvent = Extract<CopilotSessionEvent, { type: "session.idle" }>;
 type CopilotToolStartedEvent = Extract<
   CopilotSessionEvent,
@@ -79,7 +75,8 @@ export function mapCopilotSessionEvent(params: {
     case "session.error":
       return [mapSessionErrorEvent(event, session)];
     case "model.call_failure":
-      return [mapModelCallFailureEvent(event, session)];
+      state.latestModelCallFailure = event;
+      return [];
     case "session.idle":
       return [mapIdleEvent(event, session, state)];
     default:
@@ -251,20 +248,6 @@ function mapSessionErrorEvent(
   });
 }
 
-function mapModelCallFailureEvent(
-  event: CopilotModelCallFailureEvent,
-  session: SessionReference | null,
-): AgentEvent {
-  return createCopilotTurnFailedEvent({
-    session,
-    error: createCopilotProviderError({
-      fallbackMessage:
-        event.data.errorMessage ?? "Copilot model call failed.",
-      raw: event,
-    }),
-  });
-}
-
 function mapIdleEvent(
   event: CopilotIdleEvent,
   session: SessionReference | null,
@@ -285,6 +268,18 @@ function mapIdleEvent(
   }
 
   if (!state.sawAssistantMessage) {
+    if (state.latestModelCallFailure) {
+      return createCopilotTurnFailedEvent({
+        session,
+        error: createCopilotProviderError({
+          fallbackMessage:
+            state.latestModelCallFailure.data.errorMessage ??
+            "Copilot model call failed.",
+          raw: state.latestModelCallFailure,
+        }),
+      }) as CopilotTerminalEvent;
+    }
+
     return createCopilotTurnFailedEvent({
       session,
       error: createCopilotProviderError({
