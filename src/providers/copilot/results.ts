@@ -1,4 +1,5 @@
 import type { AgentError } from "../../core/errors.js";
+import type { ToolKind } from "../../core/events.js";
 import type { JsonSchema, TurnInput } from "../../core/input.js";
 import type { AgentUsage, TurnResult } from "../../core/results.js";
 import { parseStructuredOutputText } from "../../core/schema-validation.js";
@@ -24,6 +25,7 @@ export type CopilotTurnState = {
   latestUsage?: CopilotAssistantUsageEvent["data"];
   sawAssistantMessage: boolean;
   sawTurnStarted: boolean;
+  toolMetadataByCallId: Map<string, { kind: ToolKind; toolName: string }>;
 };
 
 export function createCopilotTurnState(
@@ -36,6 +38,7 @@ export function createCopilotTurnState(
     latestMessageText: "",
     sawAssistantMessage: false,
     sawTurnStarted: false,
+    toolMetadataByCallId: new Map(),
   };
 }
 

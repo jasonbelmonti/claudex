@@ -66,12 +66,12 @@ export function mapCopilotSessionEvent(params: {
       captureCopilotUsage(state, event.data);
       return [];
     case "tool.execution_start":
-      return [mapToolStartedEvent(event, session)];
+      return [mapToolStartedEvent(event, session, state)];
     case "tool.execution_partial_result":
     case "tool.execution_progress":
       return [mapToolUpdatedEvent(event, session)];
     case "tool.execution_complete":
-      return [mapToolCompletedEvent(event, session)];
+      return [mapToolCompletedEvent(event, session, state)];
     case "session.error":
       return [mapSessionErrorEvent(event, session)];
     case "model.call_failure":
@@ -170,7 +170,14 @@ function mapAssistantMessageEvent(
 function mapToolStartedEvent(
   event: CopilotToolStartedEvent,
   session: SessionReference | null,
+  state: CopilotTurnState,
 ): AgentEvent {
+  const metadata = {
+    kind: classifyCopilotToolKind(event.data.toolName, event.data.mcpServerName),
+    toolName: event.data.toolName,
+  };
+  state.toolMetadataByCallId.set(event.data.toolCallId, metadata);
+
   return {
     type: "tool.started",
     provider: "copilot",
@@ -178,8 +185,8 @@ function mapToolStartedEvent(
     timestamp: event.timestamp,
     turnId: event.data.turnId,
     toolCallId: event.data.toolCallId,
-    toolName: event.data.toolName,
-    kind: classifyCopilotToolKind(event.data.toolName, event.data.mcpServerName),
+    toolName: metadata.toolName,
+    kind: metadata.kind,
     input: event.data.arguments,
     extensions: event.data.mcpServerName
       ? {
@@ -216,9 +223,11 @@ function mapToolUpdatedEvent(
 function mapToolCompletedEvent(
   event: CopilotToolCompletedEvent,
   session: SessionReference | null,
+  state: CopilotTurnState,
 ): AgentEvent {
-  const toolName =
-    event.data.toolDescription?.name ?? event.data.toolCallId;
+  const metadata = state.toolMetadataByCallId.get(event.data.toolCallId);
+  state.toolMetadataByCallId.delete(event.data.toolCallId);
+  const toolName = metadata?.toolName ?? event.data.toolDescription?.name ?? "unknown";
 
   return {
     type: "tool.completed",
@@ -228,7 +237,7 @@ function mapToolCompletedEvent(
     turnId: event.data.turnId,
     toolCallId: event.data.toolCallId,
     toolName,
-    kind: classifyCopilotToolKind(toolName),
+    kind: metadata?.kind ?? classifyCopilotToolKind(toolName),
     outcome: event.data.success ? "success" : "error",
     output: event.data.result?.content,
     errorMessage: event.data.error?.message,
