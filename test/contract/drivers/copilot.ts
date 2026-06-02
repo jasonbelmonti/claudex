@@ -179,6 +179,7 @@ export const COPILOT_CONTRACT_DRIVER: ContractProviderDriver = {
         messageIncludes: "did not match the requested output schema",
         rawRequired: true,
       },
+      expectedSession: STRUCTURED_FAILURE_REFERENCE,
     }),
     resume: () => ({
       createAdapter: () =>
@@ -232,6 +233,7 @@ export const COPILOT_CONTRACT_DRIVER: ContractProviderDriver = {
         messageIncludes: "Copilot runtime failed",
         rawRequired: true,
       },
+      expectedSession: PROVIDER_FAILURE_REFERENCE,
     }),
   },
   createSmokeAdapter: () => new CopilotAdapter(),
