@@ -739,6 +739,16 @@ test("Copilot abort signal calls session.abort and emits a normalized aborted fa
   const events = await eventsPromise;
   const terminalEvent = events.at(-1);
 
+  expect(events).toEqual([
+    expect.objectContaining({
+      type: "turn.started",
+      session: null,
+    }),
+    expect.objectContaining({
+      type: "turn.failed",
+      session: null,
+    }),
+  ]);
   expect(fakeSession.abortCallCount).toBe(1);
   expect(terminalEvent).toMatchObject({
     type: "turn.failed",
