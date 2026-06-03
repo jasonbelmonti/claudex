@@ -45,7 +45,8 @@ export function createCopilotCapabilities(
       },
       "event:file-change": {
         available: false,
-        notes: "Workspace file-change event mapping is deferred until Copilot turn support exists.",
+        notes:
+          "Workspace file-change event mapping is deferred until Copilot file-change semantics are verified.",
       },
       "event:todo-update": { available: false },
       "event:approval": {

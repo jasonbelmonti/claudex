@@ -1,6 +1,6 @@
 # claudex
 
-`claudex` is a Node-hosted TypeScript library that exposes one normalized API over the CLI-authenticated Claude and Codex SDKs, plus a passive `@jasonbelmonti/claudex/ingest` surface for replaying local provider artifacts.
+`claudex` is a Node-hosted TypeScript library that exposes one normalized API over the CLI-authenticated Claude, Codex, and Copilot SDKs, plus a passive `@jasonbelmonti/claudex/ingest` surface for replaying local provider artifacts.
 
 The goal is provider-agnostic orchestration, not fake parity. The stable contract covers readiness, session lifecycle, buffered and streamed turns, structured output, and normalized event/result/error shapes. Anything that does not normalize cleanly stays capability-gated or provider-specific.
 
@@ -9,7 +9,7 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 - ClaudexAdapter default resolver: merged
 - Claude adapter: merged
 - Codex adapter: merged
-- Copilot provider identity: registered; runtime adapter planned
+- Copilot adapter: merged as an opt-in beta/provider-preview path
 - Shared contract harness: merged
 - Node-based validation and package smoke checks: passing on `main`
 - Migration guidance for the Node-only major release: published in-repo
@@ -76,16 +76,22 @@ if (supportsCapability(session.capabilities, "session:fork") && session.fork) {
 
 The stable root entrypoint intentionally exposes the provider-agnostic surface.
 When you need explicit provider wiring or test doubles, pass adapters through
-`ClaudexAdapter`'s `providers` option. The `copilot` provider id is reserved as
-part of that public contract; its runtime adapter is planned for a later leaf.
+`ClaudexAdapter`'s `providers` option. Copilot is runtime-backed through
+`ClaudexAdapter`, but remains opt-in because the upstream SDK is still beta:
+
+```ts
+const copilotFirst = new ClaudexAdapter({
+  preferredProviders: ["copilot", "codex", "claude"],
+});
+```
 
 ## What The Contract Guarantees
 
 - `checkReadiness()` returns a normalized readiness object with provider status, checks, capabilities, and raw provider diagnostics.
-- `createSession()` and `resumeSession()` return an `AgentSession` with the same `run()` and `runStreamed()` surface for both providers.
+- `createSession()` and `resumeSession()` return an `AgentSession` with the same `run()` and `runStreamed()` surface for supported runtime providers.
 - `run()` returns a normalized `TurnResult`.
 - `runStreamed()` yields normalized `AgentEvent` values and normally finishes with a terminal event; consumers should treat that as the common contract shape, not as a hard duplicate-suppression guarantee.
-- Structured output accepts one JSON Schema shape for both providers and returns parsed `structuredOutput` or a typed `AgentError`.
+- Structured output accepts one JSON Schema shape for supported runtime providers and returns parsed `structuredOutput` or a typed `AgentError`.
 - Every event, result, and error preserves the originating provider and keeps raw provider payloads in `raw`. `extensions` may appear on some event shapes, but they are not a universal result/error guarantee.
 
 ## What Callers Still Need To Gate
@@ -94,10 +100,11 @@ Do not branch on provider name when a capability flag will do.
 
 - `session:fork`: Claude only
 - `attachment:image`: Codex only in v1, and only for local file paths
-- `stream:message-delta`: Claude only
+- `stream:message-delta`: Claude and Copilot only
 - `event:reasoning-summary`: Codex only in the current normalized surface
-- `event:file-change`: both providers, but payload detail differs
-- `mcp:session-descriptors`: Claude only; Codex MCP config remains available through `codex.sdkOptions.config`
+- `event:file-change`: Claude and Codex only; payload detail differs
+- `event:todo-update`: Codex only
+- `mcp:session-descriptors`: Claude and Copilot only; Codex MCP config remains available through `codex.sdkOptions.config`
 - `usage:cost`: Claude only
 
 See [docs/capability-matrix.md](./docs/capability-matrix.md) for the full matrix and [docs/consumer-guide.md](./docs/consumer-guide.md) for orchestration guidance.
@@ -146,6 +153,12 @@ To limit smoke to one provider:
 
 ```bash
 CLAUDEX_SMOKE=1 CLAUDEX_SMOKE_PROVIDERS=codex npm run test -- ./test/smoke/codex.smoke.ts
+```
+
+Copilot live smoke is explicit and depends on local Copilot auth/entitlement:
+
+```bash
+CLAUDEX_SMOKE=1 CLAUDEX_SMOKE_PROVIDERS=copilot npm run test -- ./test/smoke/copilot.smoke.ts
 ```
 
 ## CI Contract
