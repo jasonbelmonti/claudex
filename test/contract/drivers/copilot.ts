@@ -138,6 +138,12 @@ export const COPILOT_CONTRACT_DRIVER: ContractProviderDriver = {
             cachedInput: 0,
             output: 2,
           },
+          providerUsage: {
+            cacheReadTokens: 0,
+            inputTokens: 5,
+            model: "fake-copilot-model",
+            outputTokens: 2,
+          },
         },
       },
       resume: {

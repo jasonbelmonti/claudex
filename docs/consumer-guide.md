@@ -185,7 +185,7 @@ What the contract guarantees:
 This is where false parity gets expensive, so be explicit:
 
 - Image attachments: only Codex currently supports normalized image attachments, and only local file paths
-- Approval configuration: normalized at the session-option level, but approval request/resolution events are not yet normalized
+- Approval configuration is normalized at the session-option level; Copilot also normalizes permission request/completion events as approval request/resolution events
 - Session-level MCP descriptors are normalized through `SessionOptions.agentConfig.mcpServers` for Claude and Copilot
 - Codex MCP configuration remains available through `ClaudexAdapter({ codex: { sdkOptions: { config } } })`, which maps to Codex TOML-style config
 - Copilot adapter/runtime options remain available through the top-level `copilot` adapter option; per-session Copilot `sessionConfig` belongs under `providerOptions.copilot.sessionConfig` on `createSession()` or `resumeSession()` options
@@ -277,7 +277,7 @@ Outside the current ingest contract:
 
 - other provider-native logs, temp files, or extension metadata
 - Copilot local artifacts
-- live approvals, hooks, plugins, MCP state, or provider control channels
+- live approval responses, hooks, plugins, MCP state, or provider control channels
 - authoritative live session status
 
 ## 10. Choose Live SDK vs Passive Ingest

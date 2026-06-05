@@ -5,15 +5,21 @@ import type { SessionReference } from "../../../src/core/session.js";
 import { CopilotAdapter } from "../../../src/providers/copilot/adapter.js";
 import type { CopilotSessionEvent } from "../../../src/providers/copilot/types.js";
 import {
+  createCopilotAssistantReasoningDeltaEvent,
+  createCopilotAssistantReasoningEvent,
   createCopilotAssistantMessageDeltaEvent,
   createCopilotAssistantMessageEvent,
   createCopilotIdleEvent,
   createCopilotModelCallFailureEvent,
+  createCopilotPermissionCompletedEvent,
+  createCopilotPermissionRequestedEvent,
   createCopilotSessionErrorEvent,
   createCopilotSessionStartEvent,
+  createCopilotSystemMessageEvent,
   createCopilotToolExecutionCompleteEvent,
   createCopilotToolExecutionStartEvent,
   createCopilotUsageEvent,
+  createCopilotWorkspaceFileChangedEvent,
   FakeCopilotClient,
   FakeCopilotSession,
 } from "./fakes.js";
@@ -52,6 +58,8 @@ test("Copilot createSession returns a pre-run null reference and streams a succe
           inputTokens: 7,
           outputTokens: 3,
           cacheReadTokens: 1,
+          cacheWriteTokens: 2,
+          cost: 0.01,
         }),
         createCopilotIdleEvent(),
       ],
@@ -118,6 +126,14 @@ test("Copilot createSession returns a pre-run null reference and streams a succe
           input: 7,
           output: 3,
           cachedInput: 1,
+        },
+        providerUsage: {
+          cacheReadTokens: 1,
+          cacheWriteTokens: 2,
+          cost: 0.01,
+          inputTokens: 7,
+          model: "fake-copilot-model",
+          outputTokens: 3,
         },
       },
     },
@@ -645,6 +661,155 @@ test("Copilot tool completions preserve started tool metadata", async () => {
       text: "tool ok",
     },
   });
+});
+
+test("Copilot maps workspace file and approval events with sanitized metadata", async () => {
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotSessionStartEvent({
+        sessionId: COPILOT_REFERENCE.sessionId,
+      }),
+      createCopilotWorkspaceFileChangedEvent({
+        operation: "create",
+        path: "files/generated.md",
+      }),
+      createCopilotPermissionRequestedEvent({
+        permissionRequest: {
+          canOfferSessionApproval: false,
+          diff: "SECRET_DIFF",
+          fileName: "src/output.ts",
+          intention: "Update generated output",
+          kind: "write",
+          newFileContents: "SECRET_NEW_CONTENTS",
+          toolCallId: "tool-call-write",
+        },
+        requestId: "permission-1",
+      }),
+      createCopilotPermissionCompletedEvent({
+        requestId: "permission-1",
+        result: {
+          kind: "denied-by-content-exclusion-policy",
+          message: "Denied by policy",
+          path: "src/output.ts",
+        },
+        toolCallId: "tool-call-write",
+      }),
+      createCopilotAssistantMessageEvent({
+        content: "approval noted",
+      }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({
+      createSessions: [fakeSession],
+    }),
+  });
+  const session = await adapter.createSession();
+
+  const events = await collectEvents(
+    session.runStreamed({
+      prompt: "Exercise side effects",
+    }),
+  );
+
+  expect(events.map((event) => event.type)).toEqual([
+    "session.started",
+    "turn.started",
+    "file.changed",
+    "approval.requested",
+    "approval.resolved",
+    "message.completed",
+    "turn.completed",
+  ]);
+  expect(events).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        type: "file.changed",
+        changes: [
+          {
+            path: "files/generated.md",
+            changeType: "add",
+          },
+        ],
+        extensions: {
+          source: "session.workspace",
+          operation: "create",
+        },
+      }),
+      expect.objectContaining({
+        type: "approval.requested",
+        approvalId: "permission-1",
+        actionLabel: "Modify src/output.ts",
+        scope: "file",
+        reason: "Update generated output",
+        extensions: {
+          permissionKind: "write",
+          toolCallId: "tool-call-write",
+          fileName: "src/output.ts",
+          canOfferSessionApproval: false,
+        },
+      }),
+      expect.objectContaining({
+        type: "approval.resolved",
+        approvalId: "permission-1",
+        outcome: "denied",
+        reason: "Denied by policy",
+        extensions: {
+          resultKind: "denied-by-content-exclusion-policy",
+          toolCallId: "tool-call-write",
+        },
+      }),
+    ]),
+  );
+  expect(JSON.stringify(events)).not.toContain("SECRET_DIFF");
+  expect(JSON.stringify(events)).not.toContain("SECRET_NEW_CONTENTS");
+});
+
+test("Copilot omits system and reasoning payloads from normalized events by default", async () => {
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotSessionStartEvent({
+        sessionId: COPILOT_REFERENCE.sessionId,
+      }),
+      createCopilotSystemMessageEvent({
+        content: "SECRET_SYSTEM_PROMPT",
+      }),
+      createCopilotAssistantReasoningEvent({
+        content: "SECRET_REASONING_TEXT",
+      }),
+      createCopilotAssistantReasoningDeltaEvent({
+        deltaContent: "SECRET_REASONING_DELTA",
+      }),
+      createCopilotAssistantMessageEvent({
+        content: "safe answer",
+      }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({
+      createSessions: [fakeSession],
+    }),
+  });
+  const session = await adapter.createSession();
+
+  const events = await collectEvents(
+    session.runStreamed({
+      prompt: "Do not leak internals",
+    }),
+  );
+
+  expect(events.map((event) => event.type)).toEqual([
+    "session.started",
+    "turn.started",
+    "message.completed",
+    "turn.completed",
+  ]);
+  const serializedEvents = JSON.stringify(events);
+  expect(serializedEvents).not.toContain("SECRET_SYSTEM_PROMPT");
+  expect(serializedEvents).not.toContain("SECRET_REASONING_TEXT");
+  expect(serializedEvents).not.toContain("SECRET_REASONING_DELTA");
 });
 
 test("Copilot rejects attachments while image input remains unclaimed", async () => {

@@ -16,7 +16,7 @@ Definitions:
 | Completed assistant messages | Normalized | Yes | Yes | Yes | Successful streamed turns emit `message.completed` before the terminal event. |
 | Tool lifecycle events | Normalized | Yes | Yes | Yes | Runtime-backed adapters emit canonical `tool.started`, `tool.updated`, and `tool.completed` events when provider tool activity is surfaced. |
 | Token usage | Normalized | Yes | Yes | Yes | Runtime-backed adapters populate normalized token usage when the provider returns usage counters. |
-| File change events | Capability-gated | Yes | Yes | No | Claude and Codex can emit `file.changed`, but they differ in granularity and failure metadata; Copilot file-change mapping is deferred. |
+| File change events | Capability-gated | Yes | Yes | Yes | Claude, Codex, and Copilot can emit `file.changed`, but they differ in granularity and failure metadata. |
 | Session fork | Capability-gated | Yes | No | No | Claude supports `session.fork()` and `resumeStrategy: "fork"`; Codex and Copilot reject fork semantics with `unsupported_feature`. |
 | Streaming text deltas | Capability-gated | Yes | No | Yes | Claude and Copilot emit `message.delta`; Codex emits coarser item/message completion events. |
 | Auth status events | Capability-gated | Yes | No | No | Readiness is normalized for all providers; live `auth.status` events are only emitted by Claude. |
@@ -24,7 +24,7 @@ Definitions:
 | Image attachments | Capability-gated | No | Yes | No | Codex supports normalized local image paths only. Claude and Copilot image attachment normalization is deliberately deferred. |
 | Reasoning summaries | Capability-gated | No | Yes | No | Only Codex currently emits normalized reasoning-summary events. |
 | Todo updates | Capability-gated | No | Yes | No | Only Codex currently emits normalized todo-list updates. |
-| Approval request/resolution events | Capability-gated | No | No | No | Approval configuration is normalized, but no runtime-backed adapter emits stable approval request/resolution events yet. |
+| Approval request/resolution events | Capability-gated | No | No | Yes | Copilot permission request/completion events normalize to approval request/resolution events without exposing raw permission payloads. |
 | Session MCP descriptors | Capability-gated | Yes | No | Yes | `SessionOptions.agentConfig.mcpServers` maps to Claude and Copilot session config; Codex rejects it and callers should use `codex.sdkOptions.config` for TOML-style MCP config. |
 | Managed MCP servers | Provider-specific | Yes | No | No | Claude SDK options can manage dynamic MCP/server concerns; Codex and Copilot only expose narrower MCP-related activity or config mapping. |
 | Hooks and plugins | Provider-specific | Yes | No | No | Claude-specific extension systems stay outside the stable core. |

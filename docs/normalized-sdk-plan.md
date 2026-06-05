@@ -169,9 +169,9 @@ normalized.
 ### Copilot preview boundaries
 
 Copilot is runtime-backed but intentionally non-default. It currently leaves
-fork, image attachments, reasoning summaries, file-change events, approval
-events, cost telemetry, managed MCP servers, hooks, and plugins capability-gated
-off until those behaviors are verified and normalized in separate slices.
+fork, image attachments, reasoning summaries, cost telemetry, managed MCP
+servers, hooks, plugins, and interactive approval responses capability-gated off
+until those behaviors are verified and normalized in separate slices.
 
 ### Runtime compatibility
 

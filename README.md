@@ -102,8 +102,9 @@ Do not branch on provider name when a capability flag will do.
 - `attachment:image`: Codex only in v1, and only for local file paths
 - `stream:message-delta`: Claude and Copilot only
 - `event:reasoning-summary`: Codex only in the current normalized surface
-- `event:file-change`: Claude and Codex only; payload detail differs
+- `event:file-change`: Claude, Codex, and Copilot; payload detail differs
 - `event:todo-update`: Codex only
+- `event:approval`: Copilot only
 - `mcp:session-descriptors`: Claude and Copilot only; Codex MCP config remains available through `codex.sdkOptions.config`
 - `usage:cost`: Claude only
 
@@ -123,7 +124,7 @@ Supported passive sources in the current contract:
 Outside the current ingest contract:
 
 - other provider-native logs, temp files, or extension metadata
-- live approvals, hooks, plugins, MCP state, and other control-plane behavior
+- live approval responses, hooks, plugins, MCP state, and other control-plane behavior
 - authoritative live session status
 
 Use the live adapter surface when you need to start or resume sessions, or when terminal turn state must be authoritative. Use `@jasonbelmonti/claudex/ingest` when you need best-effort history backfill, watch/reconcile over local artifacts, or a read-only observability view. See [docs/consumer-guide.md](./docs/consumer-guide.md) for examples and boundary guidance.
