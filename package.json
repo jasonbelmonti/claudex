@@ -1,7 +1,7 @@
 {
   "name": "@jasonbelmonti/claudex",
   "version": "2.1.1",
-  "description": "Provider-agnostic normalized TypeScript interface over CLI-authenticated Claude and Codex SDKs.",
+  "description": "Provider-agnostic normalized TypeScript interface over CLI-authenticated Claude, Codex, and Copilot SDKs.",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,6 +22,7 @@
   "keywords": [
     "agents",
     "claude",
+    "copilot",
     "codex",
     "sdk",
     "typescript"
@@ -58,7 +59,7 @@
     "prepack": "npm run build",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:smoke": "CLAUDEX_SMOKE=1 vitest run ./test/smoke/codex.smoke.ts ./test/smoke/claude.smoke.ts",
+    "test:smoke": "CLAUDEX_SMOKE=1 vitest run ./test/smoke/codex.smoke.ts ./test/smoke/claude.smoke.ts ./test/smoke/copilot.smoke.ts",
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm run build",
     "ci": "npm run lint && npm run typecheck && npm run test:coverage",
