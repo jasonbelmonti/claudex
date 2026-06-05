@@ -1,0 +1,9 @@
+src/providers/copilot/events.ts
+src/providers/copilot/results.ts
+src/providers/copilot/capabilities.ts
+src/providers/copilot/approval-events.ts
+src/providers/copilot/file-events.ts
+test/providers/copilot/event-factories.ts
+test/providers/copilot/session.test.ts
+test/providers/copilot/readiness.test.ts
+test/contract/drivers/copilot.ts

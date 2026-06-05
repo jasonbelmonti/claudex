@@ -114,5 +114,8 @@ function mapCopilotUsage(
       output: usage.outputTokens,
       cachedInput: usage.cacheReadTokens,
     },
+    providerUsage: {
+      ...usage,
+    },
   };
 }

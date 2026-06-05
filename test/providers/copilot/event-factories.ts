@@ -27,6 +27,14 @@ type FakeCopilotAssistantUsageEvent = Extract<
   CopilotSessionEvent,
   { type: "assistant.usage" }
 >;
+type FakeCopilotAssistantReasoningEvent = Extract<
+  CopilotSessionEvent,
+  { type: "assistant.reasoning" }
+>;
+type FakeCopilotAssistantReasoningDeltaEvent = Extract<
+  CopilotSessionEvent,
+  { type: "assistant.reasoning_delta" }
+>;
 type FakeCopilotSessionErrorEvent = Extract<
   CopilotSessionEvent,
   { type: "session.error" }
@@ -42,6 +50,22 @@ type FakeCopilotToolExecutionStartEvent = Extract<
 type FakeCopilotToolExecutionCompleteEvent = Extract<
   CopilotSessionEvent,
   { type: "tool.execution_complete" }
+>;
+type FakeCopilotWorkspaceFileChangedEvent = Extract<
+  CopilotSessionEvent,
+  { type: "session.workspace_file_changed" }
+>;
+type FakeCopilotSystemMessageEvent = Extract<
+  CopilotSessionEvent,
+  { type: "system.message" }
+>;
+type FakeCopilotPermissionRequestedEvent = Extract<
+  CopilotSessionEvent,
+  { type: "permission.requested" }
+>;
+type FakeCopilotPermissionCompletedEvent = Extract<
+  CopilotSessionEvent,
+  { type: "permission.completed" }
 >;
 
 const defaultTimestamp = "2026-05-31T00:00:00.000Z";
@@ -154,6 +178,43 @@ export const createCopilotUsageEvent = ({
   },
 });
 
+export const createCopilotAssistantReasoningEvent = ({
+  content = "sensitive reasoning content",
+  id = "fake-assistant-reasoning",
+  parentId = null,
+  reasoningId = "fake-reasoning",
+  timestamp = defaultTimestamp,
+}: FakeCopilotEventMetadata & {
+  content?: string;
+  reasoningId?: string;
+} = {}): FakeCopilotAssistantReasoningEvent => ({
+  ...createEventMetadata({ id, parentId, timestamp }),
+  type: "assistant.reasoning",
+  data: {
+    content,
+    reasoningId,
+  },
+});
+
+export const createCopilotAssistantReasoningDeltaEvent = ({
+  deltaContent = "sensitive reasoning delta",
+  id = "fake-assistant-reasoning-delta",
+  parentId = null,
+  reasoningId = "fake-reasoning",
+  timestamp = defaultTimestamp,
+}: FakeCopilotEventMetadata & {
+  deltaContent?: string;
+  reasoningId?: string;
+} = {}): FakeCopilotAssistantReasoningDeltaEvent => ({
+  ...createEventMetadata({ id, parentId, timestamp }),
+  type: "assistant.reasoning_delta",
+  ephemeral: true,
+  data: {
+    deltaContent,
+    reasoningId,
+  },
+});
+
 export const createCopilotSessionErrorEvent = ({
   errorType = "query",
   id = "fake-session-error",
@@ -248,6 +309,107 @@ export const createCopilotToolExecutionCompleteEvent = ({
     success,
     toolCallId,
     turnId,
+  },
+});
+
+export const createCopilotWorkspaceFileChangedEvent = ({
+  id = "fake-workspace-file-changed",
+  operation = "update",
+  parentId = null,
+  path = "notes.md",
+  timestamp = defaultTimestamp,
+}: FakeCopilotEventMetadata & {
+  operation?: FakeCopilotWorkspaceFileChangedEvent["data"]["operation"];
+  path?: string;
+} = {}): FakeCopilotWorkspaceFileChangedEvent => ({
+  ...createEventMetadata({ id, parentId, timestamp }),
+  type: "session.workspace_file_changed",
+  data: {
+    operation,
+    path,
+  },
+});
+
+export const createCopilotSystemMessageEvent = ({
+  content = "sensitive internal prompt",
+  id = "fake-system-message",
+  name = "runtime",
+  parentId = null,
+  role = "system",
+  timestamp = defaultTimestamp,
+}: FakeCopilotEventMetadata & {
+  content?: string;
+  name?: string;
+  role?: FakeCopilotSystemMessageEvent["data"]["role"];
+} = {}): FakeCopilotSystemMessageEvent => ({
+  ...createEventMetadata({ id, parentId, timestamp }),
+  type: "system.message",
+  data: {
+    content,
+    name,
+    role,
+  },
+});
+
+export const createCopilotPermissionRequestedEvent = ({
+  id = "fake-permission-requested",
+  parentId = null,
+  permissionRequest,
+  promptRequest,
+  requestId = "fake-permission",
+  resolvedByHook,
+  timestamp = defaultTimestamp,
+}: FakeCopilotEventMetadata & {
+  permissionRequest?: FakeCopilotPermissionRequestedEvent["data"]["permissionRequest"];
+  promptRequest?: FakeCopilotPermissionRequestedEvent["data"]["promptRequest"];
+  requestId?: string;
+  resolvedByHook?: boolean;
+} = {}): FakeCopilotPermissionRequestedEvent => ({
+  ...createEventMetadata({ id, parentId, timestamp }),
+  type: "permission.requested",
+  data: {
+    permissionRequest:
+      permissionRequest ??
+      ({
+        canOfferSessionApproval: true,
+        commands: [
+          {
+            identifier: "npm",
+            readOnly: false,
+          },
+        ],
+        fullCommandText: "npm test",
+        hasWriteFileRedirection: false,
+        intention: "Run the test suite",
+        kind: "shell",
+        possiblePaths: [],
+        possibleUrls: [],
+        toolCallId: "tool-call-1",
+      } satisfies FakeCopilotPermissionRequestedEvent["data"]["permissionRequest"]),
+    ...(promptRequest === undefined ? {} : { promptRequest }),
+    requestId,
+    ...(resolvedByHook === undefined ? {} : { resolvedByHook }),
+  },
+});
+
+export const createCopilotPermissionCompletedEvent = ({
+  id = "fake-permission-completed",
+  parentId = null,
+  requestId = "fake-permission",
+  result = { kind: "approved" },
+  timestamp = defaultTimestamp,
+  toolCallId = "tool-call-1",
+}: FakeCopilotEventMetadata & {
+  requestId?: string;
+  result?: FakeCopilotPermissionCompletedEvent["data"]["result"];
+  toolCallId?: string;
+} = {}): FakeCopilotPermissionCompletedEvent => ({
+  ...createEventMetadata({ id, parentId, timestamp }),
+  type: "permission.completed",
+  data: {
+    requestId,
+    result,
+    toolCallId,
   },
 });
 

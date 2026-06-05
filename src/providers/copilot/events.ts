@@ -1,6 +1,11 @@
 import type { AgentEvent, ToolKind } from "../../core/events.js";
 import type { SessionReference } from "../../core/session.js";
+import {
+  mapCopilotPermissionCompletedEvent,
+  mapCopilotPermissionRequestedEvent,
+} from "./approval-events.js";
 import { createCopilotAbortedError, createCopilotProviderError } from "./errors.js";
+import { mapCopilotWorkspaceFileChangedEvent } from "./file-events.js";
 import {
   buildCopilotTurnResult,
   captureCopilotAssistantMessage,
@@ -62,6 +67,10 @@ export function mapCopilotSessionEvent(params: {
       return [mapAssistantMessageDeltaEvent(event, session)];
     case "assistant.message":
       return [mapAssistantMessageEvent(event, session, state)];
+    case "assistant.reasoning":
+    case "assistant.reasoning_delta":
+    case "system.message":
+      return [];
     case "assistant.usage":
       captureCopilotUsage(state, event.data);
       return [];
@@ -72,6 +81,12 @@ export function mapCopilotSessionEvent(params: {
       return [mapToolUpdatedEvent(event, session)];
     case "tool.execution_complete":
       return [mapToolCompletedEvent(event, session, state)];
+    case "session.workspace_file_changed":
+      return [mapCopilotWorkspaceFileChangedEvent(event, session)];
+    case "permission.requested":
+      return [mapCopilotPermissionRequestedEvent(event, session)];
+    case "permission.completed":
+      return [mapCopilotPermissionCompletedEvent(event, session)];
     case "session.error":
       return [mapSessionErrorEvent(event, session)];
     case "model.call_failure":

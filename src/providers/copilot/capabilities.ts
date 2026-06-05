@@ -44,13 +44,15 @@ export function createCopilotCapabilities(
           "Copilot tool execution events are normalized into canonical tool lifecycle events.",
       },
       "event:file-change": {
-        available: false,
-        notes: "Workspace file-change event mapping is deferred until Copilot turn support exists.",
+        available: true,
+        notes:
+          "Copilot session.workspace_file_changed events are normalized as session-workspace file changes.",
       },
       "event:todo-update": { available: false },
       "event:approval": {
-        available: false,
-        notes: "Approval request handling needs a normalized response design before exposure.",
+        available: true,
+        notes:
+          "Copilot permission request and completion events are normalized without exposing full raw permission payloads.",
       },
       "event:auth-status": {
         available: false,
