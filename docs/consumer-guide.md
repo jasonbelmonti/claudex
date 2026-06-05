@@ -1,6 +1,6 @@
 # Consumer Guide
 
-This guide is for orchestration and agent-console consumers that want one surface over Claude and Codex without pretending the providers are identical. It covers both the live SDK adapters and the passive `@jasonbelmonti/claudex/ingest` observation surface.
+This guide is for orchestration and agent-console consumers that want one live SDK surface over Claude, Codex, and Copilot without pretending the providers are identical. It also covers the passive `@jasonbelmonti/claudex/ingest` observation surface, which currently replays local Claude and Codex artifacts only.
 
 ## Runtime And Packaging Expectations
 
@@ -37,11 +37,23 @@ const adapter = new ClaudexAdapter();
 the selected provider after `checkReadiness()`, `createSession()`, or
 `resumeSession()`.
 
-Use `preferredProviders` when you already know the order you want, and use the
-`providers` option when you need explicit adapter injection or test doubles.
+Use `preferredProviders` when you already know the order you want. Copilot is
+runtime-backed but intentionally non-default because the upstream SDK is still
+beta/provider-preview:
 
-All adapters in v1 assume CLI-authenticated local environments. API-key and
-env-based auth are intentionally out of scope.
+```ts
+const adapter = new ClaudexAdapter({
+  preferredProviders: ["copilot", "codex", "claude"],
+});
+```
+
+Use the `providers` option when you need explicit adapter injection or test
+doubles. Provider-specific options can be passed through the opaque `claude`,
+`codex`, and `copilot` option keys without importing provider SDK types from the
+root package entrypoint.
+
+All runtime-backed adapters assume CLI-authenticated local environments. API-key
+and env-based auth are intentionally out of scope.
 
 ## 2. Treat Readiness As A First-Class Gate
 
@@ -96,7 +108,9 @@ High-value capability checks in the current surface:
 - `attachment:image`
 - `stream:message-delta`
 - `event:reasoning-summary`
+- `event:file-change`
 - `event:todo-update`
+- `event:approval`
 - `event:auth-status`
 - `mcp:session-descriptors`
 - `usage:cost`
@@ -132,6 +146,7 @@ For consumers rendering live agent output, these invariants are the useful part:
 Capability-gated stream behavior:
 
 - Claude emits `message.delta`
+- Copilot emits `message.delta` when SDK streaming is enabled
 - Codex does not guarantee `message.delta`, but does emit completed assistant messages and other lifecycle events
 - plain resume should not emit `session.started`
 - forked resume should emit `session.started`
@@ -160,8 +175,8 @@ const result = await session.run(
 
 What the contract guarantees:
 
-- both providers parse the returned JSON
-- both providers validate it against the supplied schema
+- runtime-backed providers parse the returned JSON
+- runtime-backed providers validate it against the supplied schema
 - invalid JSON or schema mismatch becomes a typed `AgentError`
 - Claude may synthesize `result.text` from structured output if the SDK omits terminal text
 
@@ -170,9 +185,10 @@ What the contract guarantees:
 This is where false parity gets expensive, so be explicit:
 
 - Image attachments: only Codex currently supports normalized image attachments, and only local file paths
-- Approval configuration: normalized at the session-option level, but approval request/resolution events are not yet normalized
-- Session-level MCP descriptors are normalized through `SessionOptions.agentConfig.mcpServers` for Claude only
+- Approval configuration is normalized at the session-option level; Copilot also normalizes permission request/completion events as approval request/resolution events
+- Session-level MCP descriptors are normalized through `SessionOptions.agentConfig.mcpServers` for Claude and Copilot
 - Codex MCP configuration remains available through `ClaudexAdapter({ codex: { sdkOptions: { config } } })`, which maps to Codex TOML-style config
+- Copilot adapter/runtime options remain available through the top-level `copilot` adapter option; per-session Copilot `sessionConfig` belongs under `providerOptions.copilot.sessionConfig` on `createSession()` or `resumeSession()` options
 - Skills, MCP management, hooks, plugins, and other provider-native extension systems remain outside the stable core
 
 If you need those advanced surfaces:
@@ -200,7 +216,7 @@ const session = await adapter.createSession({
 
 ## 8. Passive Ingest Is Observation, Not Control
 
-`@jasonbelmonti/claudex/ingest` is the read-only companion surface for replaying local Claude and Codex artifacts after the fact. It emits `ObservedIngestRecord` envelopes and does not create sessions, resume sessions, send turns, or represent authoritative live control state.
+`@jasonbelmonti/claudex/ingest` is the read-only companion surface for replaying local Claude and Codex artifacts after the fact. It emits `ObservedIngestRecord` envelopes and does not create sessions, resume sessions, send turns, or represent authoritative live control state. Copilot live SDK support does not imply Copilot passive-ingest support.
 
 ```ts
 import {
@@ -260,7 +276,8 @@ Supported by the current ingest contract:
 Outside the current ingest contract:
 
 - other provider-native logs, temp files, or extension metadata
-- live approvals, hooks, plugins, MCP state, or provider control channels
+- Copilot local artifacts
+- live approval responses, hooks, plugins, MCP state, or provider control channels
 - authoritative live session status
 
 ## 10. Choose Live SDK vs Passive Ingest
