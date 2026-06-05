@@ -1,6 +1,6 @@
 # Node-Only Migration Guide
 
-This guide captures the support-policy change for the next semver-major
+This guide captures the support-policy change for the 3.0.0
 `@jasonbelmonti/claudex` release line.
 
 ## What Is Changing
@@ -9,15 +9,18 @@ This guide captures the support-policy change for the next semver-major
 - Repository development, validation, and package smoke checks run on standard
   Node workflows.
 - The package remains ESM-only.
-- The next major release line should be read as a Node-only release, not as a
+- The 3.0.0 release line should be read as a Node-only release, not as a
   Bun-first package with a Node fallback.
 
 ## Why This Is A Breaking Change
 
 `claudex` 1.x positioned Bun as the supported host runtime for the package and
-repository tooling. The next major line removes that support policy and treats
-Node as the maintained execution path for local development, CI verification,
+repository tooling. The 3.0.0 line removes that support policy and treats Node
+as the maintained execution path for local development, CI verification,
 package smoke checks, and release automation.
+
+For consumers already on 2.x, 3.0.0 also raises the published package metadata
+from `engines.node >=18` to `engines.node >=20`.
 
 If you currently rely on Bun for `claudex` execution, a successful local run is
 no longer enough to treat that setup as supported. The maintenance contract,
@@ -31,13 +34,12 @@ repro steps, and release validation all assume Node.
 - the package is ESM-only
 
 As of April 30, 2025, upstream Node 18 is end-of-life. The package metadata now
-matches the maintained release floor, so consumers adopting the next major
-release should plan on Node 20 or newer.
+matches the maintained release floor, so consumers adopting 3.0.0 should plan
+on Node 20 or newer.
 
 ## What Downstream Consumers Should Change
 
-1. Move execution to a standard Node runtime before adopting the next major
-   `claudex` release.
+1. Move execution to a standard Node runtime before adopting `claudex` 3.0.0.
 2. Update installation, CI, and local maintenance commands to use Node package
    workflows such as `npm install`, `npm ci`, `npm test`, and `npm run ...`.
 3. Treat the package as ESM-only. If your application is still CommonJS-only,
@@ -60,7 +62,9 @@ release should plan on Node 20 or newer.
 
 For release notes or migration callouts, the headline should be:
 
-- `@jasonbelmonti/claudex` next major release is Node-only and ESM-only.
+- `@jasonbelmonti/claudex` 3.0.0 is Node-only and ESM-only.
 - Bun is removed from the supported runtime and repository validation surface.
 - Downstream consumers should migrate their install, CI, and smoke flows to
   Node before adopting the release.
+- Consumers pinned to Node 18 should upgrade to Node 20 or newer before moving
+  to 3.0.0.

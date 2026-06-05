@@ -20,6 +20,7 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 - Implementation record: [docs/normalized-sdk-plan.md](./docs/normalized-sdk-plan.md)
 - Verified capability matrix: [docs/capability-matrix.md](./docs/capability-matrix.md)
 - Consumer guide: [docs/consumer-guide.md](./docs/consumer-guide.md)
+- Release notes: [docs/release-notes/3.0.0.md](./docs/release-notes/3.0.0.md)
 
 ## Install
 
@@ -27,7 +28,7 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 npm install @jasonbelmonti/claudex
 ```
 
-`main` now tracks the Node-only release line for `@jasonbelmonti/claudex`.
+`main` now tracks the 3.0.0 Node-only release line for `@jasonbelmonti/claudex`.
 The package is ESM-only, repository validation runs on standard Node workflows,
 and Bun is no longer part of the supported runtime or maintenance contract.
 
@@ -39,7 +40,7 @@ and Bun is no longer part of the supported runtime or maintenance contract.
 
 If you are upgrading from the Bun-first 1.x line or running on an older Node
 release, read [docs/node-only-migration.md](./docs/node-only-migration.md)
-before adopting the next semver-major version.
+before adopting version 3.0.0.
 
 ## Quick Start
 
@@ -99,7 +100,7 @@ const copilotFirst = new ClaudexAdapter({
 Do not branch on provider name when a capability flag will do.
 
 - `session:fork`: Claude only
-- `attachment:image`: Codex only in v1, and only for local file paths
+- `attachment:image`: Codex only in the current surface, and only for local file paths
 - `stream:message-delta`: Claude and Copilot only
 - `event:reasoning-summary`: Codex only in the current normalized surface
 - `event:file-change`: Claude, Codex, and Copilot; payload detail differs
