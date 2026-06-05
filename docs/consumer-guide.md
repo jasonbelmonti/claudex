@@ -4,8 +4,7 @@ This guide is for orchestration and agent-console consumers that want one live S
 
 ## Runtime And Packaging Expectations
 
-The current `main` branch tracks the Node-only major release line for
-`@jasonbelmonti/claudex`.
+The 3.0.0 release line for `@jasonbelmonti/claudex` is Node-only.
 
 - Use a standard Node runtime for supported execution and validation.
 - Treat the package as ESM-only. Use `import` in ESM projects or dynamic
@@ -17,6 +16,10 @@ The current `main` branch tracks the Node-only major release line for
 
 If you are migrating from the Bun-first 1.x line, start with
 [docs/node-only-migration.md](./node-only-migration.md).
+
+If you are upgrading from 2.x, verify Node 20 or newer before installing 3.0.0
+and update any exhaustive `ProviderId` handling for the new `copilot` provider
+identity.
 
 ## 1. Default To ClaudexAdapter
 
