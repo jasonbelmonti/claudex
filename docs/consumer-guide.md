@@ -4,22 +4,23 @@ This guide is for orchestration and agent-console consumers that want one live S
 
 ## Runtime And Packaging Expectations
 
-The 3.0.0 release line for `@jasonbelmonti/claudex` is Node-only.
+`@jasonbelmonti/claudex` is Node-only.
 
 - Use a standard Node runtime for supported execution and validation.
 - Treat the package as ESM-only. Use `import` in ESM projects or dynamic
   `import()` from CommonJS.
-- Repository CI verifies the currently supported Node release lines 20, 22, and
-  24. Package metadata declares `engines.node >=20`, so consumers with an older
-  floor pinned in internal tooling should read the migration guidance before
-  upgrading.
+- Repository CI verifies Node 20.19.0, Node 22.12.0, and the currently
+  supported Node 24 release line. Package metadata declares
+  `engines.node ^20.19.0 || >=22.12.0`, so consumers with an older floor pinned
+  in internal tooling should read the migration guidance before upgrading.
 
 If you are migrating from the Bun-first 1.x line, start with
 [docs/node-only-migration.md](./node-only-migration.md).
 
-If you are upgrading from 2.x, verify Node 20 or newer before installing 3.0.0
-and update any exhaustive `ProviderId` handling for the new `copilot` provider
-identity.
+If you are upgrading from 2.x or early 3.x, verify Node 20.19.0 or newer on
+Node 20, or Node 22.12.0 or newer on Node 22, before installing 4.0.0 or newer.
+Consumers upgrading from 2.x must also update any exhaustive `ProviderId`
+handling for the `copilot` provider identity introduced in 3.0.0.
 
 ## 1. Default To ClaudexAdapter
 
@@ -41,8 +42,8 @@ the selected provider after `checkReadiness()`, `createSession()`, or
 `resumeSession()`.
 
 Use `preferredProviders` when you already know the order you want. Copilot is
-runtime-backed but intentionally non-default because the upstream SDK is still
-beta/provider-preview:
+runtime-backed but intentionally non-default because it still depends on local
+Copilot auth, entitlement, and provider-specific readiness:
 
 ```ts
 const adapter = new ClaudexAdapter({

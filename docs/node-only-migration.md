@@ -26,20 +26,32 @@ If you currently rely on Bun for `claudex` execution, a successful local run is
 no longer enough to treat that setup as supported. The maintenance contract,
 repro steps, and release validation all assume Node.
 
-## Runtime Support Policy
+## Runtime Support Policy For 3.0.0
 
 - `package.json` declares `engines.node >=20`
-- repository CI verifies the currently supported upstream Node lines: 20, 22,
-  and 24
+- repository CI verifies the supported upstream Node 20, 22, and 24 lines
 - the package is ESM-only
 
 As of April 30, 2025, upstream Node 18 is end-of-life. The package metadata now
-matches the maintained release floor, so consumers adopting 3.0.0 should plan
-on Node 20 or newer.
+matches the maintained release floor, so consumers adopting the 3.x line should
+plan on Node 20 or newer.
+
+## Runtime Support Policy For 4.0.0
+
+Version 4.0.0 applies the July 2026 provider SDK refresh and raises the runtime
+floor to match `@github/copilot-sdk@1.0.5`:
+
+- `package.json` declares `engines.node ^20.19.0 || >=22.12.0`
+- repository CI verifies Node 20.19.0, Node 22.12.0, and the currently
+  supported upstream Node 24 line
+
+Consumers adopting 4.0.0 or newer should plan on Node 20.19.0 or newer on Node
+20, or Node 22.12.0 or newer on Node 22.
 
 ## What Downstream Consumers Should Change
 
-1. Move execution to a standard Node runtime before adopting `claudex` 3.0.0.
+1. Move execution to a standard supported Node runtime before adopting `claudex`
+   3.0.0 or newer.
 2. Update installation, CI, and local maintenance commands to use Node package
    workflows such as `npm install`, `npm ci`, `npm test`, and `npm run ...`.
 3. Treat the package as ESM-only. If your application is still CommonJS-only,
@@ -68,3 +80,6 @@ For release notes or migration callouts, the headline should be:
   Node before adopting the release.
 - Consumers pinned to Node 18 should upgrade to Node 20 or newer before moving
   to 3.0.0.
+- Consumers on early Node 20 or early Node 22 should upgrade to Node 20.19.0 or
+  newer on Node 20, or Node 22.12.0 or newer on Node 22, before moving to 4.0.0
+  or newer.
