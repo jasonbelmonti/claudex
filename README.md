@@ -9,7 +9,7 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 - ClaudexAdapter default resolver: merged
 - Claude adapter: merged
 - Codex adapter: merged
-- Copilot adapter: merged as an opt-in beta/provider-preview path
+- Copilot adapter: merged as an opt-in provider-preview path
 - Shared contract harness: merged
 - Node-based validation and package smoke checks: passing on `main`
 - Migration guidance for the Node-only major release: published in-repo
@@ -21,6 +21,7 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 - Verified capability matrix: [docs/capability-matrix.md](./docs/capability-matrix.md)
 - Consumer guide: [docs/consumer-guide.md](./docs/consumer-guide.md)
 - Release notes: [docs/release-notes/3.0.0.md](./docs/release-notes/3.0.0.md)
+- 4.0.0 release notes: [docs/release-notes/4.0.0.md](./docs/release-notes/4.0.0.md)
 
 ## Install
 
@@ -28,19 +29,21 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 npm install @jasonbelmonti/claudex
 ```
 
-`main` now tracks the 3.0.0 Node-only release line for `@jasonbelmonti/claudex`.
+`@jasonbelmonti/claudex` 3.0.0 moved the package to a Node-only release line.
+Version 4.0.0 raises the supported Node floor for the provider SDK refresh.
 The package is ESM-only, repository validation runs on standard Node workflows,
 and Bun is no longer part of the supported runtime or maintenance contract.
 
 ## Runtime And Module Requirements
 
-- Package metadata declares `engines.node >=20`.
-- Repository CI verifies the currently supported Node release lines: 20, 22, and 24.
+- Package metadata declares `engines.node ^20.19.0 || >=22.12.0`.
+- Repository CI verifies Node 20.19.0, Node 22.12.0, and the currently supported Node 24 release line.
 - The package is ESM-only. CommonJS consumers must use dynamic `import()` or an ESM bridge.
 
-If you are upgrading from the Bun-first 1.x line or running on an older Node
-release, read [docs/node-only-migration.md](./docs/node-only-migration.md)
-before adopting version 3.0.0.
+If you are upgrading from the Bun-first 1.x line, read
+[docs/node-only-migration.md](./docs/node-only-migration.md) before adopting
+version 3.0.0 or newer. If you are on early Node 20 or early Node 22, upgrade
+before adopting version 4.0.0 or newer.
 
 ## Quick Start
 
@@ -78,7 +81,8 @@ if (supportsCapability(session.capabilities, "session:fork") && session.fork) {
 The stable root entrypoint intentionally exposes the provider-agnostic surface.
 When you need explicit provider wiring or test doubles, pass adapters through
 `ClaudexAdapter`'s `providers` option. Copilot is runtime-backed through
-`ClaudexAdapter`, but remains opt-in because the upstream SDK is still beta:
+`ClaudexAdapter`, but remains opt-in because provider-specific surfaces still
+need explicit readiness and entitlement checks:
 
 ```ts
 const copilotFirst = new ClaudexAdapter({
@@ -168,10 +172,10 @@ CLAUDEX_SMOKE=1 CLAUDEX_SMOKE_PROVIDERS=copilot npm run test -- ./test/smoke/cop
 Pull requests and pushes to `main` run the repository CI contract from
 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml):
 
-- Node 20, 22, and 24 baseline verification via `npm run check`
-- Node 20 and 22 test-suite verification via `npm test`
+- Node 20.19.0, 22.12.0, and 24 baseline verification via `npm run check`
+- Node 20.19.0 and 22.12.0 test-suite verification via `npm test`
 - Node 24 coverage via `npm run test:coverage`
-- Node 20, 22, and 24 packed-artifact verification via `npm run package:check`
+- Node 20.19.0, 22.12.0, and 24 packed-artifact verification via `npm run package:check`
 
 To reproduce the full CI command set locally on a supported Node release:
 

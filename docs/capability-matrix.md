@@ -48,7 +48,7 @@ These are intentional differences, not bugs to paper over:
 - Claude supports session fork; Codex and Copilot do not.
 - Codex accepts normalized local image paths; Claude and Copilot image attachment normalization remains off until it is verified end-to-end.
 - Claude can expose auth and richer extension surfaces; Codex is narrower but emits stronger reasoning/todo coverage in the normalized stream.
-- Copilot is runtime-backed but remains opt-in because the upstream SDK is beta/provider-preview and several advanced event surfaces remain deferred.
+- Copilot is runtime-backed but remains opt-in because it depends on local Copilot auth/entitlement and several advanced event surfaces remain deferred.
 
 ## Consumer Rule Of Thumb
 
