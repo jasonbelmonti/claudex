@@ -38,6 +38,8 @@ These behaviors are enforced by the shared contract harness:
 3. Newly created sessions mint a resumable `SessionReference` that can actually be resumed in a later turn.
 4. Plain resume does not emit `session.started`; forked resume does.
 5. Failure paths preserve provider identity, raw provider payloads, and session references once the session has been minted.
+6. Codex rejects provider completion without a nonblank completed assistant message and classifies empty completion separately from a stream that ends without a terminal event.
+7. Codex terminal failures preserve `provider_failure` while exposing only allowlisted `details.failureKind` and minted `details.sessionId` diagnostics.
 
 ## Known Non-Parity To Preserve
 

@@ -374,6 +374,82 @@ test("runStreamed emits turn.failed when the SDK throws before streaming", async
   });
 });
 
+test.each([
+  ["missing", undefined],
+  ["whitespace-only", " \n\t"],
+])(
+  "runStreamed rejects a %s completed assistant message",
+  async (_description, messageText) => {
+    const terminalEvent = {
+      type: "turn.completed" as const,
+      usage: {
+        input_tokens: 2,
+        cached_input_tokens: 0,
+        reasoning_output_tokens: 0,
+        output_tokens: 0,
+      },
+    };
+    const threadEvents = [
+      {
+        type: "thread.started" as const,
+        thread_id: "thread-empty-completion-1",
+      },
+      {
+        type: "turn.started" as const,
+      },
+      ...(messageText === undefined
+        ? []
+        : [
+            {
+              type: "item.completed" as const,
+              item: {
+                id: "message-empty-1",
+                type: "agent_message" as const,
+                text: messageText,
+              },
+            },
+          ]),
+      terminalEvent,
+    ];
+    const adapter = new CodexAdapter({
+      client: new FakeCodexClient([
+        new FakeCodexThread([threadEvents]),
+      ]),
+    });
+    const session = await adapter.createSession();
+    const events = [];
+
+    for await (const event of session.runStreamed({ prompt: "Respond" })) {
+      events.push(event);
+    }
+
+    expect(events.at(-1)).toMatchObject({
+      type: "turn.failed",
+      session: {
+        provider: "codex",
+        sessionId: "thread-empty-completion-1",
+      },
+      error: {
+        code: "provider_failure",
+        provider: "codex",
+        message: "Codex completed without a nonblank assistant message.",
+        details: {
+          failureKind: "completed_without_agent_message",
+          sessionId: "thread-empty-completion-1",
+        },
+        raw: terminalEvent,
+      },
+      raw: terminalEvent,
+    });
+    expect(
+      events.filter(
+        (event) =>
+          event.type === "turn.completed" || event.type === "turn.failed",
+      ),
+    ).toHaveLength(1);
+  },
+);
+
 test("runStreamed synthesizes turn.failed when the stream ends without a terminal event", async () => {
   const adapter = new CodexAdapter({
     client: new FakeCodexClient([
@@ -415,9 +491,17 @@ test("runStreamed synthesizes turn.failed when the stream ends without a termina
   ]);
   expect(events.at(-1)).toMatchObject({
     type: "turn.failed",
+    session: {
+      provider: "codex",
+      sessionId: "thread-events-3",
+    },
     error: expect.objectContaining({
       code: "provider_failure",
       message: "Codex stream ended without a terminal turn event.",
+      details: {
+        failureKind: "stream_ended_without_terminal",
+        sessionId: "thread-events-3",
+      },
     }),
   });
 });

@@ -1,14 +1,15 @@
-import type { AgentEvent } from "../../core/events.js";
-import { AgentError } from "../../core/errors.js";
-import type { TurnInput, TurnOptions } from "../../core/input.js";
 import type { ProviderCapabilities } from "../../core/capabilities.js";
-import type { AgentSession } from "../../core/session.js";
+import { AgentError } from "../../core/errors.js";
+import type { AgentEvent } from "../../core/events.js";
+import type { TurnInput, TurnOptions } from "../../core/input.js";
 import type { TurnResult } from "../../core/results.js";
+import type { AgentSession } from "../../core/session.js";
 import { normalizeCodexRunError } from "./errors.js";
-import { mapTurnInputToCodexInput, mapTurnOptionsToCodexTurnOptions } from "./input.js";
 import { mapCodexThreadEvent } from "./events.js";
+import { mapTurnInputToCodexInput, mapTurnOptionsToCodexTurnOptions } from "./input.js";
 import { createCodexSessionReference } from "./references.js";
 import { createCodexTurnState } from "./state.js";
+import { createCodexTerminalFailure } from "./terminal-failures.js";
 import type { CodexThreadLike } from "./types.js";
 
 export class CodexSession implements AgentSession {
@@ -99,10 +100,9 @@ export class CodexSession implements AgentSession {
 
     if (!sawTerminalEvent) {
       yield this.createTurnFailedEvent(
-        new AgentError({
-          code: "provider_failure",
-          provider: "codex",
-          message: "Codex stream ended without a terminal turn event.",
+        createCodexTerminalFailure({
+          failureKind: "stream_ended_without_terminal",
+          session: this.reference,
         }),
       );
     }
