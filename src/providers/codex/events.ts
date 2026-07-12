@@ -1,8 +1,8 @@
 import type {
-  ThreadEvent,
-  ThreadErrorEvent,
   TurnCompletedEvent as CodexTurnCompletedEvent,
   TurnFailedEvent as CodexTurnFailedEvent,
+  ThreadErrorEvent,
+  ThreadEvent,
 } from "@openai/codex-sdk";
 
 import { AgentError } from "../../core/errors.js";
@@ -11,6 +11,7 @@ import type { SessionReference } from "../../core/session.js";
 import { mapCodexItemEvent } from "./item-events.js";
 import { buildCodexTurnResult } from "./results.js";
 import type { CodexTurnState } from "./state.js";
+import { createCodexTerminalFailure } from "./terminal-failures.js";
 
 type GetSessionReference = () => SessionReference | null;
 
@@ -84,6 +85,22 @@ function mapCodexTurnCompletedEvent(params: {
   state: CodexTurnState;
 }): AgentEvent[] {
   const { event, session, state } = params;
+
+  if (!state.latestMessageText.trim()) {
+    return [
+      {
+        type: "turn.failed",
+        provider: "codex",
+        session,
+        error: createCodexTerminalFailure({
+          failureKind: "completed_without_agent_message",
+          session,
+          raw: event,
+        }),
+        raw: event,
+      },
+    ];
+  }
 
   if (state.structuredOutputError) {
     return [

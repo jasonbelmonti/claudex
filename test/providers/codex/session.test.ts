@@ -336,3 +336,95 @@ test("run rejects unsupported inline image attachments", async () => {
     }),
   ).rejects.toBeInstanceOf(AgentError);
 });
+
+test.each([
+  ["missing", undefined],
+  ["whitespace-only", " \n\t"],
+])("run rejects a %s completed assistant message", async (_description, text) => {
+  const threadEvents = [
+    {
+      type: "thread.started" as const,
+      thread_id: "thread-empty-run-1",
+    },
+    {
+      type: "turn.started" as const,
+    },
+    ...(text === undefined
+      ? []
+      : [
+          {
+            type: "item.completed" as const,
+            item: {
+              id: "message-empty-1",
+              type: "agent_message" as const,
+              text,
+            },
+          },
+        ]),
+    {
+      type: "turn.completed" as const,
+      usage: {
+        input_tokens: 1,
+        cached_input_tokens: 0,
+        reasoning_output_tokens: 0,
+        output_tokens: 0,
+      },
+    },
+  ];
+  const adapter = new CodexAdapter({
+    client: new FakeCodexClient([
+      new FakeCodexThread([threadEvents]),
+    ]),
+  });
+  const session = await adapter.createSession();
+
+  await expect(session.run({ prompt: "Respond" })).rejects.toMatchObject({
+    code: "provider_failure",
+    provider: "codex",
+    details: {
+      failureKind: "completed_without_agent_message",
+      sessionId: "thread-empty-run-1",
+    },
+  });
+});
+
+test("run preserves exact nonblank assistant response bytes", async () => {
+  const response = "  exact response bytes  \n";
+  const adapter = new CodexAdapter({
+    client: new FakeCodexClient([
+      new FakeCodexThread([
+        [
+          {
+            type: "thread.started",
+            thread_id: "thread-exact-response-1",
+          },
+          {
+            type: "turn.started",
+          },
+          {
+            type: "item.completed",
+            item: {
+              id: "message-exact-1",
+              type: "agent_message",
+              text: response,
+            },
+          },
+          {
+            type: "turn.completed",
+            usage: {
+              input_tokens: 1,
+              cached_input_tokens: 0,
+              reasoning_output_tokens: 0,
+              output_tokens: 4,
+            },
+          },
+        ],
+      ]),
+    ]),
+  });
+  const session = await adapter.createSession();
+
+  await expect(session.run({ prompt: "Respond exactly" })).resolves.toMatchObject({
+    text: response,
+  });
+});

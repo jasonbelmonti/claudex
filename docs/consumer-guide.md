@@ -144,6 +144,8 @@ For consumers rendering live agent output, these invariants are the useful part:
 - the terminal event is the last event in the stream
 - successful streamed turns emit `turn.started`
 - successful streamed turns emit `message.completed` before `turn.completed`
+- Codex only completes successfully after a nonblank completed assistant message;
+  missing or whitespace-only completion becomes `turn.failed`
 - `turn.started.input` preserves the normalized turn input
 - provider identity is preserved on every event, result, and error
 
@@ -154,6 +156,19 @@ Capability-gated stream behavior:
 - Codex does not guarantee `message.delta`, but does emit completed assistant messages and other lifecycle events
 - plain resume should not emit `session.started`
 - forked resume should emit `session.started`
+
+Codex terminal failures keep the normalized `provider_failure` code and expose
+only allowlisted diagnostics in `AgentError.details`:
+
+- `failureKind` is `completed_without_agent_message` when Codex reports
+  completion without a usable assistant message
+- `failureKind` is `stream_ended_without_terminal` when the SDK stream ends
+  without a provider terminal event
+- `sessionId` is included after Codex has minted the thread identity
+
+Use these stable details for failure classification and correlation. Inspect
+`raw` or `cause` only as deliberate provider-specific drill-down; do not depend
+on either for the normalized control path.
 
 ## 6. Structured Output Semantics
 
