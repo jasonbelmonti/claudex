@@ -1600,6 +1600,7 @@ function createTranscriptAssistantMessage(
     uuid,
     session_id: sessionId,
     parent_tool_use_id: null,
+    parent_agent_id: null,
     message: {
       role: "assistant",
       content: [
