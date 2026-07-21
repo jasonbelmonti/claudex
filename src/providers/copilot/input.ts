@@ -1,6 +1,7 @@
 import { AgentError } from "../../core/errors.js";
-import type { TurnInput } from "../../core/input.js";
+import type { JsonSchema, TurnInput } from "../../core/input.js";
 import type { ExecutionMode } from "../../core/session.js";
+import { canonicalizeJson } from "../../core/structured-output-diagnostics.js";
 import { mapCopilotAgentMode } from "./plan-mode.js";
 import type {
   CopilotMessageOptions,
@@ -12,6 +13,7 @@ export const DEFAULT_COPILOT_TURN_TIMEOUT_MS = 60_000;
 export function mapTurnInputToCopilotMessage(
   input: TurnInput,
   executionMode?: ExecutionMode,
+  outputSchema?: JsonSchema,
 ): CopilotMessageOptions {
   if (input.attachments?.length) {
     throw new AgentError({
@@ -25,9 +27,28 @@ export function mapTurnInputToCopilotMessage(
   const agentMode = mapCopilotAgentMode(executionMode);
 
   return {
-    prompt: input.prompt,
+    prompt: appendStructuredOutputContract(input.prompt, outputSchema),
     ...(agentMode ? { agentMode } : {}),
   };
+}
+
+function appendStructuredOutputContract(
+  prompt: string,
+  outputSchema?: JsonSchema,
+): string {
+  if (!outputSchema) {
+    return prompt;
+  }
+
+  return [
+    prompt,
+    "<claudex_structured_output_contract>",
+    "Return exactly one JSON value that validates against the JSON Schema below.",
+    "Do not use Markdown fences, prose, comments, or multiple JSON values.",
+    "Do not omit required fields. Claudex will reject malformed or schema-invalid output without repair or retry.",
+    canonicalizeJson(outputSchema),
+    "</claudex_structured_output_contract>",
+  ].join("\n\n");
 }
 
 export function getCopilotTurnProviderOptions(

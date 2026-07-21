@@ -7,3 +7,4 @@ export * from "./provider.js";
 export * from "./readiness.js";
 export * from "./results.js";
 export * from "./session.js";
+export * from "./structured-output-diagnostics.js";

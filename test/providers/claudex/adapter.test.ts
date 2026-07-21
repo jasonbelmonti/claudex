@@ -1,18 +1,18 @@
 import { expect, test } from "#test-support";
-
-import { isAgentError } from "../../../src/core/errors.js";
 import type { ProviderCapabilities } from "../../../src/core/capabilities.js";
+import { isAgentError } from "../../../src/core/errors.js";
 import type { AgentEvent } from "../../../src/core/events.js";
 import type { TurnInput, TurnOptions } from "../../../src/core/input.js";
 import type { AgentProviderAdapter, ProviderId } from "../../../src/core/provider.js";
+import type { ProviderReadiness } from "../../../src/core/readiness.js";
 import type { TurnResult } from "../../../src/core/results.js";
 import type {
   AgentSession,
   SessionOptions,
   SessionReference,
 } from "../../../src/core/session.js";
-import type { ProviderReadiness } from "../../../src/core/readiness.js";
 import { ClaudexAdapter } from "../../../src/providers/claudex/adapter.js";
+import { probeProvidersInOrder } from "../../../src/providers/claudex/resolution.js";
 
 function createCapabilities(provider: ProviderId): ProviderCapabilities {
   return {
@@ -412,6 +412,83 @@ test("custom preferred provider order accepts injected copilot providers", async
   expect(adapter.preferredProviders).toEqual(["copilot", "codex"]);
   expect(copilot.createSessionCallCount).toBe(1);
   expect(codex.createSessionCallCount).toBe(0);
+});
+
+test("provider construction and readiness failures fall through to a safe provider", async () => {
+  const codex = new FakeAdapter("codex", [createReadiness("codex", "ready")]);
+  const adapter = new ClaudexAdapter({
+    preferredProviders: ["copilot", "codex"],
+    providers: { codex },
+    copilot: {
+      clientFactory: () => {
+        throw new Error("Copilot client construction failed");
+      },
+    },
+  });
+
+  const readiness = await adapter.checkReadiness();
+
+  expect(readiness).toMatchObject({
+    provider: "codex",
+    status: "ready",
+    extensions: {
+      resolution: {
+        probes: [
+          { provider: "copilot", status: "error" },
+          { provider: "codex", status: "ready" },
+        ],
+      },
+    },
+  });
+  await expect(adapter.createSession()).resolves.toMatchObject({
+    provider: "codex",
+  });
+});
+
+test("adapter-loader construction rejection is diagnosed before safe fallback", async () => {
+  const codex = new FakeAdapter("codex", [createReadiness("codex", "ready")]);
+
+  const resolution = await probeProvidersInOrder({
+    preferredProviders: ["copilot", "codex"],
+    getAdapter: async (provider) => {
+      if (provider === "copilot") {
+        throw new Error("Copilot adapter module failed to load");
+      }
+      return codex;
+    },
+  });
+
+  expect(resolution).toMatchObject({
+    selected: { provider: "codex", status: "ready" },
+    selectedAdapter: codex,
+    probes: [
+      {
+        provider: "copilot",
+        status: "error",
+        extensions: { diagnostics: { stage: "adapter_construction" } },
+      },
+      { provider: "codex", status: "ready" },
+    ],
+  });
+});
+
+test("a thrown readiness exception does not crash provider fallback", async () => {
+  const copilot = new FakeAdapter("copilot", [
+    createReadiness("copilot", "error"),
+  ]);
+  copilot.checkReadiness = async () => {
+    throw new Error("readiness exploded");
+  };
+  const codex = new FakeAdapter("codex", [createReadiness("codex", "ready")]);
+  const adapter = new ClaudexAdapter({
+    preferredProviders: ["copilot", "codex"],
+    providers: { codex, copilot },
+  });
+
+  await expect(adapter.checkReadiness()).resolves.toMatchObject({
+    provider: "codex",
+    status: "ready",
+  });
 });
 
 test("invalid preferred provider ids fail with a typed AgentError", async () => {

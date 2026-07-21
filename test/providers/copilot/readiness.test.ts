@@ -209,6 +209,28 @@ test("CopilotAdapter reports client factory failures through readiness", async (
   });
 });
 
+test("CopilotAdapter classifies a missing CLI during client construction", async () => {
+  const adapter = new CopilotAdapter({
+    clientFactory: () => {
+      const error = new Error("spawn copilot ENOENT");
+      Object.assign(error, { code: "ENOENT" });
+      throw error;
+    },
+  });
+
+  await expect(adapter.checkReadiness()).resolves.toMatchObject({
+    provider: "copilot",
+    status: "missing_cli",
+    checks: [
+      {
+        kind: "cli",
+        status: "fail",
+        summary: "Copilot CLI is not available",
+      },
+    ],
+  });
+});
+
 test("checkReadiness reports status probe failures and stops owned clients", async () => {
   const client = new FakeCopilotClient({
     statusError: new Error("status unavailable"),

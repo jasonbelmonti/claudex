@@ -18,6 +18,7 @@ export type FakeCopilotClientOptions = {
   createSessionEvents?: CopilotSessionEvent[];
   createSessions?: CopilotSessionLike[];
   forceStopNeverResolves?: boolean;
+  forceStopThrowError?: unknown;
   models?: CopilotModelInfo[];
   resumeSessionEvents?: Record<string, CopilotSessionEvent[]>;
   resumeSessions?: Record<string, CopilotSessionLike>;
@@ -47,6 +48,7 @@ export class FakeCopilotClient implements CopilotClientLike {
   private readonly createSessionEvents: CopilotSessionEvent[];
   private readonly createSessions: CopilotSessionLike[];
   private readonly forceStopNeverResolves: boolean;
+  private readonly forceStopThrowError: unknown;
   private readonly models: CopilotModelInfo[];
   private readonly resumeSessionEvents: Record<string, CopilotSessionEvent[]>;
   private readonly resumeSessions: Record<string, CopilotSessionLike>;
@@ -71,6 +73,7 @@ export class FakeCopilotClient implements CopilotClientLike {
     createSessionEvents = [],
     createSessions = [],
     forceStopNeverResolves = false,
+    forceStopThrowError,
     models = [],
     resumeSessionEvents = {},
     resumeSessions = {},
@@ -93,6 +96,7 @@ export class FakeCopilotClient implements CopilotClientLike {
     this.createSessionEvents = createSessionEvents;
     this.createSessions = createSessions;
     this.forceStopNeverResolves = forceStopNeverResolves;
+    this.forceStopThrowError = forceStopThrowError;
     this.models = models;
     this.resumeSessionEvents = resumeSessionEvents;
     this.resumeSessions = resumeSessions;
@@ -135,6 +139,10 @@ export class FakeCopilotClient implements CopilotClientLike {
 
   async forceStop() {
     this.forceStopCallCount += 1;
+
+    if (this.forceStopThrowError) {
+      throw this.forceStopThrowError;
+    }
 
     if (this.forceStopNeverResolves) {
       return new Promise<void>(() => {});

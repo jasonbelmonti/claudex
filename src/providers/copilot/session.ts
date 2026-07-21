@@ -1,13 +1,18 @@
-import type { AgentEvent } from "../../core/events.js";
-import { AgentError } from "../../core/errors.js";
-import type { TurnInput, TurnOptions } from "../../core/input.js";
 import type { ProviderCapabilities } from "../../core/capabilities.js";
+import { AgentError } from "../../core/errors.js";
+import type { AgentEvent } from "../../core/events.js";
+import type { TurnInput, TurnOptions } from "../../core/input.js";
+import type { TurnResult } from "../../core/results.js";
 import type {
   AgentSession,
   ExecutionMode,
   SessionReference,
 } from "../../core/session.js";
-import type { TurnResult } from "../../core/results.js";
+import {
+  createCopilotAbortedError,
+  createCopilotTurnTimeoutError,
+  normalizeCopilotRunError,
+} from "./errors.js";
 import { AsyncEventQueue } from "./event-queue.js";
 import {
   createCopilotTurnFailedEvent,
@@ -15,19 +20,14 @@ import {
   mapCopilotSessionEvent,
 } from "./events.js";
 import {
-  createCopilotAbortedError,
-  createCopilotTurnTimeoutError,
-  normalizeCopilotRunError,
-} from "./errors.js";
-import {
   DEFAULT_COPILOT_TURN_TIMEOUT_MS,
   getCopilotTurnProviderOptions,
   mapTurnInputToCopilotMessage,
 } from "./input.js";
 import { createCopilotSessionReference } from "./references.js";
 import {
-  createCopilotTurnState,
   type CopilotTurnState,
+  createCopilotTurnState,
 } from "./results.js";
 import type {
   CopilotSessionEvent,
@@ -130,6 +130,7 @@ export class CopilotSession implements AgentSession {
       const copilotMessage = mapTurnInputToCopilotMessage(
         input,
         this.executionMode,
+        options.outputSchema,
       );
       this.enqueuePendingLifecycleEvents(queue);
       const sendPromise = this.session.send(copilotMessage);
