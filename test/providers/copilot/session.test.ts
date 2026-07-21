@@ -180,6 +180,42 @@ test("Copilot run returns structured output from the completed assistant message
   expect(session.reference).toEqual(COPILOT_REFERENCE);
 });
 
+test("Copilot plan sessions send every turn in plan mode under the read-only boundary", async () => {
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotSessionStartEvent({
+        sessionId: COPILOT_REFERENCE.sessionId,
+      }),
+      createCopilotAssistantMessageEvent({
+        content: "plan only",
+      }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const client = new FakeCopilotClient({ createSessions: [fakeSession] });
+  const adapter = new CopilotAdapter({ client });
+  const session = await adapter.createSession({
+    executionMode: "plan",
+    sandboxProfile: "read-only",
+    approvalMode: "deny",
+  });
+
+  await session.run({ prompt: "Produce a plan" });
+
+  expect(client.lastCreateSessionConfig).toMatchObject({
+    availableTools: [],
+    enableConfigDiscovery: false,
+    enableHostGitOperations: false,
+    remoteSession: "off",
+  });
+  expect(fakeSession.sentMessages).toEqual([
+    {
+      prompt: "Produce a plan",
+      agentMode: "plan",
+    },
+  ]);
+});
+
 test("Copilot resumeSession validates references and resumes through the SDK facade", async () => {
   const fakeSession = new FakeCopilotSession("copilot-resume-1", [
     [
@@ -221,10 +257,17 @@ test("Copilot resumeSession validates references and resumes through the SDK fac
     provider: "copilot",
   });
 
-  const session = await adapter.resumeSession({
-    provider: "copilot",
-    sessionId: "copilot-resume-1",
-  });
+  const session = await adapter.resumeSession(
+    {
+      provider: "copilot",
+      sessionId: "copilot-resume-1",
+    },
+    {
+      executionMode: "plan",
+      sandboxProfile: "read-only",
+      approvalMode: "deny",
+    },
+  );
 
   expect(session.reference).toEqual({
     provider: "copilot",
@@ -232,6 +275,9 @@ test("Copilot resumeSession validates references and resumes through the SDK fac
   });
   expect(client.lastResumeSessionId).toBe("copilot-resume-1");
   expect(client.lastResumeSessionConfig).toMatchObject({
+    availableTools: [],
+    continuePendingWork: false,
+    openCanvases: [],
     streaming: true,
     suppressResumeEvent: true,
   });
@@ -246,6 +292,12 @@ test("Copilot resumeSession validates references and resumes through the SDK fac
     "turn.started",
     "message.completed",
     "turn.completed",
+  ]);
+  expect(fakeSession.sentMessages).toEqual([
+    {
+      prompt: "Continue",
+      agentMode: "plan",
+    },
   ]);
 });
 

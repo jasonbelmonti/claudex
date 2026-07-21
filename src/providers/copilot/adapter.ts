@@ -52,6 +52,7 @@ export class CopilotAdapter implements AgentProviderAdapter {
       capabilities: this.capabilities,
       initialReference: null,
       initialEvents: earlyEvents,
+      executionMode: options.executionMode,
       session,
     });
     captureEarlyEvents = false;
@@ -81,6 +82,7 @@ export class CopilotAdapter implements AgentProviderAdapter {
     return new CopilotSession({
       capabilities: this.capabilities,
       initialReference: createCopilotSessionReference(reference.sessionId),
+      executionMode: options.executionMode,
       session,
     });
   }
@@ -123,5 +125,8 @@ function createRuntimeResumeConfig(
     ...config,
     streaming: config.streaming ?? true,
     suppressResumeEvent: true,
+    ...(options.sandboxProfile === "read-only"
+      ? { continuePendingWork: false, openCanvases: [] }
+      : {}),
   };
 }

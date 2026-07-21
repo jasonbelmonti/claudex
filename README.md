@@ -113,6 +113,13 @@ Do not branch on provider name when a capability flag will do.
 - `mcp:session-descriptors`: Claude and Copilot only; Codex MCP config remains available through `codex.sdkOptions.config`
 - `usage:cost`: Claude only
 
+Copilot supports the normalized `executionMode: "plan"` and
+`sandboxProfile: "read-only"` pair. Claudex marks every Copilot turn as plan
+mode, rejects provider requests to leave or auto-switch out of plan mode, and
+implements read-only as a deliberately tool-less session with permission
+requests denied. Copilot does not currently support the normalized
+`workspace-write` or `full-access` sandbox profiles.
+
 See [docs/capability-matrix.md](./docs/capability-matrix.md) for the full matrix and [docs/consumer-guide.md](./docs/consumer-guide.md) for orchestration guidance.
 
 ## Passive Ingest
