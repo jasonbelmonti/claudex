@@ -1,7 +1,9 @@
 import type {
+  AutoModeSwitchHandler,
   CopilotClientOptions,
   GetAuthStatusResponse,
   GetStatusResponse,
+  ExitPlanModeHandler,
   MCPServerConfig,
   MessageOptions,
   ModelInfo,
@@ -28,6 +30,8 @@ export type CopilotMcpServerConfig = MCPServerConfig;
 export type CopilotPermissionHandler = PermissionHandler;
 export type CopilotPermissionRequest = PermissionRequest;
 export type CopilotPermissionRequestResult = PermissionRequestResult;
+export type CopilotAutoModeSwitchHandler = AutoModeSwitchHandler;
+export type CopilotExitPlanModeHandler = ExitPlanModeHandler;
 export type CopilotSystemMessageConfig = SystemMessageConfig;
 export type CopilotSessionEvent = SessionEvent;
 export type CopilotSessionEventType = SessionEventType;

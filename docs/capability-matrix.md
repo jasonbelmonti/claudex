@@ -40,13 +40,15 @@ These behaviors are enforced by the shared contract harness:
 5. Failure paths preserve provider identity, raw provider payloads, and session references once the session has been minted.
 6. Codex rejects provider completion without a nonblank completed assistant message and classifies empty completion separately from a stream that ends without a terminal event.
 7. Codex terminal failures preserve `provider_failure` while exposing only allowlisted `details.failureKind` and minted `details.sessionId` diagnostics.
+8. Copilot plan sessions mark every turn as plan-only and reject provider requests to leave or auto-switch out of plan mode. Its normalized read-only profile removes built-in, custom, and MCP tools and denies permission requests.
 
 ## Known Non-Parity To Preserve
 
 These are intentional differences, not bugs to paper over:
 
 - Claude is query-backed and synthesizes session continuity internally; Codex is thread-backed; Copilot is SDK-session-backed.
-- Codex plan mode is enforced through a safe thread profile; Claude maps plan mode through its own permission system.
+- Codex plan mode is enforced through a safe thread profile; Claude maps plan mode through its own permission system; Copilot marks each turn as plan mode and denies exit-plan and auto-mode-switch requests.
+- Copilot supports only the normalized `read-only` sandbox profile. Because the Copilot SDK does not expose a direct filesystem sandbox, Claudex implements this as a deliberately stronger, tool-less session and rejects `workspace-write` and `full-access`.
 - Claude supports session fork; Codex and Copilot do not.
 - Codex accepts normalized local image paths; Claude and Copilot image attachment normalization remains off until it is verified end-to-end.
 - Claude can expose auth and richer extension surfaces; Codex is narrower but emits stronger reasoning/todo coverage in the normalized stream.

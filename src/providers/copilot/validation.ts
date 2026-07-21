@@ -10,19 +10,14 @@ export function validateCopilotSessionOptions(options: SessionOptions): void {
     });
   }
 
-  if (options.executionMode === "plan") {
-    throw createUnsupportedCopilotSessionOptionError({
-      option: "executionMode",
-      message:
-        "Copilot plan mode is not supported until exit-plan-mode handling is normalized.",
-    });
-  }
-
-  if (options.sandboxProfile) {
+  if (
+    options.sandboxProfile &&
+    options.sandboxProfile !== "read-only"
+  ) {
     throw createUnsupportedCopilotSessionOptionError({
       option: "sandboxProfile",
       message:
-        "Copilot session configuration does not expose a normalized sandboxProfile mapping yet.",
+        "Copilot supports only the normalized read-only sandbox profile.",
     });
   }
 

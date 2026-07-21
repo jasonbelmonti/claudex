@@ -2,7 +2,11 @@ import type { AgentEvent } from "../../core/events.js";
 import { AgentError } from "../../core/errors.js";
 import type { TurnInput, TurnOptions } from "../../core/input.js";
 import type { ProviderCapabilities } from "../../core/capabilities.js";
-import type { AgentSession, SessionReference } from "../../core/session.js";
+import type {
+  AgentSession,
+  ExecutionMode,
+  SessionReference,
+} from "../../core/session.js";
 import type { TurnResult } from "../../core/results.js";
 import { AsyncEventQueue } from "./event-queue.js";
 import {
@@ -42,6 +46,7 @@ export class CopilotSession implements AgentSession {
     capabilities: ProviderCapabilities;
     initialReference: SessionReference | null;
     initialEvents?: CopilotSessionEvent[];
+    executionMode?: ExecutionMode;
     session: CopilotSessionLike;
   }) {
     this.capabilities = params.capabilities;
@@ -50,9 +55,11 @@ export class CopilotSession implements AgentSession {
       params.session.sessionId,
     );
     this.pendingLifecycleEvents = [...(params.initialEvents ?? [])];
+    this.executionMode = params.executionMode;
     this.session = params.session;
   }
 
+  private readonly executionMode?: ExecutionMode;
   private readonly session: CopilotSessionLike;
 
   get reference() {
@@ -120,7 +127,10 @@ export class CopilotSession implements AgentSession {
       );
       const turnTimeoutMs =
         providerOptions.turnTimeoutMs ?? DEFAULT_COPILOT_TURN_TIMEOUT_MS;
-      const copilotMessage = mapTurnInputToCopilotMessage(input);
+      const copilotMessage = mapTurnInputToCopilotMessage(
+        input,
+        this.executionMode,
+      );
       this.enqueuePendingLifecycleEvents(queue);
       const sendPromise = this.session.send(copilotMessage);
       sentTurn = true;

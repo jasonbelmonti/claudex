@@ -210,6 +210,24 @@ This is where false parity gets expensive, so be explicit:
 - Copilot adapter/runtime options remain available through the top-level `copilot` adapter option; per-session Copilot `sessionConfig` belongs under `providerOptions.copilot.sessionConfig` on `createSession()` or `resumeSession()` options
 - Skills, MCP management, hooks, plugins, and other provider-native extension systems remain outside the stable core
 
+For a provider-neutral Copilot planning session, use the normalized safety
+options rather than provider-specific callbacks:
+
+```ts
+const session = await adapter.createSession({
+  executionMode: "plan",
+  sandboxProfile: "read-only",
+  approvalMode: "deny",
+});
+```
+
+Claudex marks every Copilot turn in that session as plan mode and rejects
+requests to leave or auto-switch out of plan mode. Copilot's normalized
+read-only profile is deliberately stronger than a filesystem-only sandbox: it
+exposes no built-in, custom, or MCP tools and keeps permission requests denied.
+The Copilot adapter rejects `workspace-write` and `full-access` because the SDK
+does not currently provide an equivalent enforceable sandbox boundary.
+
 If you need those advanced surfaces:
 
 - use `capabilities` to detect whether the provider can do the thing at all

@@ -4,6 +4,8 @@ import { AgentError } from "../../../src/core/errors.js";
 import {
   autoApproveSafeCopilotPermissionRequest,
   buildCopilotSessionConfig,
+  denyCopilotAutoModeSwitch,
+  denyCopilotExitPlanMode,
   denyCopilotPermissionRequest,
   isSafeAutoApprovedPermissionRequest,
 } from "../../../src/providers/copilot/index.js";
@@ -199,6 +201,139 @@ test("buildCopilotSessionConfig allows provider permission handler for interacti
   expect(config.onPermissionRequest).toBe(providerHandler);
 });
 
+test("Copilot plan and read-only modes override provider escape hatches", async () => {
+  const config = buildCopilotSessionConfig({
+    executionMode: "plan",
+    sandboxProfile: "read-only",
+    approvalMode: "deny",
+    agentConfig: {
+      mcpServers: {
+        unsafe: {
+          transport: "http",
+          url: "https://unsafe.example.test",
+        },
+      },
+    },
+    providerOptions: {
+      copilot: {
+        sessionConfig: {
+          availableTools: ["builtin:*"],
+          excludedTools: [],
+          enableConfigDiscovery: true,
+          enableSkills: true,
+          enableFileHooks: true,
+          enableHostGitOperations: true,
+          requestCanvasRenderer: true,
+          requestExtensions: true,
+          enableMcpApps: true,
+          manageScheduleEnabled: true,
+          remoteSession: "on",
+          onPermissionRequest: () => ({ kind: "approve-once" }),
+          onExitPlanModeRequest: () => ({
+            approved: true,
+            selectedAction: "implement",
+          }),
+          onAutoModeSwitchRequest: () => "yes_always",
+        },
+      },
+    },
+  });
+
+  expect(config).toMatchObject({
+    availableTools: [],
+    excludedTools: ["builtin:*", "mcp:*", "custom:*"],
+    tools: [],
+    commands: [],
+    canvases: [],
+    mcpServers: {},
+    customAgents: [],
+    skillDirectories: [],
+    pluginDirectories: [],
+    instructionDirectories: [],
+    enableConfigDiscovery: false,
+    skipCustomInstructions: true,
+    customAgentsLocalOnly: true,
+    coauthorEnabled: false,
+    enableSessionTelemetry: false,
+    enableSkills: false,
+    enableOnDemandInstructionDiscovery: false,
+    enableFileHooks: false,
+    enableHostGitOperations: false,
+    enableSessionStore: false,
+    infiniteSessions: { enabled: false },
+    memory: { enabled: false },
+    mcpOAuthTokenStorage: "in-memory",
+    skipEmbeddingRetrieval: true,
+    embeddingCacheStorage: "in-memory",
+    requestCanvasRenderer: false,
+    requestExtensions: false,
+    enableMcpApps: false,
+    manageScheduleEnabled: false,
+    remoteSession: "off",
+  });
+  expect(config.onPermissionRequest).toBe(denyCopilotPermissionRequest);
+  expect(config.onExitPlanModeRequest).toBe(denyCopilotExitPlanMode);
+  expect(config.onAutoModeSwitchRequest).toBe(denyCopilotAutoModeSwitch);
+  await expect(
+    Promise.resolve(
+      config.onAutoModeSwitchRequest?.(
+        { errorCode: "rate_limited", retryAfterSeconds: 30 },
+        { sessionId: "session-plan" },
+      ),
+    ),
+  ).resolves.toBe("no");
+  await expect(
+    Promise.resolve(
+      config.onExitPlanModeRequest?.(
+        {
+          summary: "Implementation is ready.",
+          actions: ["implement"],
+          recommendedAction: "implement",
+        },
+        { sessionId: "session-plan" },
+      ),
+    ),
+  ).resolves.toEqual({
+    approved: false,
+    feedback:
+      'claudex executionMode "plan" does not permit Copilot to enter an implementation mode.',
+  });
+});
+
+test("Copilot preserves a provider exit-plan handler outside normalized plan mode", () => {
+  const exitPlanHandler = () => ({ approved: true });
+  const autoModeSwitchHandler = () => "yes" as const;
+  const config = buildCopilotSessionConfig({
+    providerOptions: {
+      copilot: {
+        sessionConfig: {
+          onExitPlanModeRequest: exitPlanHandler,
+          onAutoModeSwitchRequest: autoModeSwitchHandler,
+        },
+      },
+    },
+  });
+
+  expect(config.onExitPlanModeRequest).toBe(exitPlanHandler);
+  expect(config.onAutoModeSwitchRequest).toBe(autoModeSwitchHandler);
+});
+
+test("Copilot read-only mode denies permissions despite an interactive provider handler", () => {
+  const config = buildCopilotSessionConfig({
+    sandboxProfile: "read-only",
+    approvalMode: "interactive",
+    providerOptions: {
+      copilot: {
+        sessionConfig: {
+          onPermissionRequest: () => ({ kind: "approve-once" }),
+        },
+      },
+    },
+  });
+
+  expect(config.onPermissionRequest).toBe(denyCopilotPermissionRequest);
+});
+
 test("Copilot deny approval mode rejects permission requests deterministically", async () => {
   await expect(
     Promise.resolve(
@@ -322,8 +457,10 @@ test("buildCopilotSessionConfig fails ambiguous normalized options with AgentErr
   expect(() =>
     buildCopilotSessionConfig({
       executionMode: "plan",
+      sandboxProfile: "read-only",
+      approvalMode: "deny",
     }),
-  ).toThrow(AgentError);
+  ).not.toThrow();
   expect(() =>
     buildCopilotSessionConfig({
       sandboxProfile: "workspace-write",
@@ -331,7 +468,24 @@ test("buildCopilotSessionConfig fails ambiguous normalized options with AgentErr
   ).toThrow(AgentError);
   expect(() =>
     buildCopilotSessionConfig({
+      sandboxProfile: "full-access",
+    }),
+  ).toThrow(AgentError);
+  expect(() =>
+    buildCopilotSessionConfig({
       resumeStrategy: "fork",
+    }),
+  ).toThrow(AgentError);
+  expect(() =>
+    buildCopilotSessionConfig({
+      providerOptions: {
+        copilot: {
+          sessionConfig: {
+            onExitPlanModeRequest: "invalid",
+            onAutoModeSwitchRequest: "invalid",
+          },
+        },
+      },
     }),
   ).toThrow(AgentError);
 });

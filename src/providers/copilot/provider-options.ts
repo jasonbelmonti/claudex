@@ -5,6 +5,11 @@ import {
   mergeMcpServers,
 } from "./mcp-options.js";
 import { deriveCopilotPermissionHandler } from "./permissions.js";
+import {
+  deriveCopilotAutoModeSwitchHandler,
+  deriveCopilotExitPlanModeHandler,
+} from "./plan-mode.js";
+import { applyCopilotSandboxProfile } from "./sandbox.js";
 import type {
   CopilotSessionConfig,
   CopilotSessionProviderOptions,
@@ -18,6 +23,8 @@ const RESERVED_SESSION_CONFIG_KEYS = new Set<keyof CopilotSessionConfig>([
   "systemMessage",
   "mcpServers",
   "onPermissionRequest",
+  "onExitPlanModeRequest",
+  "onAutoModeSwitchRequest",
 ]);
 
 export function buildCopilotSessionConfig(
@@ -51,15 +58,28 @@ export function buildCopilotSessionConfig(
     approvalMode: sessionOptions.approvalMode,
     providerHandler: reservedProviderConfig.onPermissionRequest,
   });
+  const onExitPlanModeRequest = deriveCopilotExitPlanModeHandler({
+    executionMode: sessionOptions.executionMode,
+    providerHandler: reservedProviderConfig.onExitPlanModeRequest,
+  });
+  const onAutoModeSwitchRequest = deriveCopilotAutoModeSwitchHandler({
+    executionMode: sessionOptions.executionMode,
+    providerHandler: reservedProviderConfig.onAutoModeSwitchRequest,
+  });
 
-  return {
-    ...mergedConfig,
-    ...(model !== undefined ? { model } : {}),
-    ...(workingDirectory !== undefined ? { workingDirectory } : {}),
-    ...(systemMessage ? { systemMessage } : {}),
-    ...(mcpServers ? { mcpServers } : {}),
-    ...(onPermissionRequest ? { onPermissionRequest } : {}),
-  };
+  return applyCopilotSandboxProfile(
+    {
+      ...mergedConfig,
+      ...(model !== undefined ? { model } : {}),
+      ...(workingDirectory !== undefined ? { workingDirectory } : {}),
+      ...(systemMessage ? { systemMessage } : {}),
+      ...(mcpServers ? { mcpServers } : {}),
+      ...(onPermissionRequest ? { onPermissionRequest } : {}),
+      ...(onExitPlanModeRequest ? { onExitPlanModeRequest } : {}),
+      ...(onAutoModeSwitchRequest ? { onAutoModeSwitchRequest } : {}),
+    },
+    sessionOptions.sandboxProfile,
+  );
 }
 
 function mapInstructionsToSystemMessage(
@@ -128,6 +148,18 @@ function validateReservedProviderSessionConfig(
     key: "model",
     message: "providerOptions.copilot.sessionConfig.model must be a string.",
     isValid: isString,
+  });
+  validateProviderSessionField(sessionConfig, {
+    key: "onAutoModeSwitchRequest",
+    message:
+      "providerOptions.copilot.sessionConfig.onAutoModeSwitchRequest must be a function.",
+    isValid: isFunction,
+  });
+  validateProviderSessionField(sessionConfig, {
+    key: "onExitPlanModeRequest",
+    message:
+      "providerOptions.copilot.sessionConfig.onExitPlanModeRequest must be a function.",
+    isValid: isFunction,
   });
   validateProviderSessionField(sessionConfig, {
     key: "workingDirectory",

@@ -1,5 +1,7 @@
 import { AgentError } from "../../core/errors.js";
 import type { TurnInput } from "../../core/input.js";
+import type { ExecutionMode } from "../../core/session.js";
+import { mapCopilotAgentMode } from "./plan-mode.js";
 import type {
   CopilotMessageOptions,
   CopilotTurnProviderOptions,
@@ -9,6 +11,7 @@ export const DEFAULT_COPILOT_TURN_TIMEOUT_MS = 60_000;
 
 export function mapTurnInputToCopilotMessage(
   input: TurnInput,
+  executionMode?: ExecutionMode,
 ): CopilotMessageOptions {
   if (input.attachments?.length) {
     throw new AgentError({
@@ -19,8 +22,11 @@ export function mapTurnInputToCopilotMessage(
     });
   }
 
+  const agentMode = mapCopilotAgentMode(executionMode);
+
   return {
     prompt: input.prompt,
+    ...(agentMode ? { agentMode } : {}),
   };
 }
 
