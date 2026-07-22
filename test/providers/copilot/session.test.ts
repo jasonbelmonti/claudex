@@ -307,6 +307,47 @@ test("Copilot preserves schema validation paths in the original AgentError", asy
   expect((failure as AgentError).extensions).toBeUndefined();
 });
 
+test("Copilot preserves AJV's empty instance path for root schema failures", async () => {
+  const content = "[]";
+  const rootObjectSchema = { type: "object" } as const;
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotAssistantMessageEvent({ content }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({ createSessions: [fakeSession] }),
+  });
+  const session = await adapter.createSession();
+  const failure = await captureFailure(
+    session.run(
+      { prompt: "Return JSON" },
+      { outputSchema: rootObjectSchema },
+    ),
+  );
+
+  expect(failure).toBeInstanceOf(AgentError);
+  expect(failure).toMatchObject({
+    code: "structured_output_invalid",
+    provider: "copilot",
+    details: {
+      validationErrors: [
+        {
+          instancePath: "",
+          keyword: "type",
+          message: "must be object",
+        },
+      ],
+    },
+    raw: {
+      text: content,
+      schema: rootObjectSchema,
+      validationErrors: [{ instancePath: "" }],
+    },
+  });
+});
+
 test("Claudex preserves Copilot structured-output AgentError fields", async () => {
   const content = '{"status":42}';
   const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [

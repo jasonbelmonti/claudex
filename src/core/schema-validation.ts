@@ -143,7 +143,7 @@ function getOrCreateValidator(schema: JsonSchema): ValidateFunction {
 
 function formatValidationErrors(errors: ErrorObject[]): Array<Record<string, string>> {
   return errors.map((error) => ({
-    instancePath: error.instancePath || "/",
+    instancePath: error.instancePath,
     keyword: error.keyword,
     message: error.message ?? "Schema validation failed.",
   }));
