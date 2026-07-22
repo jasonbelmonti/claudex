@@ -3,6 +3,10 @@ import { Ajv, type ErrorObject, type ValidateFunction } from "ajv";
 import { AgentError } from "./errors.js";
 import type { JsonSchema } from "./input.js";
 import type { ProviderId } from "./provider.js";
+import {
+  classifyStructuredOutputText,
+  type StructuredOutputResponseClassification,
+} from "./structured-output-classification.js";
 
 const ajv = new Ajv({
   allErrors: true,
@@ -25,11 +29,16 @@ export function parseStructuredOutputText(params: {
   try {
     parsed = JSON.parse(params.text);
   } catch (error) {
+    const responseClassification = classifyStructuredOutputText(params.text);
+
     return {
       error: new AgentError({
         code: "structured_output_invalid",
         provider: params.provider,
-        message: `${params.providerLabel} returned a non-JSON final response for a structured-output turn.`,
+        message: structuredOutputParseFailureMessage(
+          params.providerLabel,
+          responseClassification,
+        ),
         cause: error,
         raw: params.text,
       }),
@@ -147,4 +156,22 @@ function formatValidationErrors(errors: ErrorObject[]): Array<Record<string, str
     keyword: error.keyword,
     message: error.message ?? "Schema validation failed.",
   }));
+}
+
+function structuredOutputParseFailureMessage(
+  providerLabel: string,
+  classification: StructuredOutputResponseClassification,
+): string {
+  switch (classification) {
+    case "fenced_json":
+      return `${providerLabel} returned JSON inside a Markdown fence; structured output requires exactly one unfenced JSON value.`;
+    case "prose_wrapped_json":
+      return `${providerLabel} returned prose-wrapped JSON; structured output requires exactly one JSON value with no surrounding text.`;
+    case "multiple_json_values":
+      return `${providerLabel} returned multiple JSON values; structured output requires exactly one JSON value.`;
+    case "truncated_json":
+      return `${providerLabel} returned a truncated JSON response for a structured-output turn.`;
+    default:
+      return `${providerLabel} returned a non-JSON final response for a structured-output turn.`;
+  }
 }
