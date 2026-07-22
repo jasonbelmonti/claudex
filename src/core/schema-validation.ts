@@ -5,8 +5,10 @@ import type { JsonSchema } from "./input.js";
 import type { ProviderId } from "./provider.js";
 import {
   classifyStructuredOutputText,
+  createSafeStructuredOutputDiagnostics,
+  createSafeValidationErrors,
   type StructuredOutputResponseClassification,
-} from "./structured-output-classification.js";
+} from "./structured-output-diagnostics.js";
 
 const ajv = new Ajv({
   allErrors: true,
@@ -30,6 +32,11 @@ export function parseStructuredOutputText(params: {
     parsed = JSON.parse(params.text);
   } catch (error) {
     const responseClassification = classifyStructuredOutputText(params.text);
+    const diagnostics = createSafeStructuredOutputDiagnostics({
+      classification: responseClassification,
+      schema: params.schema,
+      text: params.text,
+    });
 
     return {
       error: new AgentError({
@@ -40,7 +47,15 @@ export function parseStructuredOutputText(params: {
           responseClassification,
         ),
         cause: error,
-        raw: params.text,
+        details: diagnostics,
+        raw: {
+          text: params.text,
+          schema: params.schema,
+          responseClassification,
+        },
+        extensions: {
+          diagnostics,
+        },
       }),
     };
   }
@@ -69,6 +84,15 @@ export function parseStructuredOutputText(params: {
   }
 
   const validationErrors = formatValidationErrors(validate.errors ?? []);
+  const safeValidationErrors = createSafeValidationErrors(
+    validationErrors,
+    params.schema,
+  );
+  const diagnostics = createSafeStructuredOutputDiagnostics({
+    classification: "schema_invalid_json",
+    schema: params.schema,
+    text: params.text,
+  });
 
   return {
     error: new AgentError({
@@ -76,12 +100,19 @@ export function parseStructuredOutputText(params: {
       provider: params.provider,
       message: `${params.providerLabel} returned JSON that did not match the requested output schema.`,
       details: {
-        validationErrors,
+        ...diagnostics,
+        validationErrors: safeValidationErrors,
       },
       raw: {
         text: params.text,
         schema: params.schema,
         validationErrors,
+      },
+      extensions: {
+        diagnostics: {
+          ...diagnostics,
+          validationErrors: safeValidationErrors,
+        },
       },
     }),
   };
@@ -120,6 +151,16 @@ export function validateStructuredOutputValue(params: {
   }
 
   const validationErrors = formatValidationErrors(validate.errors ?? []);
+  const safeValidationErrors = createSafeValidationErrors(
+    validationErrors,
+    params.schema,
+  );
+  const serializedValue = JSON.stringify(params.value);
+  const diagnostics = createSafeStructuredOutputDiagnostics({
+    classification: "schema_invalid_json",
+    schema: params.schema,
+    text: serializedValue === undefined ? "undefined" : serializedValue,
+  });
 
   return {
     error: new AgentError({
@@ -127,12 +168,19 @@ export function validateStructuredOutputValue(params: {
       provider: params.provider,
       message: `${params.providerLabel} returned JSON that did not match the requested output schema.`,
       details: {
-        validationErrors,
+        ...diagnostics,
+        validationErrors: safeValidationErrors,
       },
       raw: {
         value: params.value,
         schema: params.schema,
         validationErrors,
+      },
+      extensions: {
+        diagnostics: {
+          ...diagnostics,
+          validationErrors: safeValidationErrors,
+        },
       },
     }),
   };
@@ -152,9 +200,10 @@ function getOrCreateValidator(schema: JsonSchema): ValidateFunction {
 
 function formatValidationErrors(errors: ErrorObject[]): Array<Record<string, string>> {
   return errors.map((error) => ({
-    instancePath: error.instancePath || "/",
+    instancePath: error.instancePath,
     keyword: error.keyword,
     message: error.message ?? "Schema validation failed.",
+    schemaPath: error.schemaPath,
   }));
 }
 

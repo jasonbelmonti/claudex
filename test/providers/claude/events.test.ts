@@ -154,9 +154,9 @@ test("structured-output schema mismatches surface as AgentError", async () => {
     type: "turn.failed",
     error: expect.objectContaining({
       code: "structured_output_invalid",
-      details: {
+      details: expect.objectContaining({
         validationErrors: expect.any(Array),
-      },
+      }),
     }),
   });
 
