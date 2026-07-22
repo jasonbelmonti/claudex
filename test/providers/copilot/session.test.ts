@@ -1,7 +1,9 @@
 import { expect, test } from "#test-support";
 
+import { AgentError } from "../../../src/core/errors.js";
 import type { AgentEvent } from "../../../src/core/events.js";
 import type { SessionReference } from "../../../src/core/session.js";
+import { ClaudexAdapter } from "../../../src/providers/claudex/adapter.js";
 import { CopilotAdapter } from "../../../src/providers/copilot/adapter.js";
 import type { CopilotSessionEvent } from "../../../src/providers/copilot/types.js";
 import {
@@ -177,7 +179,173 @@ test("Copilot run returns structured output from the completed assistant message
       status: "ok",
     },
   });
+  expect(fakeSession.sentMessages).toEqual([
+    {
+      displayPrompt: "Return JSON",
+      prompt: [
+        "Return JSON",
+        "<claudex_structured_output_contract>",
+        "Return exactly one JSON value that validates against the JSON Schema below.",
+        "Do not use Markdown fences, prose, comments, or multiple JSON values.",
+        "Claudex will reject malformed or schema-invalid output without repair or retry.",
+        JSON.stringify(STRUCTURED_SCHEMA),
+        "</claudex_structured_output_contract>",
+      ].join("\n\n"),
+    },
+  ]);
   expect(session.reference).toEqual(COPILOT_REFERENCE);
+});
+
+test("Copilot validates the final root assistant message selected before idle", async () => {
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotSessionStartEvent({
+        sessionId: COPILOT_REFERENCE.sessionId,
+      }),
+      createCopilotAssistantMessageEvent({
+        content: '{"status":42}',
+        messageId: "intermediate-message",
+      }),
+      createCopilotAssistantMessageEvent({
+        content: '{"status":"ok"}',
+        messageId: "final-message",
+      }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({ createSessions: [fakeSession] }),
+  });
+  const session = await adapter.createSession();
+
+  await expect(
+    session.run(
+      { prompt: "Return JSON" },
+      { outputSchema: STRUCTURED_SCHEMA },
+    ),
+  ).resolves.toMatchObject({
+    text: '{"status":"ok"}',
+    structuredOutput: { status: "ok" },
+  });
+});
+
+test.each([
+  ["plain text", "not JSON"],
+  ["fenced JSON", '```json\n{"status":"ok"}\n```'],
+  ["prose-wrapped JSON", 'Result: {"status":"ok"}'],
+])("Copilot rejects %s without extracting or repairing it", async (_name, content) => {
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotAssistantMessageEvent({ content }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({ createSessions: [fakeSession] }),
+  });
+  const session = await adapter.createSession();
+
+  const failure = await captureFailure(
+    session.run(
+      { prompt: "Return JSON" },
+      { outputSchema: STRUCTURED_SCHEMA },
+    ),
+  );
+
+  expect(failure).toBeInstanceOf(AgentError);
+  expect(failure).toMatchObject({
+    code: "structured_output_invalid",
+    provider: "copilot",
+    message:
+      "Copilot returned a non-JSON final response for a structured-output turn.",
+    raw: content,
+  });
+  expect((failure as AgentError).cause).toBeInstanceOf(SyntaxError);
+  expect((failure as AgentError).details).toBeUndefined();
+});
+
+test("Copilot preserves schema validation paths in the original AgentError", async () => {
+  const content = '{"status":42}';
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotAssistantMessageEvent({ content }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({ createSessions: [fakeSession] }),
+  });
+  const session = await adapter.createSession();
+  const failure = await captureFailure(
+    session.run(
+      { prompt: "Return JSON" },
+      { outputSchema: STRUCTURED_SCHEMA },
+    ),
+  );
+
+  expect(failure).toBeInstanceOf(AgentError);
+  expect(failure).toMatchObject({
+    code: "structured_output_invalid",
+    provider: "copilot",
+    message:
+      "Copilot returned JSON that did not match the requested output schema.",
+    details: {
+      validationErrors: [
+        {
+          instancePath: "/status",
+          keyword: "type",
+          message: "must be string",
+        },
+      ],
+    },
+    raw: {
+      text: content,
+      schema: STRUCTURED_SCHEMA,
+    },
+  });
+  expect((failure as AgentError).cause).toBeUndefined();
+  expect((failure as AgentError).extensions).toBeUndefined();
+});
+
+test("Claudex preserves Copilot structured-output AgentError fields", async () => {
+  const content = '{"status":42}';
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotAssistantMessageEvent({ content }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const copilot = new CopilotAdapter({
+    client: new FakeCopilotClient({ createSessions: [fakeSession] }),
+  });
+  const claudex = new ClaudexAdapter({
+    preferredProviders: ["copilot"],
+    providers: { copilot },
+  });
+  const session = await claudex.createSession();
+  const failure = await captureFailure(
+    session.run(
+      { prompt: "Return JSON" },
+      { outputSchema: STRUCTURED_SCHEMA },
+    ),
+  );
+
+  expect(failure).toBeInstanceOf(AgentError);
+  expect(failure).toMatchObject({
+    code: "structured_output_invalid",
+    provider: "copilot",
+    message:
+      "Copilot returned JSON that did not match the requested output schema.",
+    details: {
+      validationErrors: [{ instancePath: "/status" }],
+    },
+    raw: {
+      text: content,
+      schema: STRUCTURED_SCHEMA,
+    },
+  });
+  expect((failure as AgentError).cause).toBeUndefined();
+  expect((failure as AgentError).extensions).toBeUndefined();
 });
 
 test("Copilot plan sessions send every turn in plan mode under the read-only boundary", async () => {
@@ -988,4 +1156,11 @@ async function collectEvents(
   }
 
   return events;
+}
+
+async function captureFailure(promise: Promise<unknown>): Promise<unknown> {
+  return promise.then(
+    () => undefined,
+    (error: unknown) => error,
+  );
 }
