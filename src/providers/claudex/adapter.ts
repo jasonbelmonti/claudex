@@ -1,8 +1,8 @@
-import { AgentError } from "../../core/errors.js";
 import type { ProviderCapabilities } from "../../core/capabilities.js";
+import { AgentError } from "../../core/errors.js";
 import {
-  PROVIDER_IDS,
   type AgentProviderAdapter,
+  PROVIDER_IDS,
   type ProviderId,
 } from "../../core/provider.js";
 import type { ProviderReadiness } from "../../core/readiness.js";
@@ -121,8 +121,10 @@ export class ClaudexAdapter {
     });
 
     if (
+      resolution.selectedAdapter &&
       resolution.selected.status === "ready" ||
-      resolution.selected.status === "degraded"
+      (resolution.selectedAdapter &&
+        resolution.selected.status === "degraded")
     ) {
       this.pinAdapter(resolution.selectedAdapter, {
         probes: [...resolution.probes],
@@ -213,8 +215,7 @@ export class ClaudexAdapter {
 
     throw new AgentError({
       code: "provider_failure",
-      provider:
-        this.resolvedAdapter?.provider ?? this.preferredProviders[0] ?? "codex",
+      provider: this.resolvedAdapter?.provider ?? this.preferredProviders[0] ?? "codex",
       message: `Claudex provider cleanup returned ${cleanupErrors.length} error(s).`,
       cause: new AggregateError(cleanupErrors, "Claudex provider cleanup failed."),
       details: {
@@ -247,6 +248,17 @@ export class ClaudexAdapter {
         selected: resolution.selected,
         preferredProviders: this.preferredProviders,
         probes: resolution.probes,
+      });
+    }
+
+    if (!resolution.selectedAdapter) {
+      throw new AgentError({
+        code: "provider_failure",
+        provider: resolution.selected.provider,
+        message: `Claudex resolved ${resolution.selected.provider} without a constructed adapter.`,
+        details: {
+          stage: "adapter_construction",
+        },
       });
     }
 
