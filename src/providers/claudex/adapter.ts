@@ -121,8 +121,9 @@ export class ClaudexAdapter {
     });
 
     if (
-      resolution.selected.status === "ready" ||
-      resolution.selected.status === "degraded"
+      resolution.selectedAdapter &&
+      (resolution.selected.status === "ready" ||
+        resolution.selected.status === "degraded")
     ) {
       this.pinAdapter(resolution.selectedAdapter, {
         probes: [...resolution.probes],
@@ -244,6 +245,17 @@ export class ClaudexAdapter {
         selected: resolution.selected,
         preferredProviders: this.preferredProviders,
         probes: resolution.probes,
+      });
+    }
+
+    if (!resolution.selectedAdapter) {
+      throw new AgentError({
+        code: "provider_failure",
+        provider: resolution.selected.provider,
+        message: `Claudex resolved ${resolution.selected.provider} without a constructed adapter.`,
+        details: {
+          stage: "adapter_construction",
+        },
       });
     }
 

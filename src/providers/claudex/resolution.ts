@@ -1,3 +1,5 @@
+import type { ProviderCapabilities } from "../../core/capabilities.js";
+import { isAgentError } from "../../core/errors.js";
 import type { AgentProviderAdapter, ProviderId } from "../../core/provider.js";
 import type { ProviderReadiness } from "../../core/readiness.js";
 
@@ -9,7 +11,7 @@ export type ClaudexResolutionStrategy =
 
 export type ClaudexResolution = {
   selected: ProviderReadiness;
-  selectedAdapter: AgentProviderAdapter;
+  selectedAdapter: AgentProviderAdapter | null;
   probes: ProviderReadiness[];
   resolution: Exclude<ClaudexResolutionStrategy, "pinned">;
 };
@@ -22,9 +24,25 @@ export async function probeProvidersInOrder(params: {
   const adapters = new Map<ProviderId, AgentProviderAdapter>();
 
   for (const provider of params.preferredProviders) {
-    const adapter = await params.getAdapter(provider);
+    let adapter: AgentProviderAdapter;
+    try {
+      adapter = await params.getAdapter(provider);
+    } catch (error) {
+      probes.push(createFailedProbe(provider, "adapter_construction", error));
+      continue;
+    }
+
     adapters.set(provider, adapter);
-    const readiness = await adapter.checkReadiness();
+    let readiness: ProviderReadiness;
+    try {
+      readiness = await adapter.checkReadiness();
+    } catch (error) {
+      probes.push(
+        createFailedProbe(provider, "readiness", error, adapter.capabilities),
+      );
+      continue;
+    }
+
     probes.push(readiness);
 
     if (readiness.status === "ready") {
@@ -42,7 +60,7 @@ export async function probeProvidersInOrder(params: {
   if (degraded) {
     return {
       selected: degraded,
-      selectedAdapter: requireAdapter(adapters, degraded.provider),
+      selectedAdapter: adapters.get(degraded.provider) ?? null,
       probes,
       resolution: "degraded",
     };
@@ -56,7 +74,7 @@ export async function probeProvidersInOrder(params: {
 
   return {
     selected: fallback,
-    selectedAdapter: requireAdapter(adapters, fallback.provider),
+    selectedAdapter: adapters.get(fallback.provider) ?? null,
     probes,
     resolution: "fallback",
   };
@@ -87,15 +105,44 @@ export function extendReadinessWithResolution(params: {
   };
 }
 
-function requireAdapter(
-  adapters: ReadonlyMap<ProviderId, AgentProviderAdapter>,
+function createFailedProbe(
   provider: ProviderId,
-): AgentProviderAdapter {
-  const adapter = adapters.get(provider);
+  stage: "adapter_construction" | "readiness",
+  error: unknown,
+  capabilities: ProviderCapabilities = { provider, features: {} },
+): ProviderReadiness {
+  const code = isAgentError(error) ? error.code : undefined;
+  const status =
+    code === "missing_cli"
+      ? "missing_cli"
+      : code === "needs_auth"
+        ? "needs_auth"
+        : "error";
+  const reason = error instanceof Error ? error.message : String(error);
 
-  if (!adapter) {
-    throw new Error(`Missing adapter for provider ${provider}.`);
-  }
-
-  return adapter;
+  return {
+    provider,
+    status,
+    checks: [
+      {
+        kind: "runtime",
+        status: "fail",
+        summary:
+          stage === "adapter_construction"
+            ? `${provider} adapter construction failed`
+            : `${provider} readiness check failed`,
+        detail: reason,
+      },
+    ],
+    capabilities,
+    raw: error,
+    extensions: {
+      ...(isAgentError(error) ? error.extensions : undefined),
+      diagnostics: {
+        stage,
+        ...(code ? { errorCode: code } : {}),
+        reason,
+      },
+    },
+  };
 }

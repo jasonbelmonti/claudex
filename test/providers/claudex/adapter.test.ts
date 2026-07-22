@@ -13,6 +13,7 @@ import type {
 } from "../../../src/core/session.js";
 import type { ProviderReadiness } from "../../../src/core/readiness.js";
 import { ClaudexAdapter } from "../../../src/providers/claudex/adapter.js";
+import { probeProvidersInOrder } from "../../../src/providers/claudex/resolution.js";
 
 function createCapabilities(provider: ProviderId): ProviderCapabilities {
   return {
@@ -445,6 +446,106 @@ test("dispose preserves a loaded provider cleanup AgentError", async () => {
 
   await expect(adapter.dispose()).rejects.toBe(cleanupError);
   expect(copilot.disposeCallCount).toBe(1);
+});
+
+test("adapter construction failure is diagnosed before safe fallback", async () => {
+  const codex = new FakeAdapter("codex", [createReadiness("codex", "ready")]);
+
+  const resolution = await probeProvidersInOrder({
+    preferredProviders: ["copilot", "codex"],
+    getAdapter: async (provider) => {
+      if (provider === "copilot") {
+        throw new Error("Copilot adapter module failed to load");
+      }
+      return codex;
+    },
+  });
+
+  expect(resolution).toMatchObject({
+    selected: { provider: "codex", status: "ready" },
+    selectedAdapter: codex,
+    probes: [
+      {
+        provider: "copilot",
+        status: "error",
+        extensions: { diagnostics: { stage: "adapter_construction" } },
+      },
+      { provider: "codex", status: "ready" },
+    ],
+  });
+});
+
+test("Copilot non-readiness remains primary when Codex construction fails", async () => {
+  const copilot = new FakeAdapter("copilot", [
+    createReadiness("copilot", "error"),
+  ]);
+
+  const resolution = await probeProvidersInOrder({
+    preferredProviders: ["copilot", "codex"],
+    getAdapter: async (provider) => {
+      if (provider === "codex") {
+        throw new Error(
+          "Unable to locate Codex CLI binaries. Ensure @openai/codex is installed with optional dependencies.",
+        );
+      }
+      return copilot;
+    },
+  });
+
+  expect(resolution).toMatchObject({
+    selected: { provider: "copilot", status: "error" },
+    selectedAdapter: copilot,
+    probes: [
+      { provider: "copilot", status: "error" },
+      {
+        provider: "codex",
+        status: "error",
+        checks: [
+          {
+            summary: "codex adapter construction failed",
+            detail: expect.stringContaining("Unable to locate Codex CLI binaries"),
+          },
+        ],
+        extensions: { diagnostics: { stage: "adapter_construction" } },
+      },
+    ],
+  });
+});
+
+test("readiness exception is diagnosed before safe fallback", async () => {
+  const copilot = new FakeAdapter("copilot", [
+    createReadiness("copilot", "error"),
+  ]);
+  copilot.checkReadiness = async () => {
+    throw new Error("Copilot readiness failed");
+  };
+  const codex = new FakeAdapter("codex", [createReadiness("codex", "ready")]);
+  const adapter = new ClaudexAdapter({
+    preferredProviders: ["copilot", "codex"],
+    providers: { codex, copilot },
+  });
+
+  await expect(adapter.checkReadiness()).resolves.toMatchObject({
+    provider: "codex",
+    status: "ready",
+    extensions: {
+      resolution: {
+        probes: [
+          {
+            provider: "copilot",
+            status: "error",
+            checks: [
+              {
+                summary: "copilot readiness check failed",
+                detail: "Copilot readiness failed",
+              },
+            ],
+          },
+          { provider: "codex", status: "ready" },
+        ],
+      },
+    },
+  });
 });
 
 test("invalid preferred provider ids fail with a typed AgentError", async () => {
