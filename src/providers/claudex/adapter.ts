@@ -181,6 +181,54 @@ export class ClaudexAdapter {
     return adapter.resumeSession(normalizedReference, options);
   }
 
+  async dispose(): Promise<void> {
+    const loadedAdapters = await Promise.all(
+      Object.values(this.adapterPromises).map(async (adapterPromise) => {
+        try {
+          return await adapterPromise;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    const adapters = [...new Set(loadedAdapters.filter(isLoadedAdapter))];
+    const cleanupErrors: unknown[] = [];
+
+    for (const adapter of adapters) {
+      try {
+        await adapter.dispose?.();
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    }
+
+    if (cleanupErrors.length === 0) {
+      return;
+    }
+
+    const primary = cleanupErrors[0];
+    if (primary instanceof AgentError) {
+      throw primary;
+    }
+
+    throw new AgentError({
+      code: "provider_failure",
+      provider:
+        this.resolvedAdapter?.provider ?? this.preferredProviders[0] ?? "codex",
+      message: `Claudex provider cleanup returned ${cleanupErrors.length} error(s).`,
+      cause: new AggregateError(cleanupErrors, "Claudex provider cleanup failed."),
+      details: {
+        stage: "cleanup",
+        cleanupErrorCount: cleanupErrors.length,
+      },
+      raw: cleanupErrors,
+    });
+  }
+
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.dispose();
+  }
+
   private async resolveRunnableAdapter(): Promise<AgentProviderAdapter> {
     if (this.resolvedAdapter) {
       return this.resolvedAdapter;
@@ -249,4 +297,10 @@ export class ClaudexAdapter {
     this.adapterPromises[provider] = loadPromise;
     return loadPromise;
   }
+}
+
+function isLoadedAdapter(
+  adapter: AgentProviderAdapter | null,
+): adapter is AgentProviderAdapter {
+  return adapter !== null;
 }

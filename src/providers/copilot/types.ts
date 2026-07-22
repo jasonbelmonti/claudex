@@ -1,9 +1,9 @@
 import type {
   AutoModeSwitchHandler,
   CopilotClientOptions,
+  ExitPlanModeHandler,
   GetAuthStatusResponse,
   GetStatusResponse,
-  ExitPlanModeHandler,
   MCPServerConfig,
   MessageOptions,
   ModelInfo,
@@ -98,6 +98,7 @@ export type CopilotAdapterOptions = {
   client?: CopilotClientLike;
   clientFactory?: CopilotClientFactory;
   ownsClient?: boolean;
+  cleanupTimeoutMs?: number;
   readinessTimeoutMs?: number;
   sdkOptions?: CopilotSdkOptions;
 };
