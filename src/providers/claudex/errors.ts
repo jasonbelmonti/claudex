@@ -3,11 +3,13 @@ import type { ProviderId } from "../../core/provider.js";
 import type {
   ProviderReadiness,
   ProviderReadinessStatus,
+  ReadinessCheck,
 } from "../../core/readiness.js";
 
 type ReadinessProbeSummary = {
   provider: ProviderId;
   status: ProviderReadinessStatus;
+  checks: ReadinessCheck[];
 };
 
 export function createNoRunnableProviderError(params: {
@@ -52,5 +54,6 @@ function toProbeSummary(readiness: ProviderReadiness): ReadinessProbeSummary {
   return {
     provider: readiness.provider,
     status: readiness.status,
+    checks: readiness.checks,
   };
 }

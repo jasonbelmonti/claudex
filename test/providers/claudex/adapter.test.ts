@@ -13,6 +13,7 @@ import type {
 } from "../../../src/core/session.js";
 import type { ProviderReadiness } from "../../../src/core/readiness.js";
 import { ClaudexAdapter } from "../../../src/providers/claudex/adapter.js";
+import { probeProvidersInOrder } from "../../../src/providers/claudex/resolution.js";
 
 function createCapabilities(provider: ProviderId): ProviderCapabilities {
   return {
@@ -445,6 +446,218 @@ test("dispose preserves a loaded provider cleanup AgentError", async () => {
 
   await expect(adapter.dispose()).rejects.toBe(cleanupError);
   expect(copilot.disposeCallCount).toBe(1);
+});
+
+test("adapter construction failure is diagnosed before safe fallback", async () => {
+  const codex = new FakeAdapter("codex", [createReadiness("codex", "ready")]);
+
+  const resolution = await probeProvidersInOrder({
+    preferredProviders: ["copilot", "codex"],
+    getAdapter: async (provider) => {
+      if (provider === "copilot") {
+        throw new Error("Copilot adapter module failed to load");
+      }
+      return codex;
+    },
+  });
+
+  expect(resolution).toMatchObject({
+    selected: { provider: "codex", status: "ready" },
+    selectedAdapter: codex,
+    probes: [
+      {
+        provider: "copilot",
+        status: "error",
+        extensions: { diagnostics: { stage: "adapter_construction" } },
+      },
+      { provider: "codex", status: "ready" },
+    ],
+  });
+});
+
+test("Copilot non-readiness remains primary when Codex construction fails", async () => {
+  const copilot = new FakeAdapter("copilot", [
+    createReadiness("copilot", "error"),
+  ]);
+
+  const resolution = await probeProvidersInOrder({
+    preferredProviders: ["copilot", "codex"],
+    getAdapter: async (provider) => {
+      if (provider === "codex") {
+        throw new Error(
+          "Unable to locate Codex CLI binaries. Ensure @openai/codex is installed with optional dependencies.",
+        );
+      }
+      return copilot;
+    },
+  });
+
+  expect(resolution).toMatchObject({
+    selected: { provider: "copilot", status: "error" },
+    selectedAdapter: copilot,
+    probes: [
+      { provider: "copilot", status: "error" },
+      {
+        provider: "codex",
+        status: "error",
+        checks: [
+          {
+            summary: "codex adapter construction failed",
+            detail: expect.stringContaining("Unable to locate Codex CLI binaries"),
+          },
+        ],
+        extensions: { diagnostics: { stage: "adapter_construction" } },
+      },
+    ],
+  });
+});
+
+test("readiness exception is diagnosed before safe fallback", async () => {
+  const copilot = new FakeAdapter("copilot", [
+    createReadiness("copilot", "error"),
+  ]);
+  copilot.checkReadiness = async () => {
+    throw new Error("Copilot readiness failed");
+  };
+  const codex = new FakeAdapter("codex", [createReadiness("codex", "ready")]);
+  const adapter = new ClaudexAdapter({
+    preferredProviders: ["copilot", "codex"],
+    providers: { codex, copilot },
+  });
+
+  await expect(adapter.checkReadiness()).resolves.toMatchObject({
+    provider: "codex",
+    status: "ready",
+    extensions: {
+      resolution: {
+        probes: [
+          {
+            provider: "copilot",
+            status: "error",
+            checks: [
+              {
+                summary: "copilot readiness check failed",
+                detail: "Copilot readiness failed",
+              },
+            ],
+          },
+          { provider: "codex", status: "ready" },
+        ],
+      },
+    },
+  });
+});
+
+test("readiness exception preserves AgentError extension metadata", async () => {
+  const providerDiagnostics = {
+    providerDiagnostic: "preserve-diagnostic",
+    stage: "provider-stage",
+  };
+  const providerResolution = {
+    providerResolution: "preserve-resolution",
+    selectedProvider: "provider-selection",
+  };
+  const providerError = new AgentError({
+    code: "missing_cli",
+    provider: "copilot",
+    message: "Copilot CLI is unavailable",
+    extensions: {
+      traceId: "trace-1",
+      diagnostics: providerDiagnostics,
+      resolution: providerResolution,
+    },
+  });
+  const copilot = new FakeAdapter("copilot", [
+    createReadiness("copilot", "error"),
+  ]);
+  copilot.checkReadiness = async () => {
+    throw providerError;
+  };
+  const adapter = new ClaudexAdapter({
+    preferredProviders: ["copilot"],
+    providers: { copilot },
+  });
+
+  const readiness = await adapter.checkReadiness();
+
+  expect(readiness).toMatchObject({
+    provider: "copilot",
+    status: "missing_cli",
+    extensions: {
+      traceId: "trace-1",
+      diagnostics: {
+        providerDiagnostic: "preserve-diagnostic",
+        stage: "provider-stage",
+        errorCode: "missing_cli",
+        reason: "Copilot CLI is unavailable",
+        claudex: { stage: "readiness" },
+      },
+      resolution: {
+        providerResolution: "preserve-resolution",
+        selectedProvider: "provider-selection",
+        selectedStatus: "missing_cli",
+        strategy: "fallback",
+        claudex: { selectedProvider: "copilot" },
+      },
+    },
+  });
+  expect(readiness.raw).toBe(providerError);
+  expect(
+    (readiness.extensions?.diagnostics as Record<string, unknown>)
+      .providerValue,
+  ).toBe(providerDiagnostics);
+  expect(
+    (readiness.extensions?.resolution as Record<string, unknown>)
+      .providerValue,
+  ).toBe(providerResolution);
+});
+
+test("readiness exception preserves non-plain AgentError extension values", async () => {
+  const providerDiagnostics = new Error("provider diagnostics");
+  const providerResolution = new URL("https://provider.example/");
+  const providerError = new AgentError({
+    code: "missing_cli",
+    provider: "copilot",
+    message: "Copilot CLI is unavailable",
+    extensions: {
+      diagnostics: providerDiagnostics,
+      resolution: providerResolution,
+    },
+  });
+  const copilot = new FakeAdapter("copilot", [
+    createReadiness("copilot", "error"),
+  ]);
+  copilot.checkReadiness = async () => {
+    throw providerError;
+  };
+  const adapter = new ClaudexAdapter({
+    preferredProviders: ["copilot"],
+    providers: { copilot },
+  });
+
+  const readiness = await adapter.checkReadiness();
+  const diagnostics = readiness.extensions?.diagnostics as Record<
+    string,
+    unknown
+  >;
+  const resolution = readiness.extensions?.resolution as Record<
+    string,
+    unknown
+  >;
+
+  expect(readiness.raw).toBe(providerError);
+  expect(diagnostics).toMatchObject({
+    stage: "readiness",
+    errorCode: "missing_cli",
+    reason: "Copilot CLI is unavailable",
+  });
+  expect(diagnostics.providerValue).toBe(providerDiagnostics);
+  expect(resolution).toMatchObject({
+    selectedProvider: "copilot",
+    selectedStatus: "missing_cli",
+    strategy: "fallback",
+  });
+  expect(resolution.providerValue).toBe(providerResolution);
 });
 
 test("invalid preferred provider ids fail with a typed AgentError", async () => {
