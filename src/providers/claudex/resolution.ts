@@ -86,21 +86,26 @@ export function extendReadinessWithResolution(params: {
   probes: readonly ProviderReadiness[];
   resolution: ClaudexResolutionStrategy;
 }): ProviderReadiness {
+  const resolution = {
+    preferredProviders: [...params.preferredProviders],
+    selectedProvider: params.readiness.provider,
+    selectedStatus: params.readiness.status,
+    strategy: params.resolution,
+    probes: params.probes.map((probe) => ({
+      provider: probe.provider,
+      status: probe.status,
+      checks: probe.checks,
+    })),
+  };
+
   return {
     ...params.readiness,
     extensions: {
       ...params.readiness.extensions,
-      resolution: {
-        preferredProviders: [...params.preferredProviders],
-        selectedProvider: params.readiness.provider,
-        selectedStatus: params.readiness.status,
-        strategy: params.resolution,
-        probes: params.probes.map((probe) => ({
-          provider: probe.provider,
-          status: probe.status,
-          checks: probe.checks,
-        })),
-      },
+      resolution: mergeExtensionMetadata(
+        params.readiness.extensions?.resolution,
+        resolution,
+      ),
     },
   };
 }
@@ -111,7 +116,8 @@ function createFailedProbe(
   error: unknown,
   capabilities: ProviderCapabilities = { provider, features: {} },
 ): ProviderReadiness {
-  const code = isAgentError(error) ? error.code : undefined;
+  const agentError = isAgentError(error) ? error : undefined;
+  const code = agentError?.code;
   const status =
     code === "missing_cli"
       ? "missing_cli"
@@ -137,12 +143,42 @@ function createFailedProbe(
     capabilities,
     raw: error,
     extensions: {
-      ...(isAgentError(error) ? error.extensions : undefined),
-      diagnostics: {
+      ...agentError?.extensions,
+      diagnostics: mergeExtensionMetadata(agentError?.extensions?.diagnostics, {
         stage,
         ...(code ? { errorCode: code } : {}),
         reason,
-      },
+      }),
     },
   };
+}
+
+function mergeExtensionMetadata(
+  existing: unknown,
+  metadata: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!isRecord(existing)) {
+    return existing === undefined
+      ? metadata
+      : { providerValue: existing, ...metadata };
+  }
+
+  const hasCollision = Object.keys(metadata).some((key) =>
+    Object.hasOwn(existing, key),
+  );
+
+  if (!hasCollision) {
+    return { ...existing, ...metadata };
+  }
+
+  return {
+    ...metadata,
+    ...existing,
+    claudex: metadata,
+    providerValue: existing,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

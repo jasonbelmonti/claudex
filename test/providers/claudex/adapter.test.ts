@@ -548,6 +548,70 @@ test("readiness exception is diagnosed before safe fallback", async () => {
   });
 });
 
+test("readiness exception preserves AgentError extension metadata", async () => {
+  const providerDiagnostics = {
+    providerDiagnostic: "preserve-diagnostic",
+    stage: "provider-stage",
+  };
+  const providerResolution = {
+    providerResolution: "preserve-resolution",
+    selectedProvider: "provider-selection",
+  };
+  const providerError = new AgentError({
+    code: "missing_cli",
+    provider: "copilot",
+    message: "Copilot CLI is unavailable",
+    extensions: {
+      traceId: "trace-1",
+      diagnostics: providerDiagnostics,
+      resolution: providerResolution,
+    },
+  });
+  const copilot = new FakeAdapter("copilot", [
+    createReadiness("copilot", "error"),
+  ]);
+  copilot.checkReadiness = async () => {
+    throw providerError;
+  };
+  const adapter = new ClaudexAdapter({
+    preferredProviders: ["copilot"],
+    providers: { copilot },
+  });
+
+  const readiness = await adapter.checkReadiness();
+
+  expect(readiness).toMatchObject({
+    provider: "copilot",
+    status: "missing_cli",
+    extensions: {
+      traceId: "trace-1",
+      diagnostics: {
+        providerDiagnostic: "preserve-diagnostic",
+        stage: "provider-stage",
+        errorCode: "missing_cli",
+        reason: "Copilot CLI is unavailable",
+        claudex: { stage: "readiness" },
+      },
+      resolution: {
+        providerResolution: "preserve-resolution",
+        selectedProvider: "provider-selection",
+        selectedStatus: "missing_cli",
+        strategy: "fallback",
+        claudex: { selectedProvider: "copilot" },
+      },
+    },
+  });
+  expect(readiness.raw).toBe(providerError);
+  expect(
+    (readiness.extensions?.diagnostics as Record<string, unknown>)
+      .providerValue,
+  ).toBe(providerDiagnostics);
+  expect(
+    (readiness.extensions?.resolution as Record<string, unknown>)
+      .providerValue,
+  ).toBe(providerResolution);
+});
+
 test("invalid preferred provider ids fail with a typed AgentError", async () => {
   try {
     new ClaudexAdapter({
