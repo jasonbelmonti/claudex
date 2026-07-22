@@ -6,6 +6,7 @@ import type { ProviderId } from "./provider.js";
 import {
   classifyStructuredOutputText,
   createSafeStructuredOutputDiagnostics,
+  createSafeValidationErrors,
   type StructuredOutputResponseClassification,
 } from "./structured-output-diagnostics.js";
 
@@ -83,6 +84,10 @@ export function parseStructuredOutputText(params: {
   }
 
   const validationErrors = formatValidationErrors(validate.errors ?? []);
+  const safeValidationErrors = createSafeValidationErrors(
+    validationErrors,
+    params.schema,
+  );
   const diagnostics = createSafeStructuredOutputDiagnostics({
     classification: "schema_invalid_json",
     schema: params.schema,
@@ -96,7 +101,7 @@ export function parseStructuredOutputText(params: {
       message: `${params.providerLabel} returned JSON that did not match the requested output schema.`,
       details: {
         ...diagnostics,
-        validationErrors,
+        validationErrors: safeValidationErrors,
       },
       raw: {
         text: params.text,
@@ -106,7 +111,7 @@ export function parseStructuredOutputText(params: {
       extensions: {
         diagnostics: {
           ...diagnostics,
-          validationErrors,
+          validationErrors: safeValidationErrors,
         },
       },
     }),
@@ -146,6 +151,10 @@ export function validateStructuredOutputValue(params: {
   }
 
   const validationErrors = formatValidationErrors(validate.errors ?? []);
+  const safeValidationErrors = createSafeValidationErrors(
+    validationErrors,
+    params.schema,
+  );
   const serializedValue = JSON.stringify(params.value);
   const diagnostics = createSafeStructuredOutputDiagnostics({
     classification: "schema_invalid_json",
@@ -160,7 +169,7 @@ export function validateStructuredOutputValue(params: {
       message: `${params.providerLabel} returned JSON that did not match the requested output schema.`,
       details: {
         ...diagnostics,
-        validationErrors,
+        validationErrors: safeValidationErrors,
       },
       raw: {
         value: params.value,
@@ -170,7 +179,7 @@ export function validateStructuredOutputValue(params: {
       extensions: {
         diagnostics: {
           ...diagnostics,
-          validationErrors,
+          validationErrors: safeValidationErrors,
         },
       },
     }),
@@ -191,7 +200,7 @@ function getOrCreateValidator(schema: JsonSchema): ValidateFunction {
 
 function formatValidationErrors(errors: ErrorObject[]): Array<Record<string, string>> {
   return errors.map((error) => ({
-    instancePath: error.instancePath || "/",
+    instancePath: error.instancePath,
     keyword: error.keyword,
     message: error.message ?? "Schema validation failed.",
     schemaPath: error.schemaPath,

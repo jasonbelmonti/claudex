@@ -1,13 +1,14 @@
 import { createHash } from "node:crypto";
+import {
+  extractFencedJsonPayload,
+  scanJsonCandidates,
+  type StructuredOutputResponseClassification,
+} from "./structured-output-classification.js";
 
-export type StructuredOutputResponseClassification =
-  | "valid_json"
-  | "non_json"
-  | "fenced_json"
-  | "prose_wrapped_json"
-  | "multiple_json_values"
-  | "truncated_json"
-  | "schema_invalid_json";
+export {
+  classifyStructuredOutputText,
+  type StructuredOutputResponseClassification,
+} from "./structured-output-classification.js";
 
 export type SafeStructuredOutputDiagnostics = {
   stage: "structured_output_validation";
@@ -19,14 +20,16 @@ export type SafeStructuredOutputDiagnostics = {
   responseExcerptTruncated: boolean;
 };
 
-type JsonCandidate = {
-  end: number;
-  start: number;
-  value: unknown;
-};
-
 const DEFAULT_EXCERPT_LIMIT = 1_024;
-const SECRET_KEY_PATTERN = /authorization|cookie|credential|password|secret|token/i;
+const SECRET_KEY_PATTERN =
+  /api[-_]?key|access[-_]?key|authorization|cookie|credential|password|private[-_]?key|secret|token/i;
+const CREDENTIAL_PATTERNS = [
+  /\bgh[pousr]_[A-Za-z0-9_]{20,255}\b/gi,
+  /\bgithub_pat_[A-Za-z0-9_]{20,255}\b/gi,
+  /\bAKIA[0-9A-Z]{16}\b/g,
+  /\bxox[baprs]-[A-Za-z0-9-]{10,255}\b/gi,
+  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
+];
 
 export function canonicalizeJson(value: unknown): string {
   return JSON.stringify(sortJsonValue(value));
@@ -38,45 +41,6 @@ export function sha256Text(value: string): string {
 
 export function hashJsonValue(value: unknown): string {
   return sha256Text(canonicalizeJson(value));
-}
-
-export function classifyStructuredOutputText(
-  text: string,
-): StructuredOutputResponseClassification {
-  const trimmed = text.trim();
-
-  try {
-    JSON.parse(trimmed);
-    return "valid_json";
-  } catch {
-    // Classification continues without accepting or repairing the response.
-  }
-
-  const fencedPayload = extractFencedPayload(trimmed);
-  if (fencedPayload !== undefined && parsesAsJson(fencedPayload)) {
-    return "fenced_json";
-  }
-
-  const candidates = findJsonCandidates(trimmed);
-  if (candidates.length > 1) {
-    return "multiple_json_values";
-  }
-
-  const candidate = candidates.length === 1 ? candidates[0] : undefined;
-  if (candidate) {
-    const prefix = trimmed.slice(0, candidate.start).trim();
-    const suffix = trimmed.slice(candidate.end).trim();
-
-    if (prefix.length > 0 || suffix.length > 0) {
-      return "prose_wrapped_json";
-    }
-  }
-
-  if (hasUnclosedJsonStructure(trimmed)) {
-    return "truncated_json";
-  }
-
-  return "non_json";
 }
 
 export function createSafeStructuredOutputDiagnostics(params: {
@@ -106,6 +70,26 @@ export function createSafeStructuredOutputDiagnostics(params: {
   };
 }
 
+export function createSafeValidationErrors(
+  validationErrors: ReadonlyArray<Record<string, string>>,
+  schema: unknown,
+): Array<Record<string, string>> {
+  const sensitivePropertyNames = new Set(
+    [...collectSchemaPropertyNames(schema)].filter(isSensitiveDiagnosticText),
+  );
+
+  return validationErrors.map((validationError) =>
+    Object.fromEntries(
+      Object.entries(validationError).map(([key, value]) => [
+        key,
+        key === "instancePath" || key === "schemaPath"
+          ? redactJsonPointer(value, sensitivePropertyNames)
+          : redactSensitiveDiagnosticText(value, sensitivePropertyNames),
+      ]),
+    ),
+  );
+}
+
 function createRedactedResponseExcerpt(
   text: string,
   classification: StructuredOutputResponseClassification,
@@ -113,7 +97,7 @@ function createRedactedResponseExcerpt(
 ): string {
   const trimmed = text.trim();
   const schemaPropertyNames = collectSchemaPropertyNames(schema);
-  const candidates = findJsonCandidates(trimmed);
+  const candidates = scanJsonCandidates(trimmed).candidates;
   const redactedCandidates = candidates.map((candidate) =>
     JSON.stringify(redactJsonValue(candidate.value, schemaPropertyNames)),
   );
@@ -129,7 +113,7 @@ function createRedactedResponseExcerpt(
   }
 
   if (classification === "fenced_json") {
-    const payload = extractFencedPayload(trimmed);
+    const payload = extractFencedJsonPayload(trimmed);
     if (payload !== undefined) {
       try {
         return `\`\`\`json\n${JSON.stringify(redactJsonValue(JSON.parse(payload), schemaPropertyNames))}\n\`\`\``;
@@ -191,7 +175,7 @@ function redactJsonValue(
       Object.entries(value as Record<string, unknown>)
         .slice(0, 50)
         .map(([key, member], index) => [
-          schemaPropertyNames.has(key) && !SECRET_KEY_PATTERN.test(key)
+          schemaPropertyNames.has(key) && !isSensitiveDiagnosticText(key)
             ? key
             : `<redacted-key-${index + 1}>`,
           redactJsonValue(member, schemaPropertyNames),
@@ -238,7 +222,7 @@ function sortJsonValue(value: unknown): unknown {
   if (typeof value === "object" && value !== null) {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
-        .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => compareJsonKeys(left, right))
         .map(([key, member]) => [key, sortJsonValue(member)]),
     );
   }
@@ -246,108 +230,48 @@ function sortJsonValue(value: unknown): unknown {
   return value;
 }
 
-function extractFencedPayload(text: string): string | undefined {
-  const match = text.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
-  return match?.[1];
+function compareJsonKeys(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function parsesAsJson(text: string): boolean {
-  try {
-    JSON.parse(text);
-    return true;
-  } catch {
-    return false;
-  }
+function isSensitiveDiagnosticText(value: string): boolean {
+  return (
+    SECRET_KEY_PATTERN.test(value) ||
+    CREDENTIAL_PATTERNS.some((pattern) => {
+      pattern.lastIndex = 0;
+      return pattern.test(value);
+    })
+  );
 }
 
-function findJsonCandidates(text: string): JsonCandidate[] {
-  const candidates: JsonCandidate[] = [];
-  let index = 0;
-
-  while (index < text.length) {
-    const character = text[index];
-    if (character !== "{" && character !== "[") {
-      index += 1;
-      continue;
-    }
-
-    const end = findCompositeJsonEnd(text, index);
-    if (end === undefined) {
-      index += 1;
-      continue;
-    }
-
-    const source = text.slice(index, end);
-    try {
-      candidates.push({
-        start: index,
-        end,
-        value: JSON.parse(source),
-      });
-      index = end;
-    } catch {
-      index += 1;
-    }
-  }
-
-  return candidates;
+function redactJsonPointer(
+  pointer: string,
+  sensitivePropertyNames: ReadonlySet<string>,
+): string {
+  return pointer
+    .split("/")
+    .map((segment) => {
+      const decoded = segment.replaceAll("~1", "/").replaceAll("~0", "~");
+      return sensitivePropertyNames.has(decoded) || isSensitiveDiagnosticText(decoded)
+        ? "<redacted-sensitive>"
+        : redactSensitiveDiagnosticText(segment, sensitivePropertyNames);
+    })
+    .join("/");
 }
 
-function findCompositeJsonEnd(text: string, start: number): number | undefined {
-  const stack: string[] = [];
-  let escaped = false;
-  let inString = false;
-
-  for (let index = start; index < text.length; index += 1) {
-    const character = text[index];
-
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (character === "\\") {
-        escaped = true;
-      } else if (character === '"') {
-        inString = false;
-      }
-      continue;
-    }
-
-    if (character === '"') {
-      inString = true;
-      continue;
-    }
-
-    if (character === "{" || character === "[") {
-      stack.push(character);
-      continue;
-    }
-
-    if (character !== "}" && character !== "]") {
-      continue;
-    }
-
-    const opener = stack.pop();
-    if (
-      opener === undefined ||
-      (character === "}" && opener !== "{") ||
-      (character === "]" && opener !== "[")
-    ) {
-      return undefined;
-    }
-
-    if (stack.length === 0) {
-      return index + 1;
-    }
+function redactSensitiveDiagnosticText(
+  value: string,
+  sensitivePropertyNames: ReadonlySet<string>,
+): string {
+  let redacted = value;
+  for (const propertyName of sensitivePropertyNames) {
+    redacted = redacted.split(propertyName).join("<redacted-sensitive>");
   }
 
-  return undefined;
-}
-
-function hasUnclosedJsonStructure(text: string): boolean {
-  const start = text.search(/[[{]/);
-  if (start === -1) {
-    return false;
+  for (const pattern of CREDENTIAL_PATTERNS) {
+    pattern.lastIndex = 0;
+    redacted = redacted.replace(pattern, "<redacted-sensitive>");
   }
 
-  return findCompositeJsonEnd(text, start) === undefined;
+  return redacted;
 }

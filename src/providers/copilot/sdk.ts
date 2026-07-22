@@ -1,5 +1,5 @@
 import { accessSync, constants, statSync } from "node:fs";
-import { delimiter, extname, join } from "node:path";
+import { posix, win32 } from "node:path";
 import {
   CopilotClient,
   type CopilotClientOptions,
@@ -90,14 +90,15 @@ function findCopilotOnPath(params: {
     return undefined;
   }
 
+  const pathApi = params.platform === "win32" ? win32 : posix;
   const extensions = executableExtensions(params.env, params.platform);
-  for (const directory of pathValue.split(delimiter)) {
+  for (const directory of pathValue.split(pathApi.delimiter)) {
     if (!directory) {
       continue;
     }
 
     for (const extension of extensions) {
-      const candidate = join(directory, `copilot${extension}`);
+      const candidate = pathApi.join(directory, `copilot${extension}`);
       if (params.isExecutableFile(candidate)) {
         return candidate;
       }
@@ -134,9 +135,7 @@ function executableExtensions(
     ".COM",
   ];
 
-  return extname("copilot")
-    ? [""]
-    : configured.map((extension) => extension.toLowerCase());
+  return configured.map((extension) => extension.toLowerCase());
 }
 
 function isExecutableFile(path: string): boolean {

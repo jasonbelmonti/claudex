@@ -61,6 +61,25 @@ test("Copilot CLI resolution discovers an executable on PATH", () => {
   });
 });
 
+test("Copilot CLI resolution uses injected Windows path semantics", () => {
+  const options = resolveCopilotSdkOptions(
+    {},
+    {
+      env: {
+        Path: "C:\\first;D:\\two",
+        PATHEXT: ".EXE;.CMD",
+      },
+      isExecutableFile: (path) => path === "D:\\two\\copilot.exe",
+      platform: "win32",
+    },
+  );
+
+  expect(options.connection).toMatchObject({
+    kind: "stdio",
+    path: "D:\\two\\copilot.exe",
+  });
+});
+
 test("Copilot CLI resolution leaves fallback to the SDK platform package when no CLI is found", () => {
   const options = { logLevel: "error" as const };
 

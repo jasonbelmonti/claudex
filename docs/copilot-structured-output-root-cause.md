@@ -4,7 +4,7 @@
 
 Two authorized Recursive Frontier proposal attempts reached an authenticated Copilot CLI and failed with `structured_output_invalid`; cleanup then did not terminate. Neither attempt wrote a proposal, and frontier revision 1 remained unchanged.
 
-The exact response bodies from those historical attempts are not recoverable. Claudex retained the body and AJV errors only on the in-memory `AgentError.raw`/`details`, Recursive Frontier replaced that error with a code-only `Error`, and the retained provider logs contain lifecycle and cleanup information but no assistant body. Consequently, classifying either historical body as non-JSON, fenced JSON, truncated JSON, or schema-invalid JSON would be unsupported. This evidence loss is itself the consumer-boundary defect fixed here.
+The exact response bodies from those historical attempts are irrecoverable. Claudex retained the body and AJV errors only on the in-memory `AgentError.raw`/`details`, Recursive Frontier replaced that error with a code-only `Error`, and the retained provider logs contain lifecycle and cleanup information but no assistant body. The replacement acceptance contract therefore does not require an unsupported historical response-category claim. Instead, it requires conclusive classification of the reproducible systemic causes: post-hoc-only schema handling, diagnostic loss at the consumer boundary, and undisposed real-session runtime. This evidence loss is itself the consumer-boundary defect fixed here.
 
 ## Conclusive findings
 
@@ -22,7 +22,7 @@ The corrected structured-output path is:
 3. Copilot emits root session events. Claudex records their bounded type sequence and selects the final root `assistant.message` before `session.idle`.
 4. Claudex validates the exact final text with `JSON.parse` and AJV. It neither strips fences nor extracts or repairs JSON.
 5. A failure remains an `AgentError` across the Recursive Frontier boundary, preserving `code`, `provider`, `message`, `cause`, `details`, `extensions`, and in-memory `raw` data.
-6. Optional diagnostics write only hashes, classification, exact validation paths, and a redacted/truncated structural excerpt. Primary and cleanup errors are separate.
+6. Optional diagnostics write only hashes, classification, safe validation paths, and a redacted/truncated structural excerpt. Ordinary AJV paths remain exact; credential-bearing path segments are redacted in `details` and `extensions` and retained exactly only in the in-memory `raw` field. Primary and cleanup errors are separate.
 7. Recursive Frontier disposes the selected runtime before removing its temporary workspace. Claudex bounds graceful stop and reserves part of the same total deadline for `forceStop`; cleanup failure is attached without replacing the primary failure.
 
 ## Reproducible evidence
@@ -31,7 +31,7 @@ Relevant implementation paths:
 
 - `src/providers/copilot/input.ts`: prompt mapping and explicit JSON-only schema contract
 - `src/providers/copilot/session.ts`, `events.ts`, and `results.ts`: SDK request, root-event selection, final-message capture, and idle termination
-- `src/core/schema-validation.ts` and `structured-output-diagnostics.ts`: exact parsing, AJV validation, classification, hashing, and safe excerpt creation
+- `src/core/schema-validation.ts`, `structured-output-classification.ts`, and `structured-output-diagnostics.ts`: exact parsing, AJV validation, primitive/composite classification, locale-independent hashing, and safe excerpt creation
 - `src/providers/copilot/adapter.ts` and `cleanup.ts`: client ownership, bounded stop, and reserved force-stop phase
 - `src/providers/copilot/sdk.ts` and `readiness.ts`: CLI resolution and normalized availability diagnostics
 - `src/providers/claudex/resolution.ts`: construction/readiness exception isolation and fallback

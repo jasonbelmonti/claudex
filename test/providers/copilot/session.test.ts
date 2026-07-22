@@ -200,7 +200,11 @@ test.each([
     "{\"status\":\"first\"}\n{\"status\":\"second\"}",
     "multiple_json_values",
   ],
+  ["1 2", "multiple_json_values"],
+  ["Result: 42", "prose_wrapped_json"],
   ["{\"status\":\"unfinished\"", "truncated_json"],
+  ['"unfinished', "truncated_json"],
+  ["1e", "truncated_json"],
 ])(
   "Copilot classifies rejected structured response as %s",
   async (content, responseClassification) => {

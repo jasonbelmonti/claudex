@@ -1,10 +1,14 @@
+import { execFileSync } from "node:child_process";
 import { expect, test } from "#test-support";
+import { Ajv } from "ajv";
 
 import {
+  canonicalizeJson,
   classifyStructuredOutputText,
   createSafeStructuredOutputDiagnostics,
   hashJsonValue,
 } from "../src/core/structured-output-diagnostics.js";
+import { parseStructuredOutputText } from "../src/core/schema-validation.js";
 
 test.each([
   ["plain non-JSON", "not json", "non_json"],
@@ -19,10 +23,120 @@ test.each([
     "{\"status\":\"first\"}\n{\"status\":\"second\"}",
     "multiple_json_values",
   ],
+  ["multiple primitive JSON values", "1 2", "multiple_json_values"],
+  ["prose-wrapped primitive JSON", "Result: 42", "prose_wrapped_json"],
   ["truncated JSON", "{\"status\":\"ok\"", "truncated_json"],
+  ["truncated JSON string", '"unfinished', "truncated_json"],
+  ["truncated JSON number", "1e", "truncated_json"],
   ["valid JSON", "{\"status\":\"ok\"}", "valid_json"],
+  ["valid JSON array", "[1,2]", "valid_json"],
+  ["valid JSON string", '"ok"', "valid_json"],
+  ["valid JSON number", "42", "valid_json"],
+  ["valid JSON boolean", "true", "valid_json"],
+  ["valid JSON null", "null", "valid_json"],
 ])("classifies %s without repairing it", (_name, response, classification) => {
   expect(classifyStructuredOutputText(response)).toBe(classification);
+});
+
+test("canonical schema text and hashes are locale-independent", () => {
+  const script = `
+    import { canonicalizeJson, hashJsonValue } from "./src/core/structured-output-diagnostics.ts";
+    const schema = { properties: { z: { type: "string" }, "ä": { type: "number" } }, type: "object" };
+    process.stdout.write(JSON.stringify({ canonical: canonicalizeJson(schema), hash: hashJsonValue(schema) }));
+  `;
+  const results = ["en_US.UTF-8", "sv_SE.UTF-8"].map((locale) =>
+    execFileSync(
+      process.execPath,
+      ["--import", "tsx", "--input-type=module", "--eval", script],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          LANG: locale,
+          LC_ALL: locale,
+        },
+      },
+    ),
+  );
+
+  expect(results[0]).toBe(results[1]);
+  expect(canonicalizeJson({ z: 1, "ä": 2 })).toBe('{"z":1,"ä":2}');
+});
+
+test("schema validation preserves an empty root instance path", () => {
+  const schema = { type: "object" } as const;
+  const directValidator = new Ajv({ allErrors: true, strict: false }).compile(
+    schema,
+  );
+  expect(directValidator([])).toBe(false);
+
+  const result = parseStructuredOutputText({
+    provider: "copilot",
+    providerLabel: "Copilot",
+    schema,
+    text: "[]",
+  });
+  const directError = directValidator.errors?.[0];
+
+  expect(result.error).toMatchObject({
+    details: {
+      validationErrors: [
+        {
+          instancePath: directError?.instancePath,
+          keyword: directError?.keyword,
+          schemaPath: directError?.schemaPath,
+        },
+      ],
+    },
+  });
+});
+
+test("safe validation diagnostics redact credential-shaped schema paths while raw retains exact evidence", () => {
+  const credentialKey = "ghp_abcdefghijklmnopqrstuvwxyz123456";
+  const result = parseStructuredOutputText({
+    provider: "copilot",
+    providerLabel: "Copilot",
+    schema: {
+      properties: {
+        [credentialKey]: { type: "string" },
+      },
+      required: [credentialKey],
+      type: "object",
+    },
+    text: JSON.stringify({ [credentialKey]: 42 }),
+  });
+  const error = result.error;
+
+  expect(error).toMatchObject({
+    details: {
+      validationErrors: [
+        {
+          instancePath: "/<redacted-sensitive>",
+          schemaPath: "#/properties/<redacted-sensitive>/type",
+        },
+      ],
+    },
+    extensions: {
+      diagnostics: {
+        validationErrors: [
+          {
+            instancePath: "/<redacted-sensitive>",
+            schemaPath: "#/properties/<redacted-sensitive>/type",
+          },
+        ],
+      },
+    },
+  });
+
+  const serializedSafeDiagnostics = JSON.stringify({
+    details: error?.details,
+    extensions: error?.extensions,
+  });
+  expect(serializedSafeDiagnostics).not.toContain(credentialKey);
+  expect(serializedSafeDiagnostics).not.toContain("ghp_");
+  expect(JSON.stringify(error?.raw)).toContain(credentialKey);
+  expect(JSON.stringify(error?.raw)).toContain(`/${credentialKey}`);
 });
 
 test("safe diagnostics hash exact input while redacting and truncating excerpts", () => {
