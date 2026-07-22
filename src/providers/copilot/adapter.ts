@@ -6,6 +6,7 @@ import type {
   SessionReference,
 } from "../../core/session.js";
 import { createCopilotCapabilities } from "./capabilities.js";
+import { cleanupCopilotClient } from "./cleanup.js";
 import {
   assertCopilotSessionReference,
   createCopilotSessionReference,
@@ -27,9 +28,13 @@ export class CopilotAdapter implements AgentProviderAdapter {
   readonly capabilities = createCopilotCapabilities();
 
   private client: CopilotClientLike | null;
+  private readonly ownsClient: boolean;
 
   constructor(private readonly options: CopilotAdapterOptions = {}) {
     this.client = options.client ?? null;
+    this.ownsClient = options.client
+      ? options.ownsClient === true
+      : options.ownsClient !== false;
   }
 
   checkReadiness() {
@@ -85,6 +90,24 @@ export class CopilotAdapter implements AgentProviderAdapter {
       executionMode: options.executionMode,
       session,
     });
+  }
+
+  async dispose(): Promise<void> {
+    const client = this.client;
+    this.client = null;
+
+    if (!client || !this.ownsClient) {
+      return;
+    }
+
+    await cleanupCopilotClient({
+      client,
+      timeoutMs: this.options.cleanupTimeoutMs,
+    });
+  }
+
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.dispose();
   }
 
   private getClient(): CopilotClientLike {

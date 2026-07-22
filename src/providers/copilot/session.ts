@@ -130,6 +130,7 @@ export class CopilotSession implements AgentSession {
       const copilotMessage = mapTurnInputToCopilotMessage(
         input,
         this.executionMode,
+        options.outputSchema,
       );
       this.enqueuePendingLifecycleEvents(queue);
       const sendPromise = this.session.send(copilotMessage);

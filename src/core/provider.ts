@@ -12,5 +12,6 @@ export interface AgentProviderAdapter {
 
   checkReadiness(): Promise<ProviderReadiness>;
   createSession(options?: SessionOptions): Promise<AgentSession>;
+  dispose?(): Promise<void>;
   resumeSession(reference: SessionReference, options?: SessionOptions): Promise<AgentSession>;
 }

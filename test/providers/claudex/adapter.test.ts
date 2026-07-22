@@ -1,6 +1,6 @@
 import { expect, test } from "#test-support";
 
-import { isAgentError } from "../../../src/core/errors.js";
+import { AgentError, isAgentError } from "../../../src/core/errors.js";
 import type { ProviderCapabilities } from "../../../src/core/capabilities.js";
 import type { AgentEvent } from "../../../src/core/events.js";
 import type { TurnInput, TurnOptions } from "../../../src/core/input.js";
@@ -63,10 +63,12 @@ class FakeAdapter implements AgentProviderAdapter {
   readinessCallCount = 0;
   createSessionCallCount = 0;
   resumeSessionCallCount = 0;
+  disposeCallCount = 0;
 
   constructor(
     readonly provider: ProviderId,
     private readonly readinessResults: ProviderReadiness[],
+    private readonly disposeError?: unknown,
   ) {
     this.capabilities = createCapabilities(provider);
   }
@@ -100,6 +102,14 @@ class FakeAdapter implements AgentProviderAdapter {
     this.resumeSessionCallCount += 1;
 
     return new FakeSession(this.provider, this.capabilities, reference);
+  }
+
+  async dispose(): Promise<void> {
+    this.disposeCallCount += 1;
+
+    if (this.disposeError !== undefined) {
+      throw this.disposeError;
+    }
   }
 }
 
@@ -412,6 +422,29 @@ test("custom preferred provider order accepts injected copilot providers", async
   expect(adapter.preferredProviders).toEqual(["copilot", "codex"]);
   expect(copilot.createSessionCallCount).toBe(1);
   expect(codex.createSessionCallCount).toBe(0);
+});
+
+test("dispose preserves a loaded provider cleanup AgentError", async () => {
+  const cleanupError = new AgentError({
+    code: "provider_failure",
+    provider: "copilot",
+    message: "Copilot cleanup failed.",
+    details: { stage: "cleanup" },
+  });
+  const copilot = new FakeAdapter(
+    "copilot",
+    [createReadiness("copilot", "ready")],
+    cleanupError,
+  );
+  const adapter = new ClaudexAdapter({
+    preferredProviders: ["copilot"],
+    providers: { copilot },
+  });
+
+  await adapter.createSession();
+
+  await expect(adapter.dispose()).rejects.toBe(cleanupError);
+  expect(copilot.disposeCallCount).toBe(1);
 });
 
 test("invalid preferred provider ids fail with a typed AgentError", async () => {

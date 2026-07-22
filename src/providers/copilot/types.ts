@@ -98,6 +98,7 @@ export type CopilotAdapterOptions = {
   client?: CopilotClientLike;
   clientFactory?: CopilotClientFactory;
   ownsClient?: boolean;
+  cleanupTimeoutMs?: number;
   readinessTimeoutMs?: number;
   sdkOptions?: CopilotSdkOptions;
 };

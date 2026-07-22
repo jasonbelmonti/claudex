@@ -1,7 +1,8 @@
 import { AgentError } from "../../core/errors.js";
-import type { TurnInput } from "../../core/input.js";
+import type { JsonSchema, TurnInput } from "../../core/input.js";
 import type { ExecutionMode } from "../../core/session.js";
 import { mapCopilotAgentMode } from "./plan-mode.js";
+import { buildCopilotStructuredOutputPrompt } from "./structured-output-contract.js";
 import type {
   CopilotMessageOptions,
   CopilotTurnProviderOptions,
@@ -12,6 +13,7 @@ export const DEFAULT_COPILOT_TURN_TIMEOUT_MS = 60_000;
 export function mapTurnInputToCopilotMessage(
   input: TurnInput,
   executionMode?: ExecutionMode,
+  outputSchema?: JsonSchema,
 ): CopilotMessageOptions {
   if (input.attachments?.length) {
     throw new AgentError({
@@ -23,9 +25,13 @@ export function mapTurnInputToCopilotMessage(
   }
 
   const agentMode = mapCopilotAgentMode(executionMode);
+  const structuredOutputPrompt = buildCopilotStructuredOutputPrompt(
+    input.prompt,
+    outputSchema,
+  );
 
   return {
-    prompt: input.prompt,
+    ...structuredOutputPrompt,
     ...(agentMode ? { agentMode } : {}),
   };
 }
