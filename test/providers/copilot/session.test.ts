@@ -1,14 +1,16 @@
 import { expect, test } from "#test-support";
 
+import { AgentError } from "../../../src/core/errors.js";
 import type { AgentEvent } from "../../../src/core/events.js";
 import type { SessionReference } from "../../../src/core/session.js";
+import { sha256Text } from "../../../src/core/structured-output-diagnostics.js";
 import { CopilotAdapter } from "../../../src/providers/copilot/adapter.js";
 import type { CopilotSessionEvent } from "../../../src/providers/copilot/types.js";
 import {
-  createCopilotAssistantReasoningDeltaEvent,
-  createCopilotAssistantReasoningEvent,
   createCopilotAssistantMessageDeltaEvent,
   createCopilotAssistantMessageEvent,
+  createCopilotAssistantReasoningDeltaEvent,
+  createCopilotAssistantReasoningEvent,
   createCopilotIdleEvent,
   createCopilotModelCallFailureEvent,
   createCopilotPermissionCompletedEvent,
@@ -178,6 +180,185 @@ test("Copilot run returns structured output from the completed assistant message
     },
   });
   expect(session.reference).toEqual(COPILOT_REFERENCE);
+  expect(fakeSession.sentMessages).toHaveLength(1);
+  expect(
+    (fakeSession.sentMessages[0] as { prompt: string }).prompt,
+  ).toContain("<claudex_structured_output_contract>");
+  expect(
+    (fakeSession.sentMessages[0] as { prompt: string }).prompt,
+  ).toContain(
+    '{"additionalProperties":false,"properties":{"status":{"type":"string"}},"required":["status"],"type":"object"}',
+  );
+});
+
+test.each([
+  ["not JSON", "non_json"],
+  ["```json\n{\"status\":\"ok\"}\n```", "fenced_json"],
+  [
+    "Result: {\"status\":\"ok\"}",
+    "prose_wrapped_json",
+  ],
+  [
+    "{\"status\":\"first\"}\n{\"status\":\"second\"}",
+    "multiple_json_values",
+  ],
+  ["1 2", "multiple_json_values"],
+  ["Result: 42", "prose_wrapped_json"],
+  ["{\"status\":\"unfinished\"", "truncated_json"],
+  ['"unfinished', "truncated_json"],
+  ["1e", "truncated_json"],
+])(
+  "Copilot classifies rejected structured response as %s",
+  async (content, responseClassification) => {
+    const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+      [
+        createCopilotSessionStartEvent({
+          sessionId: COPILOT_REFERENCE.sessionId,
+        }),
+        createCopilotAssistantMessageEvent({ content }),
+        createCopilotIdleEvent(),
+      ],
+    ]);
+    const adapter = new CopilotAdapter({
+      client: new FakeCopilotClient({ createSessions: [fakeSession] }),
+    });
+    const session = await adapter.createSession();
+
+    await expect(
+      session.run(
+        { prompt: "Return JSON" },
+        { outputSchema: STRUCTURED_SCHEMA },
+      ),
+    ).rejects.toMatchObject({
+      code: "structured_output_invalid",
+      details: {
+        assistantMessageCount: 1,
+        eventSequence: [
+          "session.start",
+          "assistant.message",
+          "session.idle",
+        ],
+        responseClassification,
+        selectedMessageIdHash: sha256Text("fake-message"),
+        stage: "structured_output_validation",
+      },
+      provider: "copilot",
+    });
+  },
+);
+
+test("Copilot reports schema-invalid JSON with exact AJV validation paths", async () => {
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotSessionStartEvent({
+        sessionId: COPILOT_REFERENCE.sessionId,
+      }),
+      createCopilotAssistantMessageEvent({
+        content: '{"status":42}',
+      }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({ createSessions: [fakeSession] }),
+  });
+  const session = await adapter.createSession();
+
+  await expect(
+    session.run(
+      { prompt: "Return JSON" },
+      { outputSchema: STRUCTURED_SCHEMA },
+    ),
+  ).rejects.toMatchObject({
+    code: "structured_output_invalid",
+    details: {
+      responseClassification: "schema_invalid_json",
+      validationErrors: [
+        {
+          instancePath: "/status",
+          keyword: "type",
+          message: "must be string",
+          schemaPath: "#/properties/status/type",
+        },
+      ],
+    },
+  });
+});
+
+test("Copilot hashes provider-controlled message IDs in safe diagnostics and retains the exact ID only in raw memory", async () => {
+  const credentialMessageId = "ghp_abcdefghijklmnopqrstuvwxyz123456";
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotSessionStartEvent({
+        sessionId: COPILOT_REFERENCE.sessionId,
+      }),
+      createCopilotAssistantMessageEvent({
+        content: '{"status":42}',
+        messageId: credentialMessageId,
+      }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({ createSessions: [fakeSession] }),
+  });
+  const session = await adapter.createSession();
+
+  const error = await session
+    .run({ prompt: "Return JSON" }, { outputSchema: STRUCTURED_SCHEMA })
+    .then(
+      () => undefined,
+      (failure: unknown) => failure,
+    );
+
+  expect(error).toBeInstanceOf(AgentError);
+  const agentError = error as AgentError;
+  const serializedSafeDiagnostics = JSON.stringify({
+    details: agentError.details,
+    extensions: agentError.extensions,
+  });
+  expect(serializedSafeDiagnostics).not.toContain(credentialMessageId);
+  expect(agentError.details).toMatchObject({
+    selectedMessageIdHash: sha256Text(credentialMessageId),
+  });
+  expect(agentError.raw).toMatchObject({
+    copilotSelection: {
+      selectedMessageId: credentialMessageId,
+    },
+  });
+});
+
+test("Copilot validates only the final root assistant message selected before idle", async () => {
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotSessionStartEvent({
+        sessionId: COPILOT_REFERENCE.sessionId,
+      }),
+      createCopilotAssistantMessageEvent({
+        content: '{"status":42}',
+        messageId: "intermediate-message",
+      }),
+      createCopilotAssistantMessageEvent({
+        content: '{"status":"ok"}',
+        messageId: "final-message",
+      }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({ createSessions: [fakeSession] }),
+  });
+  const session = await adapter.createSession();
+
+  await expect(
+    session.run(
+      { prompt: "Return JSON" },
+      { outputSchema: STRUCTURED_SCHEMA },
+    ),
+  ).resolves.toMatchObject({
+    structuredOutput: { status: "ok" },
+    text: '{"status":"ok"}',
+  });
 });
 
 test("Copilot plan sessions send every turn in plan mode under the read-only boundary", async () => {

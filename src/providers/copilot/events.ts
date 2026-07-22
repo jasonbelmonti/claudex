@@ -7,10 +7,12 @@ import {
 import { createCopilotAbortedError, createCopilotProviderError } from "./errors.js";
 import { mapCopilotWorkspaceFileChangedEvent } from "./file-events.js";
 import {
+  addCopilotSelectionDiagnostics,
   buildCopilotTurnResult,
-  captureCopilotAssistantMessage,
-  captureCopilotUsage,
   type CopilotTurnState,
+  captureCopilotAssistantMessage,
+  captureCopilotEventType,
+  captureCopilotUsage,
 } from "./results.js";
 import type { CopilotSessionEvent } from "./types.js";
 
@@ -59,6 +61,8 @@ export function mapCopilotSessionEvent(params: {
   if (isSubAgentEvent(event)) {
     return [];
   }
+
+  captureCopilotEventType(state, event.type);
 
   switch (event.type) {
     case "session.start":
@@ -287,7 +291,10 @@ function mapIdleEvent(
   if (state.structuredOutputError) {
     return createCopilotTurnFailedEvent({
       session,
-      error: state.structuredOutputError,
+      error: addCopilotSelectionDiagnostics(
+        state,
+        state.structuredOutputError,
+      ),
     }) as CopilotTerminalEvent;
   }
 
