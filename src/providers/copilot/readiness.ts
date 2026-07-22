@@ -37,13 +37,16 @@ export async function checkCopilotReadiness(
   try {
     probe = createCopilotReadinessProbe(options);
   } catch (error) {
+    const missingCli = isMissingCopilotCliError(error);
     return createCopilotReadinessResult({
-      status: "error",
+      status: missingCli ? "missing_cli" : "error",
       checks: [
         {
-          kind: "runtime",
+          kind: missingCli ? "cli" : "runtime",
           status: "fail",
-          summary: "Copilot SDK client creation failed",
+          summary: missingCli
+            ? "Copilot CLI is not available"
+            : "Copilot SDK client creation failed",
           detail: toErrorDetail(error),
         },
       ],
@@ -65,10 +68,13 @@ export async function checkCopilotReadiness(
     );
   } catch (error) {
     raw.startupError = error;
+    const missingCli = isMissingCopilotCliError(error);
     checks.push({
-      kind: "runtime",
+      kind: missingCli ? "cli" : "runtime",
       status: "fail",
-      summary: "Copilot SDK runtime failed to start",
+      summary: missingCli
+        ? "Copilot CLI is not available"
+        : "Copilot SDK runtime failed to start",
       detail: toErrorDetail(error),
     });
 
@@ -78,7 +84,7 @@ export async function checkCopilotReadiness(
     }
 
     return createCopilotReadinessResult({
-      status: "error",
+      status: missingCli ? "missing_cli" : "error",
       checks,
       raw,
     });
@@ -177,6 +183,13 @@ export async function checkCopilotReadiness(
     checks,
     raw,
   });
+}
+
+function isMissingCopilotCliError(error: unknown): boolean {
+  const detail = toErrorDetail(error);
+  return /enoent|not found|could not (?:find|resolve).*copilot|unable to locate.*copilot|missing.*copilot cli/i.test(
+    detail,
+  );
 }
 
 function createCopilotReadinessProbe(
