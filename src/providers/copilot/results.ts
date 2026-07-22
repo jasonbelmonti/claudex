@@ -4,6 +4,7 @@ import type { JsonSchema, TurnInput } from "../../core/input.js";
 import type { AgentUsage, TurnResult } from "../../core/results.js";
 import { parseStructuredOutputText } from "../../core/schema-validation.js";
 import type { SessionReference } from "../../core/session.js";
+import { sha256Text } from "../../core/structured-output-diagnostics.js";
 import type { CopilotSessionEvent } from "./types.js";
 
 type CopilotAssistantUsageEvent = Extract<
@@ -89,7 +90,9 @@ export function addCopilotSelectionDiagnostics(
   const selection = {
     assistantMessageCount: state.assistantMessageCount,
     eventSequence: [...state.eventSequence],
-    selectedMessageId: state.latestMessageId,
+    ...(state.latestMessageId
+      ? { selectedMessageIdHash: sha256Text(state.latestMessageId) }
+      : {}),
   };
   const diagnostics = isRecord(error.extensions?.diagnostics)
     ? error.extensions.diagnostics
@@ -104,7 +107,7 @@ export function addCopilotSelectionDiagnostics(
       ...error.details,
       ...selection,
     },
-    raw: error.raw,
+    raw: addCopilotSelectionToRaw(error.raw, state.latestMessageId),
     extensions: {
       ...error.extensions,
       diagnostics: {
@@ -113,6 +116,28 @@ export function addCopilotSelectionDiagnostics(
       },
     },
   });
+}
+
+function addCopilotSelectionToRaw(
+  raw: unknown,
+  selectedMessageId: string | undefined,
+): unknown {
+  if (selectedMessageId === undefined) {
+    return raw;
+  }
+
+  const selectionEvidence = { selectedMessageId };
+  if (isRecord(raw)) {
+    return {
+      ...raw,
+      copilotSelection: selectionEvidence,
+    };
+  }
+
+  return {
+    providerRaw: raw,
+    copilotSelection: selectionEvidence,
+  };
 }
 
 export function captureCopilotUsage(

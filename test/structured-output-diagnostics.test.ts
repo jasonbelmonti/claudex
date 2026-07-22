@@ -28,6 +28,10 @@ test.each([
   ["truncated JSON", "{\"status\":\"ok\"", "truncated_json"],
   ["truncated JSON string", '"unfinished', "truncated_json"],
   ["truncated JSON number", "1e", "truncated_json"],
+  ["mismatched object delimiters", "{]", "non_json"],
+  ["mismatched array delimiters", "[}", "non_json"],
+  ["BOM-prefixed JSON", '\uFEFF{"status":"ok"}', "non_json"],
+  ["NBSP-prefixed JSON", '\u00A0{"status":"ok"}', "non_json"],
   ["valid JSON", "{\"status\":\"ok\"}", "valid_json"],
   ["valid JSON array", "[1,2]", "valid_json"],
   ["valid JSON string", '"ok"', "valid_json"],
@@ -92,33 +96,30 @@ test("schema validation preserves an empty root instance path", () => {
   });
 });
 
-test("safe validation diagnostics redact credential-shaped schema paths while raw retains exact evidence", () => {
-  const credentialKey = "ghp_abcdefghijklmnopqrstuvwxyz123456";
-  const result = parseStructuredOutputText({
-    provider: "copilot",
-    providerLabel: "Copilot",
-    schema: {
-      properties: {
-        [credentialKey]: { type: "string" },
-      },
-      required: [credentialKey],
-      type: "object",
-    },
-    text: JSON.stringify({ [credentialKey]: 42 }),
-  });
-  const error = result.error;
-
-  expect(error).toMatchObject({
-    details: {
-      validationErrors: [
-        {
-          instancePath: "/<redacted-sensitive>",
-          schemaPath: "#/properties/<redacted-sensitive>/type",
+test.each([
+  "ghp_abcdefghijklmnopqrstuvwxyz123456",
+  "sk-proj-abcdefghijklmnopqrstuvwxyz123456",
+  "glpat-abcdefghijklmnopqrstuvwxyz123456",
+  "npm_abcdefghijklmnopqrstuvwxyz123456",
+])(
+  "safe validation diagnostics redact credential-shaped schema path %s while raw retains exact evidence",
+  (credentialKey) => {
+    const result = parseStructuredOutputText({
+      provider: "copilot",
+      providerLabel: "Copilot",
+      schema: {
+        properties: {
+          [credentialKey]: { type: "string" },
         },
-      ],
-    },
-    extensions: {
-      diagnostics: {
+        required: [credentialKey],
+        type: "object",
+      },
+      text: JSON.stringify({ [credentialKey]: 42 }),
+    });
+    const error = result.error;
+
+    expect(error).toMatchObject({
+      details: {
         validationErrors: [
           {
             instancePath: "/<redacted-sensitive>",
@@ -126,17 +127,44 @@ test("safe validation diagnostics redact credential-shaped schema paths while ra
           },
         ],
       },
-    },
+      extensions: {
+        diagnostics: {
+          validationErrors: [
+            {
+              instancePath: "/<redacted-sensitive>",
+              schemaPath: "#/properties/<redacted-sensitive>/type",
+            },
+          ],
+        },
+      },
+    });
+
+    const serializedSafeDiagnostics = JSON.stringify({
+      details: error?.details,
+      extensions: error?.extensions,
+    });
+    expect(serializedSafeDiagnostics).not.toContain(credentialKey);
+    expect(JSON.stringify(error?.raw)).toContain(credentialKey);
+    expect(JSON.stringify(error?.raw)).toContain(`/${credentialKey}`);
+  },
+);
+
+test("deep structured responses cannot replace the primary validation failure", () => {
+  const text = `${"[".repeat(20_000)}${"]".repeat(20_000)}`;
+  const result = parseStructuredOutputText({
+    provider: "copilot",
+    providerLabel: "Copilot",
+    schema: { type: "object" },
+    text,
   });
 
-  const serializedSafeDiagnostics = JSON.stringify({
-    details: error?.details,
-    extensions: error?.extensions,
+  expect(result.error).toMatchObject({
+    code: "structured_output_invalid",
+    details: {
+      responseClassification: "schema_invalid_json",
+    },
+    raw: { text },
   });
-  expect(serializedSafeDiagnostics).not.toContain(credentialKey);
-  expect(serializedSafeDiagnostics).not.toContain("ghp_");
-  expect(JSON.stringify(error?.raw)).toContain(credentialKey);
-  expect(JSON.stringify(error?.raw)).toContain(`/${credentialKey}`);
 });
 
 test("safe diagnostics hash exact input while redacting and truncating excerpts", () => {

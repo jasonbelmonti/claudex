@@ -1,7 +1,9 @@
 import { expect, test } from "#test-support";
 
+import { AgentError } from "../../../src/core/errors.js";
 import type { AgentEvent } from "../../../src/core/events.js";
 import type { SessionReference } from "../../../src/core/session.js";
+import { sha256Text } from "../../../src/core/structured-output-diagnostics.js";
 import { CopilotAdapter } from "../../../src/providers/copilot/adapter.js";
 import type { CopilotSessionEvent } from "../../../src/providers/copilot/types.js";
 import {
@@ -237,7 +239,7 @@ test.each([
           "session.idle",
         ],
         responseClassification,
-        selectedMessageId: "fake-message",
+        selectedMessageIdHash: sha256Text("fake-message"),
         stage: "structured_output_validation",
       },
       provider: "copilot",
@@ -279,6 +281,49 @@ test("Copilot reports schema-invalid JSON with exact AJV validation paths", asyn
           schemaPath: "#/properties/status/type",
         },
       ],
+    },
+  });
+});
+
+test("Copilot hashes provider-controlled message IDs in safe diagnostics and retains the exact ID only in raw memory", async () => {
+  const credentialMessageId = "ghp_abcdefghijklmnopqrstuvwxyz123456";
+  const fakeSession = new FakeCopilotSession(COPILOT_REFERENCE.sessionId, [
+    [
+      createCopilotSessionStartEvent({
+        sessionId: COPILOT_REFERENCE.sessionId,
+      }),
+      createCopilotAssistantMessageEvent({
+        content: '{"status":42}',
+        messageId: credentialMessageId,
+      }),
+      createCopilotIdleEvent(),
+    ],
+  ]);
+  const adapter = new CopilotAdapter({
+    client: new FakeCopilotClient({ createSessions: [fakeSession] }),
+  });
+  const session = await adapter.createSession();
+
+  const error = await session
+    .run({ prompt: "Return JSON" }, { outputSchema: STRUCTURED_SCHEMA })
+    .then(
+      () => undefined,
+      (failure: unknown) => failure,
+    );
+
+  expect(error).toBeInstanceOf(AgentError);
+  const agentError = error as AgentError;
+  const serializedSafeDiagnostics = JSON.stringify({
+    details: agentError.details,
+    extensions: agentError.extensions,
+  });
+  expect(serializedSafeDiagnostics).not.toContain(credentialMessageId);
+  expect(agentError.details).toMatchObject({
+    selectedMessageIdHash: sha256Text(credentialMessageId),
+  });
+  expect(agentError.raw).toMatchObject({
+    copilotSelection: {
+      selectedMessageId: credentialMessageId,
     },
   });
 });

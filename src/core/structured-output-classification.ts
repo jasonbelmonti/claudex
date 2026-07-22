@@ -18,20 +18,24 @@ export type JsonCandidateScan = {
   truncated: boolean;
 };
 
+type CompositeJsonScan =
+  | { end: number; status: "complete" | "invalid" }
+  | { status: "truncated" };
+
 const JSON_NUMBER_PATTERN = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
 const JSON_LITERALS = ["true", "false", "null"] as const;
 
 export function classifyStructuredOutputText(
   text: string,
 ): StructuredOutputResponseClassification {
-  const trimmed = text.trim();
-
   try {
-    JSON.parse(trimmed);
+    JSON.parse(text);
     return "valid_json";
   } catch {
     // Classification continues without accepting or repairing the response.
   }
+
+  const trimmed = trimJsonWhitespace(text);
 
   const fencedPayload = extractFencedJsonPayload(trimmed);
   if (fencedPayload !== undefined && parsesAsJson(fencedPayload)) {
@@ -48,7 +52,7 @@ export function classifyStructuredOutputText(
     const prefix = trimmed.slice(0, candidate.start).trim();
     const suffix = trimmed.slice(candidate.end).trim();
 
-    if (prefix.length > 0 || suffix.length > 0) {
+    if (hasVisibleWrapper(prefix) || hasVisibleWrapper(suffix)) {
       return "prose_wrapped_json";
     }
   }
@@ -74,14 +78,16 @@ export function scanJsonCandidates(text: string): JsonCandidateScan {
     const character = text[index];
 
     if (character === "{" || character === "[") {
-      const end = findCompositeJsonEnd(text, index);
-      if (end === undefined) {
+      const composite = scanCompositeJson(text, index);
+      if (composite.status === "truncated") {
         truncated = true;
         break;
       }
 
-      pushCandidate(candidates, text, index, end);
-      index = end;
+      if (composite.status === "complete") {
+        pushCandidate(candidates, text, index, composite.end);
+      }
+      index = composite.end;
       continue;
     }
 
@@ -230,7 +236,7 @@ function findJsonStringEnd(text: string, start: number): number | undefined {
   return undefined;
 }
 
-function findCompositeJsonEnd(text: string, start: number): number | undefined {
+function scanCompositeJson(text: string, start: number): CompositeJsonScan {
   const stack: string[] = [];
   let escaped = false;
   let inString = false;
@@ -269,15 +275,42 @@ function findCompositeJsonEnd(text: string, start: number): number | undefined {
       (character === "}" && opener !== "{") ||
       (character === "]" && opener !== "[")
     ) {
-      return undefined;
+      return { end: index + 1, status: "invalid" };
     }
 
     if (stack.length === 0) {
-      return index + 1;
+      return { end: index + 1, status: "complete" };
     }
   }
 
-  return undefined;
+  return { status: "truncated" };
+}
+
+function trimJsonWhitespace(text: string): string {
+  let start = 0;
+  let end = text.length;
+
+  while (start < end && isJsonWhitespace(text[start])) {
+    start += 1;
+  }
+  while (end > start && isJsonWhitespace(text[end - 1])) {
+    end -= 1;
+  }
+
+  return text.slice(start, end);
+}
+
+function isJsonWhitespace(character: string | undefined): boolean {
+  return (
+    character === " " ||
+    character === "\t" ||
+    character === "\n" ||
+    character === "\r"
+  );
+}
+
+function hasVisibleWrapper(text: string): boolean {
+  return /[\p{L}\p{N}\p{P}\p{S}]/u.test(text);
 }
 
 function looksLikeTruncatedPrimitive(text: string): boolean {

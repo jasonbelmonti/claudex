@@ -43,6 +43,23 @@ test("Copilot CLI resolution uses COPILOT_CLI_PATH before PATH", () => {
   });
 });
 
+test("Copilot CLI resolution treats Windows COPILOT_CLI_PATH casing equivalently", () => {
+  const options = resolveCopilotSdkOptions(
+    {},
+    {
+      env: {
+        copilot_cli_path: "D:\\configured\\copilot.exe",
+      },
+      platform: "win32",
+    },
+  );
+
+  expect(options.connection).toMatchObject({
+    kind: "stdio",
+    path: "D:\\configured\\copilot.exe",
+  });
+});
+
 test("Copilot CLI resolution discovers an executable on PATH", () => {
   const options = resolveCopilotSdkOptions(
     {},
@@ -77,6 +94,30 @@ test("Copilot CLI resolution uses injected Windows path semantics", () => {
   expect(options.connection).toMatchObject({
     kind: "stdio",
     path: "D:\\two\\copilot.exe",
+  });
+});
+
+test("Copilot CLI resolution applies configured Windows environment precedence case-insensitively", () => {
+  const options = resolveCopilotSdkOptions(
+    {
+      env: {
+        Path: "D:\\configured",
+        PathExt: ".XYZ",
+      },
+    },
+    {
+      env: {
+        PATH: "C:\\ambient",
+        PATHEXT: ".EXE",
+      },
+      isExecutableFile: (path) => path === "D:\\configured\\copilot.xyz",
+      platform: "win32",
+    },
+  );
+
+  expect(options.connection).toMatchObject({
+    kind: "stdio",
+    path: "D:\\configured\\copilot.xyz",
   });
 });
 

@@ -31,21 +31,19 @@ export function resolveCopilotSdkOptions(
 
   const env = dependencies.env ?? process.env;
   const configuredEnv = options.env ?? {};
+  const platform = dependencies.platform ?? process.platform;
   const environmentPath =
-    configuredEnv.COPILOT_CLI_PATH?.trim() ??
-    env.COPILOT_CLI_PATH?.trim();
+    getEnvironmentValue(configuredEnv, "COPILOT_CLI_PATH", platform)?.trim() ||
+    getEnvironmentValue(env, "COPILOT_CLI_PATH", platform)?.trim();
 
   if (environmentPath) {
     return withCopilotCliPath(options, environmentPath);
   }
 
   const executable = findCopilotOnPath({
-    env: {
-      ...env,
-      ...configuredEnv,
-    },
+    env: mergeEnvironments(env, configuredEnv, platform),
     isExecutableFile: dependencies.isExecutableFile ?? isExecutableFile,
-    platform: dependencies.platform ?? process.platform,
+    platform,
   });
 
   return executable ? withCopilotCliPath(options, executable) : options;
@@ -112,12 +110,7 @@ function getPathValue(
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform,
 ): string | undefined {
-  if (platform !== "win32") {
-    return env.PATH;
-  }
-
-  const pathKey = Object.keys(env).find((key) => key.toLowerCase() === "path");
-  return pathKey ? env[pathKey] : undefined;
+  return getEnvironmentValue(env, "PATH", platform);
 }
 
 function executableExtensions(
@@ -128,14 +121,47 @@ function executableExtensions(
     return [""];
   }
 
-  const configured = env.PATHEXT?.split(";").filter(Boolean) ?? [
-    ".EXE",
-    ".CMD",
-    ".BAT",
-    ".COM",
-  ];
+  const configured =
+    getEnvironmentValue(env, "PATHEXT", platform)
+      ?.split(";")
+      .filter(Boolean) ?? [".EXE", ".CMD", ".BAT", ".COM"];
 
   return configured.map((extension) => extension.toLowerCase());
+}
+
+function getEnvironmentValue(
+  env: NodeJS.ProcessEnv,
+  name: string,
+  platform: NodeJS.Platform,
+): string | undefined {
+  if (platform !== "win32") {
+    return env[name];
+  }
+
+  const key = Object.keys(env).find(
+    (candidate) => candidate.toLowerCase() === name.toLowerCase(),
+  );
+  return key === undefined ? undefined : env[key];
+}
+
+function mergeEnvironments(
+  ambient: NodeJS.ProcessEnv,
+  configured: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+): NodeJS.ProcessEnv {
+  if (platform !== "win32") {
+    return { ...ambient, ...configured };
+  }
+
+  const merged = new Map<string, [string, string | undefined]>();
+  for (const [key, value] of Object.entries(ambient)) {
+    merged.set(key.toLowerCase(), [key, value]);
+  }
+  for (const [key, value] of Object.entries(configured)) {
+    merged.set(key.toLowerCase(), [key, value]);
+  }
+
+  return Object.fromEntries(merged.values());
 }
 
 function isExecutableFile(path: string): boolean {

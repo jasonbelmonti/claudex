@@ -21,12 +21,15 @@ export type SafeStructuredOutputDiagnostics = {
 };
 
 const DEFAULT_EXCERPT_LIMIT = 1_024;
+const MAX_REDACTION_DEPTH = 32;
 const SECRET_KEY_PATTERN =
   /api[-_]?key|access[-_]?key|authorization|cookie|credential|password|private[-_]?key|secret|token/i;
 const CREDENTIAL_PATTERNS = [
+  /\b(?:[A-Za-z][A-Za-z0-9]{1,15}[-_]){1,3}[A-Za-z0-9_-]{20,255}\b/g,
   /\bgh[pousr]_[A-Za-z0-9_]{20,255}\b/gi,
   /\bgithub_pat_[A-Za-z0-9_]{20,255}\b/gi,
   /\bAKIA[0-9A-Z]{16}\b/g,
+  /\bAIza[0-9A-Za-z_-]{30,}\b/g,
   /\bxox[baprs]-[A-Za-z0-9-]{10,255}\b/gi,
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
 ];
@@ -147,7 +150,12 @@ function redactedResponsePlaceholder(
 function redactJsonValue(
   value: unknown,
   schemaPropertyNames: ReadonlySet<string>,
+  depth = 0,
 ): unknown {
+  if (depth >= MAX_REDACTION_DEPTH) {
+    return "<redacted:depth-limit>";
+  }
+
   if (typeof value === "string") {
     return `<redacted:string:${value.length}>`;
   }
@@ -167,7 +175,7 @@ function redactJsonValue(
   if (Array.isArray(value)) {
     return value
       .slice(0, 20)
-      .map((member) => redactJsonValue(member, schemaPropertyNames));
+      .map((member) => redactJsonValue(member, schemaPropertyNames, depth + 1));
   }
 
   if (typeof value === "object") {
@@ -178,7 +186,7 @@ function redactJsonValue(
           schemaPropertyNames.has(key) && !isSensitiveDiagnosticText(key)
             ? key
             : `<redacted-key-${index + 1}>`,
-          redactJsonValue(member, schemaPropertyNames),
+          redactJsonValue(member, schemaPropertyNames, depth + 1),
         ]),
     );
   }
