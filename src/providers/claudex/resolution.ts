@@ -157,7 +157,7 @@ function mergeExtensionMetadata(
   existing: unknown,
   metadata: Record<string, unknown>,
 ): Record<string, unknown> {
-  if (!isRecord(existing)) {
+  if (!isPlainRecord(existing)) {
     return existing === undefined
       ? metadata
       : { providerValue: existing, ...metadata };
@@ -179,6 +179,15 @@ function mergeExtensionMetadata(
   };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  try {
+    const prototype = Object.getPrototypeOf(value) as object | null;
+    return prototype === Object.prototype || prototype === null;
+  } catch {
+    return false;
+  }
 }

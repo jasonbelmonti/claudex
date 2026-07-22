@@ -612,6 +612,54 @@ test("readiness exception preserves AgentError extension metadata", async () => 
   ).toBe(providerResolution);
 });
 
+test("readiness exception preserves non-plain AgentError extension values", async () => {
+  const providerDiagnostics = new Error("provider diagnostics");
+  const providerResolution = new URL("https://provider.example/");
+  const providerError = new AgentError({
+    code: "missing_cli",
+    provider: "copilot",
+    message: "Copilot CLI is unavailable",
+    extensions: {
+      diagnostics: providerDiagnostics,
+      resolution: providerResolution,
+    },
+  });
+  const copilot = new FakeAdapter("copilot", [
+    createReadiness("copilot", "error"),
+  ]);
+  copilot.checkReadiness = async () => {
+    throw providerError;
+  };
+  const adapter = new ClaudexAdapter({
+    preferredProviders: ["copilot"],
+    providers: { copilot },
+  });
+
+  const readiness = await adapter.checkReadiness();
+  const diagnostics = readiness.extensions?.diagnostics as Record<
+    string,
+    unknown
+  >;
+  const resolution = readiness.extensions?.resolution as Record<
+    string,
+    unknown
+  >;
+
+  expect(readiness.raw).toBe(providerError);
+  expect(diagnostics).toMatchObject({
+    stage: "readiness",
+    errorCode: "missing_cli",
+    reason: "Copilot CLI is unavailable",
+  });
+  expect(diagnostics.providerValue).toBe(providerDiagnostics);
+  expect(resolution).toMatchObject({
+    selectedProvider: "copilot",
+    selectedStatus: "missing_cli",
+    strategy: "fallback",
+  });
+  expect(resolution.providerValue).toBe(providerResolution);
+});
+
 test("invalid preferred provider ids fail with a typed AgentError", async () => {
   try {
     new ClaudexAdapter({
