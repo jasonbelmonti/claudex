@@ -15,6 +15,7 @@ export async function checkCodexReadiness(options: {
   sdkOptions?: CodexOptions;
   commandRunner?: CodexCommandRunner;
   binaryResolver?: CodexBinaryResolver;
+  onBinaryResolved?: (binary: string) => void;
 } = {}): Promise<ProviderReadiness> {
   const commandRunner = options.commandRunner ?? runCodexCommand;
   const binaryResolver = options.binaryResolver ?? resolveCodexBinary;
@@ -77,6 +78,8 @@ export async function checkCodexReadiness(options: {
       raw: versionResult,
     };
   }
+
+  options.onBinaryResolved?.(binary);
 
   const versionOutput = versionResult.stdout || versionResult.stderr;
   const cliDetectedCheck = {
