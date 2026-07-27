@@ -2,6 +2,7 @@ import { expect, test } from "#test-support";
 import type {
   AgentConfig,
   McpServerDescriptor,
+  ResolveProviderOptions,
   SessionOptions,
 } from "@jasonbelmonti/claudex";
 
@@ -14,9 +15,25 @@ test("public api exports the core contract surface", () => {
   expect(typeof claudex.isProviderReady).toBe("function");
   expect(typeof claudex.AgentError).toBe("function");
   expect(typeof claudex.ClaudexAdapter).toBe("function");
+  expect(typeof claudex.ProviderIdentityConflictError).toBe("function");
+  expect(typeof claudex.isProviderIdentityConflictError).toBe("function");
+  expect(typeof claudex.ProviderResolutionError).toBe("function");
+  expect(typeof claudex.isProviderResolutionError).toBe("function");
   expect("ClaudeAdapter" in claudex).toBe(false);
   expect("CodexAdapter" in claudex).toBe(false);
   expect("CopilotAdapter" in claudex).toBe(false);
+});
+
+test("public api exports resolved-provider admission types", () => {
+  const options = {
+    allowedStatuses: ["ready"],
+    requiredCapabilities: ["output:structured"],
+  } satisfies ResolveProviderOptions;
+
+  expect(options).toEqual({
+    allowedStatuses: ["ready"],
+    requiredCapabilities: ["output:structured"],
+  });
 });
 
 test("public api exports normalized agent config types", () => {

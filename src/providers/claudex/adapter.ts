@@ -21,6 +21,12 @@ import {
   extendReadinessWithResolution,
   probeProvidersInOrder,
 } from "./resolution.js";
+import { createResolvedProvider } from "./resolved-provider.js";
+import { resolveProviderBoundary } from "./resolved-provider-resolution.js";
+import type {
+  ResolvedProvider,
+  ResolveProviderOptions,
+} from "./resolved-provider-types.js";
 import type { ClaudexAdapterOptions } from "./types.js";
 
 export const DEFAULT_CLAUDEX_PROVIDER_ORDER = [
@@ -92,6 +98,7 @@ export class ClaudexAdapter {
     Record<ProviderId, Promise<AgentProviderAdapter>>
   > = {};
   private resolvedAdapter: AgentProviderAdapter | null = null;
+  private pinnedProvider: ProviderId | null = null;
   private pinnedResolution: PinnedResolutionMetadata | null = null;
 
   constructor(readonly options: ClaudexAdapterOptions = {}) {
@@ -137,6 +144,39 @@ export class ClaudexAdapter {
       probes: resolution.probes,
       resolution: resolution.resolution,
     });
+  }
+
+  async resolve(
+    options: ResolveProviderOptions = {},
+  ): Promise<ResolvedProvider> {
+    const pinnedAdapter = this.resolvedAdapter;
+    const pinnedProvider = this.pinnedProvider;
+    const preferredProviders =
+      pinnedAdapter && pinnedProvider
+        ? [pinnedProvider]
+        : this.preferredProviders;
+    const resolution = await resolveProviderBoundary({
+      getAdapter: (provider) =>
+        pinnedAdapter && provider === pinnedProvider
+          ? Promise.resolve(pinnedAdapter)
+          : this.getAdapter(provider),
+      options,
+      preferredProviders,
+    });
+
+    this.pinAdapter(
+      resolution.adapter,
+      {
+        probes: [],
+        strategy:
+          resolution.readiness.status === "degraded"
+            ? "degraded"
+            : "ready",
+      },
+      resolution.provider,
+    );
+
+    return createResolvedProvider(resolution);
   }
 
   async createSession(options: SessionOptions = {}): Promise<AgentSession> {
@@ -286,8 +326,10 @@ export class ClaudexAdapter {
   private pinAdapter(
     adapter: AgentProviderAdapter,
     resolution: PinnedResolutionMetadata,
+    provider: ProviderId = adapter.provider,
   ): void {
     this.resolvedAdapter = adapter;
+    this.pinnedProvider = provider;
     this.pinnedResolution = resolution;
   }
 
