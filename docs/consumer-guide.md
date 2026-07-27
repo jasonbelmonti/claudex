@@ -59,7 +59,82 @@ root package entrypoint.
 All runtime-backed adapters assume CLI-authenticated local environments. API-key
 and env-based auth are intentionally out of scope.
 
-## 2. Treat Readiness As A First-Class Gate
+## 2. Resolve A Provider Before Creating A Session
+
+For new orchestration code, use `resolve()` to combine provider selection,
+readiness admission, capability admission, and provider pinning in one boundary:
+
+```ts
+import {
+  ClaudexAdapter,
+  isProviderIdentityConflictError,
+} from "@jasonbelmonti/claudex";
+
+const adapter = new ClaudexAdapter();
+const resolved = await adapter.resolve({
+  allowedStatuses: ["ready"],
+  requiredCapabilities: ["output:structured"],
+});
+
+console.log(resolved.provider, resolved.probes);
+
+try {
+  const session = await resolved.createSession({
+    executionMode: "plan",
+    sandboxProfile: "read-only",
+    approvalMode: "deny",
+  });
+  // Use the guarded session.
+} catch (error) {
+  if (isProviderIdentityConflictError(error)) {
+    console.error(error.conflict);
+  }
+  throw error;
+}
+```
+
+`resolve()` is strict-ready by default. Omit `allowedStatuses` to admit only
+`ready`, or pass `allowedStatuses: ["ready", "degraded"]` when the application
+has an explicit policy for degraded execution. A provider that lacks any
+`requiredCapabilities` is not admitted, and Claudex continues probing the
+configured order for an eligible provider. If no provider qualifies, resolution
+throws `ProviderResolutionError` before any session is created. The error carries
+the same typed safe probes plus the allowed statuses, required capabilities, and
+missing capabilities; consumers do not need to parse provider error text.
+
+The returned handle exposes one canonical `provider`, its validated `readiness`
+and `capabilities`, and bounded `probes`. Safe probe summaries contain only:
+
+- provider and readiness status
+- check kind, check status, and a bounded/redacted summary
+
+They omit check detail, raw values, provider extensions, thrown values, prompts,
+responses, and credential-shaped values. Use these safe probes for ordinary
+operator diagnostics. Deliberate provider-specific investigation can still use
+the legacy readiness object's `raw` and `extensions` fields.
+
+Sessions created or resumed through the resolved handle enforce the canonical
+identity on adapter metadata, readiness and capabilities, session metadata and
+dynamic references, direct results, streamed events and terminal results, and
+typed provider errors. A contradiction throws
+`ProviderIdentityConflictError`. Its bounded `conflict` record names
+`resolvedProvider`, `observedProvider`, and `observedSource`; the error does not
+choose either conflicting identity as the provider that ran. When a typed
+provider error caused the contradiction, it remains available as `cause`.
+
+Codex resolution also couples detection to execution: after readiness resolves
+an executable, lazy SDK construction receives that exact path as
+`codexPathOverride`. This applies to default `PATH` discovery and explicit
+overrides. An explicitly injected Codex client remains deterministic and does
+not perform binary discovery.
+
+`checkReadiness()`, `createSession()`, and `resumeSession()` remain available
+with their existing behavior for compatibility. In particular, the legacy
+resolution path still treats `degraded` as runnable. Use `resolve()` when the
+caller needs fail-closed status/capability admission and canonical identity
+enforcement.
+
+## 3. Treat Readiness As A First-Class Gate
 
 Always call `checkReadiness()` before starting work.
 
@@ -90,7 +165,7 @@ Important note:
 - `isProviderReady(readiness)` is a strict helper and returns `true` only for `ready`
 - if your console wants to allow `degraded` execution, branch on `readiness.status` directly as shown above
 
-## 3. Prefer Capabilities Over Provider Name
+## 4. Prefer Capabilities Over Provider Name
 
 When behavior is optional, branch on capabilities instead of hard-coding
 `if (provider === "...")`.
@@ -119,7 +194,7 @@ High-value capability checks in the current surface:
 - `mcp:session-descriptors`
 - `usage:cost`
 
-## 4. Session Lifecycle Rules
+## 5. Session Lifecycle Rules
 
 The contract intentionally separates session creation from session identity minting.
 
@@ -136,7 +211,7 @@ Important orchestration implication:
   when the adapter has not resolved yet.
 - once `ClaudexAdapter` is pinned, it does not silently fail over to another provider
 
-## 5. Streaming Contract
+## 6. Streaming Contract
 
 For consumers rendering live agent output, these invariants are the useful part:
 
@@ -147,7 +222,8 @@ For consumers rendering live agent output, these invariants are the useful part:
 - Codex only completes successfully after a nonblank completed assistant message;
   missing or whitespace-only completion becomes `turn.failed`
 - `turn.started.input` preserves the normalized turn input
-- provider identity is preserved on every event, result, and error
+- provider-specific adapters preserve identity on every event, result, and
+  error; sessions from `resolve()` enforce that identity at runtime
 
 Capability-gated stream behavior:
 
@@ -170,7 +246,7 @@ Use these stable details for failure classification and correlation. Inspect
 `raw` or `cause` only as deliberate provider-specific drill-down; do not depend
 on either for the normalized control path.
 
-## 6. Structured Output Semantics
+## 7. Structured Output Semantics
 
 Use `TurnOptions.outputSchema` when you want provider-agnostic structured output.
 
@@ -199,7 +275,7 @@ What the contract guarantees:
 - invalid JSON or schema mismatch becomes a typed `AgentError`
 - Claude may synthesize `result.text` from structured output if the SDK omits terminal text
 
-## 7. Attachments, Approvals, And Extensions
+## 8. Attachments, Approvals, And Extensions
 
 This is where false parity gets expensive, so be explicit:
 
@@ -251,7 +327,7 @@ const session = await adapter.createSession({
 });
 ```
 
-## 8. Passive Ingest Is Observation, Not Control
+## 9. Passive Ingest Is Observation, Not Control
 
 `@jasonbelmonti/claudex/ingest` is the read-only companion surface for replaying local Claude and Codex artifacts after the fact. It emits `ObservedIngestRecord` envelopes and does not create sessions, resume sessions, send turns, or represent authoritative live control state. Copilot live SDK support does not imply Copilot passive-ingest support.
 
@@ -301,7 +377,7 @@ Treat ingest output as best-effort observation:
 - `source.discoveryPhase` tells you whether the record came from an initial scan, a watch tick, or a reconcile pass
 - warnings are part of the contract; parse failures, duplicate roots, and cursor resets are surfaced instead of hidden
 
-## 9. Supported Passive Sources
+## 10. Supported Passive Sources
 
 Supported by the current ingest contract:
 
@@ -317,7 +393,7 @@ Outside the current ingest contract:
 - live approval responses, hooks, plugins, MCP state, or provider control channels
 - authoritative live session status
 
-## 10. Choose Live SDK vs Passive Ingest
+## 11. Choose Live SDK vs Passive Ingest
 
 Use the live SDK when:
 
@@ -336,7 +412,7 @@ Practical rule:
 - if your code needs to change provider state, use the live SDK
 - if your code only needs to observe local artifacts, use `@jasonbelmonti/claudex/ingest`
 
-## 11. Suggested Console UX
+## 12. Suggested Console UX
 
 For an orchestration console, the pragmatic rendering model is:
 
