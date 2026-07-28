@@ -9,7 +9,7 @@ The goal is provider-agnostic orchestration, not fake parity. The stable contrac
 - ClaudexAdapter default resolver: merged
 - Claude adapter: merged
 - Codex adapter: merged
-- Copilot adapter: merged as an opt-in provider-preview path
+- Copilot adapter: merged and included after Codex and Claude in default resolution
 - Shared contract harness: merged
 - Node-based validation and package smoke checks: passing on `main`
 - Migration guidance for the Node-only major release: published in-repo
@@ -79,10 +79,10 @@ if (supportsCapability(session.capabilities, "session:fork") && session.fork) {
 ```
 
 The stable root entrypoint intentionally exposes the provider-agnostic surface.
-When you need explicit provider wiring or test doubles, pass adapters through
-`ClaudexAdapter`'s `providers` option. Copilot is runtime-backed through
-`ClaudexAdapter`, but remains opt-in because provider-specific surfaces still
-need explicit readiness and entitlement checks:
+By default, `ClaudexAdapter` checks Codex, Claude, then Copilot and pins the
+first runnable provider. When you need explicit provider wiring or test doubles,
+pass adapters through `ClaudexAdapter`'s `providers` option. Use
+`preferredProviders` only to override the default priority:
 
 ```ts
 const copilotFirst = new ClaudexAdapter({

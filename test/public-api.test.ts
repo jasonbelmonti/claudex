@@ -42,7 +42,7 @@ test("ClaudexAdapter exposes the unresolved metadata contract", () => {
 
   expect(adapter.provider).toBeNull();
   expect(adapter.capabilities).toBeNull();
-  expect(adapter.preferredProviders).toEqual(["codex", "claude"]);
+  expect(adapter.preferredProviders).toEqual(["codex", "claude", "copilot"]);
 });
 
 test("ClaudexAdapter accepts a custom preferred provider order", () => {

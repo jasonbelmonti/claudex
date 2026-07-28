@@ -36,14 +36,14 @@ import {
 const adapter = new ClaudexAdapter();
 ```
 
-`ClaudexAdapter` defaults to `["codex", "claude"]`, exposes
+`ClaudexAdapter` defaults to `["codex", "claude", "copilot"]`, exposes
 `provider === null` and `capabilities === null` before resolution, and pins to
 the selected provider after `checkReadiness()`, `createSession()`, or
 `resumeSession()`.
 
-Use `preferredProviders` when you already know the order you want. Copilot is
-runtime-backed but intentionally non-default because it still depends on local
-Copilot auth, entitlement, and provider-specific readiness:
+Copilot participates after Codex and Claude. Its normalized readiness check
+reports unavailable authentication, entitlement, or runtime conditions before
+session creation. Use `preferredProviders` when you want a different order:
 
 ```ts
 const adapter = new ClaudexAdapter({

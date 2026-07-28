@@ -26,6 +26,7 @@ import type { ClaudexAdapterOptions } from "./types.js";
 export const DEFAULT_CLAUDEX_PROVIDER_ORDER = [
   "codex",
   "claude",
+  "copilot",
 ] as const satisfies readonly ProviderId[];
 
 const VALID_PROVIDER_IDS = new Set<string>(PROVIDER_IDS);
