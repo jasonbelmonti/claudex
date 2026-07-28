@@ -153,7 +153,7 @@ test("checkReadiness selects the first ready provider and pins it", async () => 
     selectedProvider: "codex",
     selectedStatus: "ready",
     strategy: "ready",
-    preferredProviders: ["codex", "claude"],
+    preferredProviders: ["codex", "claude", "copilot"],
   });
   expect(adapter.provider).toBe("codex");
   expect(adapter.capabilities?.provider).toBe("codex");
@@ -164,7 +164,7 @@ test("checkReadiness selects the first ready provider and pins it", async () => 
     selectedProvider: "codex",
     selectedStatus: "ready",
     strategy: "ready",
-    preferredProviders: ["codex", "claude"],
+    preferredProviders: ["codex", "claude", "copilot"],
     probes: [{ provider: "codex", status: "ready" }],
   });
 });
@@ -172,8 +172,9 @@ test("checkReadiness selects the first ready provider and pins it", async () => 
 test("checkReadiness falls back to the first degraded provider when no provider is ready", async () => {
   const codex = new FakeAdapter("codex", [createReadiness("codex", "error")]);
   const claude = new FakeAdapter("claude", [createReadiness("claude", "degraded")]);
+  const copilot = new FakeAdapter("copilot", [createReadiness("copilot", "error")]);
   const adapter = new ClaudexAdapter({
-    providers: { codex, claude },
+    providers: { codex, claude, copilot },
   });
 
   const readiness = await adapter.checkReadiness();
@@ -183,13 +184,34 @@ test("checkReadiness falls back to the first degraded provider when no provider 
   expect(adapter.provider).toBe("claude");
   expect(codex.readinessCallCount).toBe(1);
   expect(claude.readinessCallCount).toBe(1);
+  expect(copilot.readinessCallCount).toBe(1);
+});
+
+test("default resolution reaches Copilot when Codex and Claude are unavailable", async () => {
+  const codex = new FakeAdapter("codex", [createReadiness("codex", "missing_cli")]);
+  const claude = new FakeAdapter("claude", [createReadiness("claude", "needs_auth")]);
+  const copilot = new FakeAdapter("copilot", [createReadiness("copilot", "ready")]);
+  const adapter = new ClaudexAdapter({
+    providers: { codex, claude, copilot },
+  });
+
+  const session = await adapter.createSession();
+
+  expect(adapter.preferredProviders).toEqual(["codex", "claude", "copilot"]);
+  expect(adapter.provider).toBe("copilot");
+  expect(session.provider).toBe("copilot");
+  expect(codex.readinessCallCount).toBe(1);
+  expect(claude.readinessCallCount).toBe(1);
+  expect(copilot.readinessCallCount).toBe(1);
+  expect(copilot.createSessionCallCount).toBe(1);
 });
 
 test("checkReadiness returns the first failing provider without pinning when none are runnable", async () => {
   const codex = new FakeAdapter("codex", [createReadiness("codex", "missing_cli")]);
   const claude = new FakeAdapter("claude", [createReadiness("claude", "needs_auth")]);
+  const copilot = new FakeAdapter("copilot", [createReadiness("copilot", "error")]);
   const adapter = new ClaudexAdapter({
-    providers: { codex, claude },
+    providers: { codex, claude, copilot },
   });
 
   const readiness = await adapter.checkReadiness();
@@ -200,6 +222,7 @@ test("checkReadiness returns the first failing provider without pinning when non
   expect(adapter.capabilities).toBeNull();
   expect(codex.readinessCallCount).toBe(1);
   expect(claude.readinessCallCount).toBe(1);
+  expect(copilot.readinessCallCount).toBe(1);
 });
 
 test("createSession resolves a runnable provider and delegates to it", async () => {
@@ -220,8 +243,9 @@ test("createSession resolves a runnable provider and delegates to it", async () 
 test("createSession throws a typed error with probe diagnostics when no provider is runnable", async () => {
   const codex = new FakeAdapter("codex", [createReadiness("codex", "missing_cli")]);
   const claude = new FakeAdapter("claude", [createReadiness("claude", "needs_auth")]);
+  const copilot = new FakeAdapter("copilot", [createReadiness("copilot", "error")]);
   const adapter = new ClaudexAdapter({
-    providers: { codex, claude },
+    providers: { codex, claude, copilot },
   });
 
   try {
@@ -237,12 +261,13 @@ test("createSession throws a typed error with probe diagnostics when no provider
     expect(error.code).toBe("missing_cli");
     expect(error.provider).toBe("codex");
     expect(error.details).toMatchObject({
-      preferredProviders: ["codex", "claude"],
+      preferredProviders: ["codex", "claude", "copilot"],
       selectedProvider: "codex",
       selectedStatus: "missing_cli",
       probes: [
         { provider: "codex", status: "missing_cli" },
         { provider: "claude", status: "needs_auth" },
+        { provider: "copilot", status: "error" },
       ],
     });
   }
@@ -285,7 +310,7 @@ test("checkReadiness preserves resolver metadata after resume pins a provider", 
     selectedProvider: "claude",
     selectedStatus: "ready",
     strategy: "pinned",
-    preferredProviders: ["codex", "claude"],
+    preferredProviders: ["codex", "claude", "copilot"],
     probes: [{ provider: "claude", status: "ready" }],
   });
 });
@@ -312,7 +337,7 @@ test("checkReadiness preserves pinned resolver metadata when a resumed provider 
     selectedProvider: "claude",
     selectedStatus: "ready",
     strategy: "pinned",
-    preferredProviders: ["codex", "claude"],
+    preferredProviders: ["codex", "claude", "copilot"],
     probes: [{ provider: "claude", status: "ready" }],
   });
   expect(failedReadiness.provider).toBe("claude");
@@ -321,7 +346,7 @@ test("checkReadiness preserves pinned resolver metadata when a resumed provider 
     selectedProvider: "claude",
     selectedStatus: "missing_cli",
     strategy: "pinned",
-    preferredProviders: ["codex", "claude"],
+    preferredProviders: ["codex", "claude", "copilot"],
     probes: [{ provider: "claude", status: "missing_cli" }],
   });
 });
@@ -351,7 +376,7 @@ test("resumeSession rejects unknown providers with a typed AgentError before pin
     expect(error.details).toMatchObject({
       requestedProvider: "bogus",
       supportedProviders: ["claude", "codex", "copilot"],
-      preferredProviders: ["codex", "claude"],
+      preferredProviders: ["codex", "claude", "copilot"],
     });
   }
 

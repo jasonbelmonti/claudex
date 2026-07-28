@@ -7,17 +7,18 @@ As of March 15, 2026, the provider-agnostic core, concrete Claude and Codex
 adapters, passive ingest module, and `ClaudexAdapter` default resolver have all
 landed on `main`.
 
-Copilot support landed after this checkpoint as a separate opt-in
-beta/provider-preview addition. Current public docs and the capability matrix
-reflect that later runtime adapter and contract-driver work; this record should
-not be read as evidence that Copilot remains pending.
+Copilot support landed after this checkpoint as a separate beta/provider-preview
+addition and was promoted into default resolution as the final fallback in
+4.0.6. Current public docs and the capability matrix reflect that later runtime
+adapter and contract-driver work; this record should not be read as evidence
+that Copilot remains pending.
 
 ## Status Snapshot
 
 - Core normalized SDK: shipped
 - `ClaudeAdapter`: shipped
 - `CodexAdapter`: shipped
-- `CopilotAdapter`: shipped later as an opt-in beta/provider-preview path
+- `CopilotAdapter`: shipped later and included as the final default fallback in 4.0.6
 - Shared contract harness and CLI smoke coverage: shipped
 - Passive `claudex/ingest` module: shipped
 - `ClaudexAdapter` default resolver: shipped
@@ -76,9 +77,8 @@ The current runtime-backed provider-specific adapter entry points are:
 - `CopilotAdapter`, available through the provider loader and source-level
   provider index; it is not a root package export
 
-`copilot` is registered as a public provider identity and has a runtime-backed
-adapter, but remains opt-in through `ClaudexAdapter` because the upstream SDK is
-still beta/provider-preview.
+`copilot` is registered as a public provider identity, has a runtime-backed
+adapter, and participates in default resolution after Codex and Claude.
 
 Behavioral guarantees for the common path:
 
@@ -94,7 +94,7 @@ Behavioral guarantees for the common path:
   `extensions`, but `extensions` is not a universal result/error guarantee.
 - `ClaudexAdapter` resolves a default provider in configured order, pins to the
   resolved provider for its lifetime, and keeps actual provider identity as
-  `claude`, `codex`, or an opt-in loaded or injected `copilot` provider.
+  `claude`, `codex`, or `copilot`.
 
 Canonical event categories in the shipped surface:
 
@@ -168,10 +168,11 @@ normalized.
 
 ### Copilot preview boundaries
 
-Copilot is runtime-backed but intentionally non-default. It currently leaves
-fork, image attachments, reasoning summaries, cost telemetry, managed MCP
-servers, hooks, plugins, and interactive approval responses capability-gated off
-until those behaviors are verified and normalized in separate slices.
+Copilot is runtime-backed and is the final provider in the default order. It
+currently leaves fork, image attachments, reasoning summaries, cost telemetry,
+managed MCP servers, hooks, plugins, and interactive approval responses
+capability-gated off until those behaviors are verified and normalized in
+separate slices.
 
 ### Runtime compatibility
 
@@ -234,8 +235,8 @@ to know the concrete provider at instantiation time.
 
 ### Copilot runtime adapter and contract driver
 
-Completed and shipped after the original checkpoint as a separate opt-in
-beta/provider-preview addition.
+Completed and shipped after the original checkpoint as a beta/provider-preview
+addition, then included as the final default fallback in 4.0.6.
 
 ## What Remains
 
